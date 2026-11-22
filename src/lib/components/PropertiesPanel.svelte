@@ -1,0 +1,460 @@
+<script lang="ts">
+  import { api } from "../api";
+  import { editor } from "../editor.svelte";
+  import { aabb, fmt, uid } from "../geometry";
+  import { pathMatrix } from "../plotter.svelte";
+  import type { Obj, PathObj } from "../types";
+  import Icon from "./Icon.svelte";
+  import Toggle from "./Toggle.svelte";
+  import TextEditor from "./TextEditor.svelte";
+
+  const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
+  const box = $derived(aabb(editor.selected));
+  let keepRatio = $state(true);
+
+  /** Applies a numeric field edit as one undo step. */
+  function setField(o: Obj, key: "x" | "y" | "w" | "h" | "rot", raw: string) {
+    const v = parseFloat(raw.replace(",", "."));
+    if (!Number.isFinite(v)) return;
+    editor.checkpoint();
+    if ((key === "w" || key === "h") && v > 0) {
+      const ratio = o.h / o.w;
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      if (key === "w") {
+        o.w = v;
+        if (keepRatio) o.h = v * ratio;
+      } else {
+        o.h = v;
+        if (keepRatio) o.w = v / ratio;
+      }
+      o.x = cx - o.w / 2;
+      o.y = cy - o.h / 2;
+    } else if (key === "rot") {
+      o.rot = ((v % 360) + 360) % 360;
+    } else if (key === "x" || key === "y") {
+      o[key] = v;
+    }
+  }
+
+  function flip(axis: "x" | "y") {
+    editor.checkpoint();
+    for (const o of editor.selected) {
+      if (axis === "x") o.flipX = !o.flipX;
+      else o.flipY = !o.flipY;
+    }
+  }
+
+  function setColor(o: Obj, color: string) {
+    if (o.type !== "path") return;
+    editor.checkpoint();
+    o.color = color;
+  }
+
+  // ---------- offset ----------
+  let offsetMm = $state(2);
+  let offsetBusy = $state(false);
+  const selPaths = $derived(editor.selected.filter((o): o is PathObj => o.type === "path"));
+
+  async function offsetSelected() {
+    if (!selPaths.length) return;
+    offsetBusy = true;
+    try {
+      const inputs = selPaths.map((o) => ({ d: o.d, matrix: pathMatrix(o, null) }));
+      const r = await api.offsetPaths(inputs, offsetMm, 50);
+      if (!r.contours) throw new Error("Versatz ergibt keine Kontur (zu stark nach innen?).");
+      const [x, y, w, h] = r.bbox;
+      const obj: PathObj = {
+        id: uid(), type: "path", name: `Versatz ${fmt(offsetMm)} mm`, d: r.d, bbox: r.bbox, color: "#3e63dd", fill: false,
+        x, y, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
+      };
+      editor.add([obj]);
+    } catch (e) {
+      editor.error(e);
+    } finally {
+      offsetBusy = false;
+    }
+  }
+
+  // ---------- sheet fill ----------
+  let gap = $state(3);
+
+  function fillSheet() {
+    const unit = editor.selected.filter((o) => !o.locked);
+    const b = aabb(unit);
+    if (!b) return;
+    const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+    const r = editor.regmarks;
+    const area = r
+      ? { x0: r.originX + 1, y0: r.originY + 1, x1: r.originX + r.width - 1, y1: r.originY + r.length - 1 }
+      : { x0: 5, y0: 5, x1: editor.mat.w - 5, y1: editor.mat.h - 5 };
+    const zones = editor.regZones();
+    const hits = (x: number, y: number) =>
+      zones.some(([zx, zy, zw, zh]) => x < zx + zw + 1 && x + bw > zx - 1 && y < zy + zh + 1 && y + bh > zy - 1);
+    const cells: [number, number][] = [];
+    for (let y = area.y0; y + bh <= area.y1; y += bh + gap) {
+      for (let x = area.x0; x + bw <= area.x1; x += bw + gap) {
+        if (!hits(x, y)) cells.push([x, y]);
+      }
+    }
+    if (!cells.length) {
+      editor.toast("Motiv ist zu groß für den Bogen.", "error");
+      return;
+    }
+    editor.checkpoint();
+    const [fx, fy] = cells[0];
+    for (const o of unit) {
+      o.x += fx - b.x0;
+      o.y += fy - b.y0;
+    }
+    const copies: Obj[] = [];
+    for (const [cx, cy] of cells.slice(1)) {
+      const g = uid();
+      const groupMap = new Map<string, string>();
+      for (const o of unit) {
+        const c = { ...($state.snapshot(o) as Obj), id: uid(), x: o.x + cx - fx, y: o.y + cy - fy };
+        if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, g + c.group).get(c.group);
+        copies.push(c);
+      }
+    }
+    editor.objects.push(...copies);
+    editor.toast(`${cells.length} Exemplare auf dem Bogen`, "ok");
+  }
+
+  const CUT_COLORS = ["#e5484d", "#3e63dd", "#30a46c", "#f5a524", "#8e4ec6", "#1b1d22"];
+</script>
+
+{#if !editor.selected.length}
+  <div class="empty">
+    <p><strong>Nichts ausgewählt</strong></p>
+    <p class="muted">Importiere eine Datei (<kbd>Strg</kbd>+<kbd>I</kbd>) oder ziehe sie direkt auf die Arbeitsfläche.</p>
+    <div class="tips">
+      <div><kbd>V</kbd> Auswahl</div>
+      <div><kbd>H</kbd> / <kbd>Leertaste</kbd> Verschieben</div>
+      <div><kbd>R</kbd> Rechteck · <kbd>E</kbd> Ellipse · <kbd>T</kbd> Text</div>
+      <div>Mausrad = Zoom · <kbd>Strg</kbd>+<kbd>0</kbd> Einpassen</div>
+    </div>
+  </div>
+{:else}
+  {#if single}
+    <section>
+      <div class="title-row">
+        <Icon name={single.type === "image" ? "imagePlus" : "scissors"} />
+        <input
+          class="name"
+          value={single.name}
+          onchange={(e) => {
+            editor.checkpoint();
+            single.name = e.currentTarget.value;
+          }}
+        />
+      </div>
+    </section>
+
+    <section>
+      <h3 class="section-title">Position & Größe</h3>
+      <div class="grid">
+        {#each [["x", "X"], ["y", "Y"], ["w", "B"], ["h", "H"]] as [key, label]}
+          <label class="num">
+            <span>{label}</span>
+            <input
+              class="field"
+              value={fmt(single[key as "x"], 2)}
+              disabled={single.locked}
+              onchange={(e) => setField(single, key as "x", e.currentTarget.value)}
+            />
+            <em>mm</em>
+          </label>
+        {/each}
+        <label class="num">
+          <span>∠</span>
+          <input class="field" value={fmt(single.rot, 1)} disabled={single.locked} onchange={(e) => setField(single, "rot", e.currentTarget.value)} />
+          <em>°</em>
+        </label>
+        <button class="btn icon outline" class:active={keepRatio} title="Seitenverhältnis beibehalten" onclick={() => (keepRatio = !keepRatio)}>
+          <Icon name={keepRatio ? "lock" : "unlock"} />
+        </button>
+      </div>
+    </section>
+
+    {#if single.type === "path" && single.text}
+      <TextEditor obj={single as PathObj & { text: NonNullable<PathObj["text"]> }} />
+    {/if}
+
+    {#if single.type === "path"}
+      <section>
+        <h3 class="section-title">Schnittlinie</h3>
+        <div class="colors">
+          {#each CUT_COLORS as c}
+            <button class="color" class:on={single.color === c} style:background={c} aria-label="Farbe {c}" onclick={() => setColor(single, c)}></button>
+          {/each}
+          <input type="color" value={single.color} onchange={(e) => setColor(single, e.currentTarget.value)} title="Eigene Farbe" />
+        </div>
+        <div class="stack">
+          <Toggle
+            label="Fläche anzeigen"
+            bind:checked={single.fill}
+            hint="Nur Anzeige – geschnitten wird immer die Linie"
+          />
+          <label class="toggle-row">
+            <span>Schneiden</span>
+            <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint(); single.cut = e.currentTarget.checked; }} />
+          </label>
+          <label class="toggle-row">
+            <span>Fläche drucken</span>
+            <span class="row">
+              {#if single.printFill}
+                <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint(); single.printFill = e.currentTarget.value; }} />
+              {/if}
+              <input type="checkbox" checked={!!single.printFill} onchange={(e) => { editor.checkpoint(); single.printFill = e.currentTarget.checked ? "#ffffff" : null; }} />
+            </span>
+          </label>
+        </div>
+      </section>
+    {:else}
+      <section>
+        <h3 class="section-title">Bild</h3>
+        <div class="stack">
+          <label class="range-row">
+            <span>Deckkraft</span>
+            <input type="range" min="0.1" max="1" step="0.05" bind:value={single.opacity} />
+          </label>
+          <button class="btn primary" onclick={() => (editor.rightTab = "trace")}><Icon name="wand" /> Bild tracen …</button>
+        </div>
+      </section>
+    {/if}
+  {:else if box}
+    <section>
+      <h3 class="section-title">{editor.selected.length} Objekte</h3>
+      <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
+    </section>
+  {/if}
+
+  {#if selPaths.length}
+    <section>
+      <h3 class="section-title">Kontur versetzen</h3>
+      <div class="row">
+        <label class="num grow-field">
+          <span>±</span>
+          <input class="field" type="number" step="0.5" bind:value={offsetMm} />
+          <em>mm</em>
+        </label>
+        <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? "Berechne …" : "Neue Kontur"}</button>
+      </div>
+      <p class="muted small">Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.</p>
+    </section>
+  {/if}
+
+  <section>
+    <h3 class="section-title">Bogen füllen</h3>
+    <div class="row">
+      <label class="num grow-field">
+        <span>Abstand</span>
+        <input class="field pad-wide" type="number" min="0" step="0.5" bind:value={gap} />
+        <em>mm</em>
+      </label>
+      <button class="btn outline" onclick={fillSheet}>Füllen</button>
+    </div>
+    <p class="muted small">Verteilt die Auswahl so oft wie möglich auf {editor.printCut.enabled ? "der Seite (ohne Markenzonen)" : "der Matte"}.</p>
+  </section>
+
+  <section>
+    <h3 class="section-title">Ausrichten {editor.selected.length === 1 ? "auf Matte" : ""}</h3>
+    <div class="row">
+      <button class="btn icon" title="Links" onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
+      <button class="btn icon" title="Horizontal zentrieren" onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
+      <button class="btn icon" title="Rechts" onclick={() => editor.align("right")}><Icon name="alignRight" /></button>
+      <span class="sep"></span>
+      <button class="btn icon" title="Oben" onclick={() => editor.align("top")}><Icon name="alignTop" /></button>
+      <button class="btn icon" title="Vertikal zentrieren" onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
+      <button class="btn icon" title="Unten" onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="section-title">Anordnen</h3>
+    <div class="row wrap">
+      <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> Spiegeln</button>
+      <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> Kippen</button>
+      <button class="btn icon outline" title="Nach vorne (Strg+↑)" onclick={() => editor.restack(1)}><Icon name="arrowUp" /></button>
+      <button class="btn icon outline" title="Nach hinten (Strg+↓)" onclick={() => editor.restack(-1)}><Icon name="arrowDown" /></button>
+    </div>
+    <div class="row wrap" style="margin-top: 8px">
+      {#if editor.selected.some((o) => o.group)}
+        <button class="btn outline" title="Gruppierung aufheben (Strg+Shift+G)" onclick={() => editor.ungroupSelected()}><Icon name="layers" /> Lösen</button>
+      {:else if editor.selected.length > 1}
+        <button class="btn outline" title="Gruppieren (Strg+G)" onclick={() => editor.groupSelected()}><Icon name="layers" /> Gruppieren</button>
+      {/if}
+      <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> Duplizieren</button>
+      <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> Löschen</button>
+    </div>
+  </section>
+{/if}
+
+<style>
+  section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .name {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    font-weight: 600;
+    outline: none;
+  }
+  .name:hover {
+    border-color: var(--border);
+  }
+  .name:focus {
+    border-color: var(--accent);
+    background: var(--panel-2);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .num {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .num span {
+    position: absolute;
+    left: 8px;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .num em {
+    position: absolute;
+    right: 8px;
+    color: var(--text-3);
+    font-style: normal;
+    font-size: 11px;
+  }
+  .num .field {
+    padding-left: 24px;
+    padding-right: 28px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .row.wrap {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .stack:first-of-type {
+    margin-top: 0;
+  }
+  .colors {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .color {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--panel);
+    box-shadow: 0 0 0 1px var(--border-strong);
+    cursor: pointer;
+    padding: 0;
+  }
+  .color.on {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  input[type="color"] {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .range-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-2);
+  }
+  .range-row input {
+    width: 150px;
+    accent-color: var(--accent);
+  }
+  .muted {
+    color: var(--text-3);
+    margin: 0;
+  }
+  .muted.small {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  .grow-field {
+    flex: 1;
+  }
+  .pad-wide {
+    padding-left: 60px !important;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-2);
+  }
+  .toggle-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+  }
+  .empty {
+    padding: 36px 24px;
+    color: var(--text-2);
+  }
+  .empty p {
+    margin: 6px 0;
+  }
+  .tips {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--text-3);
+  }
+  kbd {
+    font: inherit;
+    font-size: 11px;
+    padding: 1px 5px;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--text-2);
+    background: var(--panel-2);
+  }
+</style>

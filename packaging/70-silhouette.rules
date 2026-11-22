@@ -1,0 +1,3 @@
+# Silhouette cutters (Graphtec, vendor 0x0b4d): give the logged-in user access
+# so Schnittwerk can talk to the device without root.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0b4d", MODE="0660", TAG+="uaccess"

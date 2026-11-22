@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/schnittwerk-core", "crates/schnittwerk-plotter", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Tracing is CPU-heavy: optimize the core even in dev builds.
+[profile.dev.package.schnittwerk-core]
+opt-level = 3

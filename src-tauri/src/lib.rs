@@ -1,0 +1,218 @@
+//! Tauri backend: exposes the core library to the web UI as commands.
+
+mod plotter;
+mod print;
+
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
+use base64::{engine::general_purpose::STANDARD as B64, Engine};
+use image::{DynamicImage, GenericImageView, ImageFormat};
+use schnittwerk_core::cut::PathInput;
+use schnittwerk_core::offset::OffsetResult;
+use schnittwerk_core::sticker::{MotifMask, StickerParams};
+use schnittwerk_core::text::TextSpec;
+use schnittwerk_core::{ImportedVector, TraceParams, TraceResult};
+use serde::Serialize;
+use tauri::State;
+
+/// Decoded images kept in memory so live tracing does not re-decode files.
+#[derive(Default)]
+struct ImageStore {
+    images: Mutex<HashMap<String, Arc<DynamicImage>>>,
+    next_id: Mutex<u64>,
+}
+
+impl ImageStore {
+    fn insert(&self, img: DynamicImage) -> String {
+        let mut n = self.next_id.lock().unwrap();
+        *n += 1;
+        let id = format!("img{}", *n);
+        self.images.lock().unwrap().insert(id.clone(), Arc::new(img));
+        id
+    }
+    fn get(&self, id: &str) -> Result<Arc<DynamicImage>, String> {
+        self.images
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .ok_or_else(|| "Bild nicht mehr im Speicher – bitte neu laden.".to_string())
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageInfo {
+    id: String,
+    name: String,
+    width: u32,
+    height: u32,
+    /// Data URL the web view can display directly.
+    src: String,
+}
+
+fn register_image(store: &ImageStore, bytes: Vec<u8>, name: String) -> Result<ImageInfo, String> {
+    let format = image::guess_format(&bytes).map_err(|e| format!("Unbekanntes Bildformat: {e}"))?;
+    let img = image::load_from_memory_with_format(&bytes, format).map_err(|e| e.to_string())?;
+    // WebKitGTK cannot show every format (e.g. TIFF) – re-encode those as PNG.
+    let (mime, display_bytes) = match format {
+        ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP | ImageFormat::Gif => {
+            (format.to_mime_type(), bytes)
+        }
+        _ => {
+            let mut buf = std::io::Cursor::new(Vec::new());
+            img.write_to(&mut buf, ImageFormat::Png).map_err(|e| e.to_string())?;
+            ("image/png", buf.into_inner())
+        }
+    };
+    let (width, height) = (img.width(), img.height());
+    let id = store.insert(img);
+    Ok(ImageInfo { id, name, width, height, src: format!("data:{mime};base64,{}", B64.encode(display_bytes)) })
+}
+
+fn file_stem(path: &str) -> String {
+    Path::new(path).file_stem().and_then(|s| s.to_str()).unwrap_or("Bild").to_string()
+}
+
+#[tauri::command]
+async fn load_image(path: String, store: State<'_, ImageStore>) -> Result<ImageInfo, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("{path}: {e}"))?;
+    register_image(&store, bytes, file_stem(&path))
+}
+
+/// Registers an image given as data URL (project files, clipboard).
+#[tauri::command]
+async fn load_image_data(data_url: String, name: String, store: State<'_, ImageStore>) -> Result<ImageInfo, String> {
+    let b64 = data_url.split_once(',').map(|(_, b)| b).unwrap_or(&data_url);
+    let bytes = B64.decode(b64).map_err(|e| e.to_string())?;
+    register_image(&store, bytes, name)
+}
+
+#[tauri::command]
+async fn trace_image(id: String, params: TraceParams, store: State<'_, ImageStore>) -> Result<TraceResult, String> {
+    let img = store.get(&id)?;
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::trace(&img, &params))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn sticker_outline(id: String, params: StickerParams, store: State<'_, ImageStore>) -> Result<TraceResult, String> {
+    let img = store.get(&id)?;
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::sticker::sticker_outline(&img, &params))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BleedResult {
+    info: ImageInfo,
+    /// Pixels added on every side.
+    pad: u32,
+}
+
+/// Extends the motif colours outwards; returns a new, padded image.
+#[tauri::command]
+async fn bleed_image(id: String, mask: MotifMask, bleed_px: u32, store: State<'_, ImageStore>) -> Result<BleedResult, String> {
+    let img = store.get(&id)?;
+    let bleed_px = bleed_px.clamp(1, 400);
+    let png = tauri::async_runtime::spawn_blocking(move || {
+        let out = schnittwerk_core::sticker::bleed(&img, mask, bleed_px);
+        let mut buf = std::io::Cursor::new(Vec::new());
+        out.write_to(&mut buf, ImageFormat::Png).map(|_| buf.into_inner()).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let info = register_image(&store, png, "Bleed".into())?;
+    Ok(BleedResult { info, pad: bleed_px })
+}
+
+#[tauri::command]
+async fn font_families() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(schnittwerk_core::text::families).await.unwrap_or_default()
+}
+
+#[tauri::command]
+async fn text_to_path(spec: TextSpec) -> Result<ImportedVector, String> {
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::text::text_to_path(&spec).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn offset_paths(paths: Vec<PathInput>, offset: f64, smoothness: f32) -> Result<OffsetResult, String> {
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::offset::offset_paths(&paths, offset, smoothness))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Color at a pixel position (for the color picker in trace mode).
+#[tauri::command]
+async fn sample_color(id: String, x: u32, y: u32, store: State<'_, ImageStore>) -> Result<[u8; 3], String> {
+    let img = store.get(&id)?;
+    let x = x.min(img.width().saturating_sub(1));
+    let y = y.min(img.height().saturating_sub(1));
+    let p = img.get_pixel(x, y).0;
+    Ok([p[0], p[1], p[2]])
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NamedVector {
+    name: String,
+    #[serde(flatten)]
+    vector: ImportedVector,
+}
+
+#[tauri::command]
+async fn import_svg(path: String) -> Result<NamedVector, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("{path}: {e}"))?;
+    let vector = schnittwerk_core::import_svg(&bytes).map_err(|e| e.to_string())?;
+    Ok(NamedVector { name: file_stem(&path), vector })
+}
+
+#[tauri::command]
+async fn read_text(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))
+}
+
+#[tauri::command]
+async fn write_text(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| format!("{path}: {e}"))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(ImageStore::default())
+        .manage(plotter::PlotterManager::default())
+        .invoke_handler(tauri::generate_handler![
+            load_image,
+            load_image_data,
+            trace_image,
+            sample_color,
+            import_svg,
+            read_text,
+            write_text,
+            plotter::plotter_status,
+            plotter::cut_preview,
+            plotter::cut_start,
+            plotter::cut_test,
+            plotter::cut_regtest,
+            plotter::cut_pause,
+            plotter::cut_cancel,
+            sticker_outline,
+            offset_paths,
+            bleed_image,
+            font_families,
+            text_to_path,
+            print::list_printers,
+            print::print_page
+        ])
+        .run(tauri::generate_context!())
+        .expect("Fehler beim Starten von Schnittwerk");
+}

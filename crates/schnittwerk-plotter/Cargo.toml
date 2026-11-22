@@ -1,0 +1,12 @@
+[package]
+name = "schnittwerk-plotter"
+description = "USB-Anbindung für Silhouette-Schneideplotter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+schnittwerk-core = { path = "../schnittwerk-core" }
+rusb = "0.9"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
