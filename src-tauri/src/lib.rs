@@ -130,6 +130,52 @@ async fn bleed_image(id: String, mask: MotifMask, bleed_px: u32, store: State<'_
     Ok(BleedResult { info, pad: bleed_px })
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+enum ClipboardContent {
+    Image { info: ImageInfo },
+    Svg { vector: ImportedVector },
+    None,
+}
+
+/// Reads an image (or SVG markup) from the system clipboard.
+#[tauri::command]
+async fn clipboard_read(store: State<'_, ImageStore>) -> Result<ClipboardContent, String> {
+    let read = tauri::async_runtime::spawn_blocking(|| -> Result<(Option<Vec<u8>>, Option<String>), String> {
+        let mut cb = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+        if let Ok(img) = cb.get_image() {
+            let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned())
+                .ok_or("Ungültiges Bild in der Zwischenablage")?;
+            let mut buf = std::io::Cursor::new(Vec::new());
+            rgba.write_to(&mut buf, ImageFormat::Png).map_err(|e| e.to_string())?;
+            return Ok((Some(buf.into_inner()), None));
+        }
+        Ok((None, cb.get_text().ok()))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    match read {
+        (Some(png), _) => Ok(ClipboardContent::Image { info: register_image(&store, png, "Zwischenablage".into())? }),
+        (None, Some(text)) if text.contains("<svg") => {
+            let vector = schnittwerk_core::import_svg(text.as_bytes()).map_err(|e| e.to_string())?;
+            Ok(ClipboardContent::Svg { vector })
+        }
+        _ => Ok(ClipboardContent::None),
+    }
+}
+
+/// Replaces the system clipboard with plain text, so that a following
+/// paste inserts the objects copied inside Schnittwerk.
+#[tauri::command]
+async fn clipboard_mark() {
+    let _ = tauri::async_runtime::spawn_blocking(|| {
+        if let Ok(mut cb) = arboard::Clipboard::new() {
+            let _ = cb.set_text("Schnittwerk-Objekte");
+        }
+    })
+    .await;
+}
+
 #[tauri::command]
 async fn font_families() -> Vec<String> {
     tauri::async_runtime::spawn_blocking(schnittwerk_core::text::families).await.unwrap_or_default()
@@ -209,6 +255,8 @@ pub fn run() {
             offset_paths,
             bleed_image,
             font_families,
+            clipboard_read,
+            clipboard_mark,
             text_to_path,
             print::list_printers,
             print::print_page

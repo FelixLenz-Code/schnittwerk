@@ -3,7 +3,7 @@ import type { Obj } from "./types";
 
 const imageCache = new Map<string, HTMLImageElement>();
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   const hit = imageCache.get(src);
   if (hit?.complete) return Promise.resolve(hit);
   return new Promise((resolve, reject) => {

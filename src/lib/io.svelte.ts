@@ -2,7 +2,7 @@ import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
 import { editor, MATS } from "./editor.svelte";
 import { boxTransform, uid } from "./geometry";
-import type { ImageInfo, Obj, PathObj } from "./types";
+import type { ImageInfo, ImportedVector, Obj, PathObj } from "./types";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff"];
 const VECTOR_EXT = ["svg"];
@@ -34,6 +34,71 @@ function addImage(info: ImageInfo) {
   ]);
 }
 
+function addVector(v: ImportedVector) {
+  const [bx, by, bw, bh] = v.bbox;
+  // Keep the SVG's real size; only move it onto the mat if it lies outside.
+  const onMat = bx >= 0 && by >= 0 && bx + bw <= editor.mat.w && by + bh <= editor.mat.h;
+  const box = onMat ? { x: bx, y: by, w: bw, h: bh } : placeOnMat(bw, bh);
+  const obj: PathObj = {
+    id: uid(), type: "path", name: v.name, d: v.d, bbox: v.bbox, color: "#e5484d", fill: false,
+    ...box, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
+  };
+  editor.add([obj]);
+  editor.rightTab = "object";
+}
+
+// ---------- clipboard ----------
+
+let copied: Obj[] = [];
+let pasteCount = 0;
+
+export async function copySelection(cut = false) {
+  const ids = editor.expandGroups(editor.selection);
+  const objs = editor.objects.filter((o) => ids.includes(o.id));
+  if (!objs.length) return;
+  copied = $state.snapshot(objs) as Obj[];
+  pasteCount = 0;
+  if (cut) {
+    editor.selection = ids;
+    editor.removeSelected();
+  }
+  // So the next paste takes these objects, not an older picture.
+  await api.clipboardMark().catch(() => {});
+  editor.toast(`${objs.length} ${objs.length === 1 ? "Objekt" : "Objekte"} ${cut ? "ausgeschnitten" : "kopiert"}`);
+}
+
+export async function paste() {
+  try {
+    const c = await api.clipboardRead();
+    if (c.kind === "image") {
+      addImage(c.info);
+      editor.rightTab = "trace";
+      return;
+    }
+    if (c.kind === "svg") {
+      addVector({ ...c.vector, name: "Eingefügt" });
+      return;
+    }
+  } catch (e) {
+    if (!copied.length) {
+      editor.error(e);
+      return;
+    }
+  }
+  if (!copied.length) {
+    editor.toast("Zwischenablage enthält kein Bild und keine Objekte.");
+    return;
+  }
+  pasteCount++;
+  const groupMap = new Map<string, string>();
+  const objs = copied.map((o) => {
+    const c = { ...structuredClone(o), id: uid(), x: o.x + 5 * pasteCount, y: o.y + 5 * pasteCount, locked: false };
+    if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
+    return c;
+  });
+  editor.add(objs);
+}
+
 export async function importPaths(paths: string[]) {
   for (const path of paths) {
     try {
@@ -42,17 +107,7 @@ export async function importPaths(paths: string[]) {
         addImage(await api.loadImage(path));
         editor.rightTab = "trace";
       } else if (VECTOR_EXT.includes(e)) {
-        const v = await api.importSvg(path);
-        const [bx, by, bw, bh] = v.bbox;
-        // Keep the SVG's real size; only move it onto the mat if it lies outside.
-        const onMat = bx >= 0 && by >= 0 && bx + bw <= editor.mat.w && by + bh <= editor.mat.h;
-        const box = onMat ? { x: bx, y: by, w: bw, h: bh } : placeOnMat(bw, bh);
-        const obj: PathObj = {
-          id: uid(), type: "path", name: v.name, d: v.d, bbox: v.bbox, color: "#e5484d", fill: false,
-          ...box, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
-        };
-        editor.add([obj]);
-        editor.rightTab = "object";
+        addVector(await api.importSvg(path));
       } else if (e === PROJECT_EXT) {
         await openProject(path);
       } else {

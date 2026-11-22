@@ -3,6 +3,7 @@
   import { aabb, boxTransform, center, corners, ellipsePath, rectPath, rotate, toLocal, uid } from "../geometry";
   import type { Obj, PathObj, Vec2 } from "../types";
   import { createText } from "../text.svelte";
+  import { brush } from "../brush.svelte";
 
   type Drag =
     | { kind: "pan"; sx: number; sy: number; panX: number; panY: number }
@@ -10,7 +11,8 @@
     | { kind: "scale"; id: string; hx: number; hy: number; w0: number; h0: number; anchor: Vec2; rot: number; moved: boolean; free: boolean }
     | { kind: "rotate"; id: string; c: Vec2; a0: number; rot0: number; moved: boolean }
     | { kind: "marquee"; start: Vec2; cur: Vec2; additive: boolean }
-    | { kind: "draw"; shape: "rect" | "ellipse"; start: Vec2; cur: Vec2 };
+    | { kind: "draw"; shape: "rect" | "ellipse"; start: Vec2; cur: Vec2 }
+    | { kind: "brush"; id: string };
 
   let svg: SVGSVGElement;
   let drag = $state<Drag | null>(null);
@@ -41,6 +43,18 @@
       return;
     }
     if (e.button !== 0) return;
+
+    // Eraser / paint brush on the selected image (trace panel).
+    if (brush.mode && !brush.busy && brushTarget) {
+      const img = brushTarget;
+      const a = editor.images[img.imageId];
+      if (a) {
+        const l = toLocal(img, p);
+        brush.stroke = [{ x: (l.x / img.w) * a.pxW, y: (l.y / img.h) * a.pxH }];
+        drag = { kind: "brush", id: img.id };
+      }
+      return;
+    }
 
     // Color picking for the trace panel.
     if (editor.picking && editor.tracePreview) {
@@ -181,12 +195,27 @@
       case "draw":
         drag.cur = p;
         break;
+
+      case "brush": {
+        const img = editor.byId(drag.id);
+        if (img?.type !== "image") return;
+        const a = editor.images[img.imageId];
+        if (!a) return;
+        const l = toLocal(img, p);
+        const q = { x: (l.x / img.w) * a.pxW, y: (l.y / img.h) * a.pxH };
+        const last = brush.stroke[brush.stroke.length - 1];
+        if (!last || Math.hypot(q.x - last.x, q.y - last.y) > 0.5) brush.stroke.push(q);
+        break;
+      }
     }
   }
 
   function onPointerUp(e: PointerEvent) {
     svg.releasePointerCapture(e.pointerId);
-    if (drag?.kind === "marquee") {
+    if (drag?.kind === "brush") {
+      const img = editor.byId(drag.id);
+      if (img?.type === "image") brush.commit(img);
+    } else if (drag?.kind === "marquee") {
       const x0 = Math.min(drag.start.x, drag.cur.x), x1 = Math.max(drag.start.x, drag.cur.x);
       const y0 = Math.min(drag.start.y, drag.cur.y), y1 = Math.max(drag.start.y, drag.cur.y);
       if ((x1 - x0) * z > 3 || (y1 - y0) * z > 3) {
@@ -254,10 +283,17 @@
   }
   const RULER = 22;
 
+  const brushTarget = $derived.by(() => {
+    if (!brush.mode || editor.rightTab !== "trace") return null;
+    const imgs = editor.selected.filter((o) => o.type === "image");
+    return imgs.length === 1 && imgs[0].type === "image" ? imgs[0] : null;
+  });
+
   const cursorStyle = $derived(
     drag?.kind === "pan" ? "grabbing"
       : editor.tool === "pan" || spaceDown ? "grab"
       : editor.picking ? "crosshair"
+      : brush.mode && brushTarget ? "crosshair"
       : editor.tool === "rect" || editor.tool === "ellipse" ? "crosshair"
       : editor.tool === "text" ? "text"
       : "default",
@@ -364,6 +400,27 @@
             <path d={l.d} fill={l.color} fill-opacity="0.35" fill-rule="evenodd" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
           {/each}
         </g>
+      {/if}
+
+      <!-- Brush stroke in progress and brush cursor -->
+      {#if brushTarget && brush.stroke.length}
+        {@const a = editor.images[brushTarget.imageId]}
+        {#if a}
+          <g transform="{boxTransform(brushTarget)} scale({brushTarget.w / a.pxW} {brushTarget.h / a.pxH})" pointer-events="none">
+            <polyline
+              points={brush.stroke.map((q) => `${q.x},${q.y}`).join(" ")}
+              fill="none"
+              stroke={brush.mode === "erase" ? "#ffffff" : brush.color}
+              stroke-opacity={brush.mode === "erase" ? 0.85 : 1}
+              stroke-width={brush.sizePx(brushTarget)}
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </g>
+        {/if}
+      {/if}
+      {#if brushTarget && editor.cursor}
+        <circle cx={editor.cursor.x} cy={editor.cursor.y} r={brush.size / 2} fill="none" stroke="var(--accent)" stroke-width={px(1.2)} pointer-events="none" />
       {/if}
 
       <!-- Selection -->

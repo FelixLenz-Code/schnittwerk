@@ -67,6 +67,7 @@ src/                       Oberfläche
 | `Strg+S` / `Strg+Shift+S` / `Strg+O` | Speichern / Speichern unter / Öffnen |
 | `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
 | `Strg+D` / `Entf` | Duplizieren / Löschen |
+| `Strg+C` / `Strg+X` / `Strg+V` | Kopieren / Ausschneiden / Einfügen (auch Bilder und SVG aus anderen Programmen) |
 | Pfeiltasten (+Shift / +Alt) | 1 mm (10 mm / 0,1 mm) verschieben |
 | Ecke ziehen (+Shift) | proportional (frei) skalieren |
 | Drehgriff (+Shift) | drehen (in 15°-Schritten) |

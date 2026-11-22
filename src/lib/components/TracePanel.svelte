@@ -7,6 +7,7 @@
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
+  import { brush } from "../brush.svelte";
 
   type Kind = TraceMode["kind"];
 
@@ -74,10 +75,11 @@
   });
 
   $effect(() => () => {
-    // Leaving the panel removes the preview.
+    // Leaving the panel removes the preview and ends brush mode.
     seq++;
     editor.tracePreview = null;
     editor.picking = null;
+    brush.mode = null;
   });
 
   const preview = $derived(editor.tracePreview && target && editor.tracePreview.objId === target.id ? editor.tracePreview : null);
@@ -214,6 +216,23 @@
     </section>
 
     <section>
+      <h3 class="section-title">Bild bereinigen</h3>
+      <div class="brush-row">
+        <button class="btn outline" class:active={brush.mode === "erase"} onclick={() => brush.toggle("erase")} title="Flecken und Störungen wegradieren (wird transparent)">Radierer</button>
+        <button class="btn outline" class:active={brush.mode === "paint"} onclick={() => brush.toggle("paint")} title="Lücken schließen, Linien ergänzen">Pinsel</button>
+        {#if brush.mode === "paint"}
+          <input type="color" bind:value={brush.color} title="Pinselfarbe" />
+        {/if}
+      </div>
+      {#if brush.mode}
+        <div class="controls">
+          <Slider label="Größe" bind:value={brush.size} min={0.5} max={20} step={0.5} unit=" mm" />
+          <p class="muted">Auf dem Bild malen – jeder Strich wird sofort übernommen und neu getraced. Rückgängig mit <kbd>Strg</kbd>+<kbd>Z</kbd>.</p>
+        </div>
+      {/if}
+    </section>
+
+    <section>
       <h3 class="section-title">Bild vorbereiten</h3>
       <div class="controls">
         <Slider label="Helligkeit" bind:value={p.brightness} min={-100} max={100} />
@@ -328,6 +347,25 @@
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+  }
+  .brush-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .brush-row input[type="color"] {
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  kbd {
+    font: inherit;
+    font-size: 11px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
   }
   .select-row {
     display: flex;

@@ -12,7 +12,8 @@
 - ✅ Import: PNG, JPG, WebP, BMP, GIF, TIFF, SVG; Drag & Drop
 - ✅ Projektdateien (.schnitt, Bilder eingebettet), SVG-Export der Schnittlinien
 - ✅ Rechteck- und Ellipsen-Werkzeug
-- ⬜ PDF/DXF-Import, Einfügen aus Zwischenablage
+- ✅ Einfügen aus der Zwischenablage (Bilder, SVG), Kopieren/Ausschneiden/Einfügen von Objekten
+- ⬜ PDF/DXF-Import
 
 ## Etappe 2 – Tracen
 - ✅ Live-Vorschau beim Verstellen der Regler
@@ -24,7 +25,7 @@
 - ✅ Eigene Kontur-Pipeline: Subpixel-Konturen, Ecken-Rekonstruktion, Bézier-Fitting (Schneider)
 - ✅ Glättung, Flecken entfernen, Dicker/Dünner, Nur Außenkontur, Kurven/Ecken
 - ✅ Auflösung wählbar (schnell → Original)
-- ⬜ Radierer/Pinsel zum Bereinigen vor dem Tracen
+- ✅ Radierer/Pinsel zum Bereinigen vor dem Tracen (rückgängig machbar, Live-Neutracen)
 - ⬜ Perspektivkorrektur und Beleuchtungsausgleich für Fotos von Zeichnungen
 - ⬜ Kantenmodus (Umrisslinien von Strichzeichnungen)
 

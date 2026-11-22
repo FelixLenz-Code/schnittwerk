@@ -32,6 +32,9 @@ export const api = {
     call<OffsetResult>("offset_paths", { paths, offset, smoothness }),
   bleedImage: (id: string, mask: MotifMask, bleedPx: number) =>
     call<{ info: ImageInfo; pad: number }>("bleed_image", { id, mask, bleedPx: Math.round(bleedPx) }),
+  clipboardRead: () =>
+    call<{ kind: "image"; info: ImageInfo } | { kind: "svg"; vector: ImportedVector } | { kind: "none" }>("clipboard_read", {}),
+  clipboardMark: () => call<void>("clipboard_mark", {}),
   fontFamilies: () => call<string[]>("font_families", {}),
   textToPath: (spec: TextSpec) => call<ImportedVector>("text_to_path", { spec }),
   listPrinters: () => call<Printers>("list_printers", {}),

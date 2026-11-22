@@ -3,7 +3,7 @@
   import { inApp } from "./lib/api";
   import { editor, MATS, PAGES, type PageName } from "./lib/editor.svelte";
   import { fmt } from "./lib/geometry";
-  import { exportSvg, importDialog, importPaths, newProject, openDialog, saveProject } from "./lib/io.svelte";
+  import { copySelection, exportSvg, importDialog, importPaths, newProject, openDialog, paste, saveProject } from "./lib/io.svelte";
   import type { Tool } from "./lib/types";
   import Canvas from "./lib/components/Canvas.svelte";
   import Icon from "./lib/components/Icon.svelte";
@@ -79,6 +79,9 @@
         z: () => (e.shiftKey ? editor.redo() : editor.undo()),
         y: () => editor.redo(),
         d: () => editor.duplicateSelected(),
+        c: () => copySelection(),
+        x: () => copySelection(true),
+        v: () => paste(),
         a: () => editor.selectAll(),
         i: () => importDialog(),
         o: () => openDialog(),
