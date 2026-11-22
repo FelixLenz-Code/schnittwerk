@@ -23,6 +23,7 @@ export const PRESETS: Material[] = [
   { id: "vinyl", name: "Vinyl / Klebefolie", tool: "blade", depth: 1, pressure: 10, speed: 5, passes: 1, overcut: 0.3, mirror: false },
   { id: "sticker-matt", name: "Sticker-Papier matt", tool: "blade", depth: 2, pressure: 14, speed: 5, passes: 1, overcut: 0.3, mirror: false },
   { id: "sticker-glossy", name: "Sticker-Papier glänzend", tool: "blade", depth: 2, pressure: 16, speed: 5, passes: 1, overcut: 0.3, mirror: false },
+  { id: "sticker-through", name: "Sticker-Papier durchschneiden", tool: "blade", depth: 6, pressure: 30, speed: 3, passes: 2, overcut: 0.5, mirror: false },
   { id: "sticker-vinyl", name: "Sticker-Folie (bedruckbar)", tool: "blade", depth: 2, pressure: 12, speed: 5, passes: 1, overcut: 0.3, mirror: false },
   { id: "paper", name: "Kopierpapier 80 g", tool: "blade", depth: 2, pressure: 14, speed: 8, passes: 1, overcut: 0.3, mirror: false },
   { id: "photo", name: "Fotopapier", tool: "blade", depth: 3, pressure: 20, speed: 5, passes: 1, overcut: 0.3, mirror: false },

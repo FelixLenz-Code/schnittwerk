@@ -19,9 +19,9 @@ export const api = {
   writeText: (path: string, contents: string) => call<void>("write_text", { path, contents }),
 
   plotterStatus: () => call<PlotterStatus>("plotter_status", {}),
-  cutPreview: (paths: PathInput[], options: PathOptions) => call<CutPlan>("cut_preview", { paths, options }),
-  cutStart: (paths: PathInput[], options: PathOptions, settings: CutSettings, regmarks: RegMarks | null) =>
-    call<{ clamped: number }>("cut_start", { req: { paths, options, settings, regmarks } }),
+  cutPreview: (groups: { paths: PathInput[]; options: PathOptions }[]) => call<CutPlan[]>("cut_preview", { groups }),
+  cutStart: (groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[], regmarks: RegMarks | null) =>
+    call<{ clamped: number }>("cut_start", { req: { groups, regmarks } }),
   cutRegtest: (regmarks: RegMarks, settings: CutSettings) => call<{ clamped: number }>("cut_regtest", { regmarks, settings }),
   cutTest: (x: number, y: number, settings: CutSettings) => call<{ clamped: number }>("cut_test", { x, y, settings }),
   cutPause: (paused: boolean) => call<void>("cut_pause", { paused }),

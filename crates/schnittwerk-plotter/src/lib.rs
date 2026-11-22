@@ -156,6 +156,8 @@ pub enum Outcome {
 pub enum Phase {
     Registering,
     Cutting,
+    /// Starting pass n (0-based) of a multi-pass job.
+    Pass(usize),
 }
 
 impl Plotter {
@@ -363,7 +365,13 @@ impl Plotter {
         if st == State::Unloaded {
             return Err(Error::Other("Keine Matte geladen – bitte Matte einlegen und am Gerät laden.".into()));
         }
-        log(&format!("=== job: {} setup, {} plot commands, registration: {} ===", job.setup.len(), job.plot.len(), job.registration.is_some()));
+        log(&format!(
+            "=== job: {} setup, {} passes, {} plot commands, registration: {} ===",
+            job.setup.len(),
+            job.passes.len(),
+            job.plot_len(),
+            job.registration.is_some()
+        ));
         self.initialize()?;
         self.send(&job.setup)?;
         if let Some(search) = &job.registration {
@@ -376,26 +384,37 @@ impl Plotter {
             }
         }
         on_phase(Phase::Cutting);
-        let chunks = job.plot_chunks(PLOT_CHUNK);
-        let total = chunks.len();
+        let pass_chunks: Vec<Vec<Vec<u8>>> = job.passes.iter().map(|p| Job::chunks(&p.plot, PLOT_CHUNK)).collect();
+        let total: usize = pass_chunks.iter().map(|c| c.len()).sum();
+        let mut done = 0;
         progress(0, total);
-        // Stream packets back to back: USB flow control keeps the device
-        // buffer full, so the cutter never runs dry between packets.
-        // Pause/cancel take effect once the device has worked through
-        // what is already buffered.
-        for (i, chunk) in chunks.iter().enumerate() {
-            if pause.load(Ordering::Relaxed) {
-                while pause.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
-                    sleep(Duration::from_millis(100));
+        for (pi, (pass, chunks)) in job.passes.iter().zip(&pass_chunks).enumerate() {
+            if pi > 0 {
+                // Let the previous pass finish before the tool (e.g. AutoBlade
+                // depth) is changed.
+                self.wait_ready(Duration::from_secs(3600), &never)?;
+                on_phase(Phase::Pass(pi));
+            }
+            self.send(&pass.tool)?;
+            // Stream packets back to back: USB flow control keeps the device
+            // buffer full, so the cutter never runs dry between packets.
+            // Pause/cancel take effect once the device has worked through
+            // what is already buffered.
+            for chunk in chunks {
+                if pause.load(Ordering::Relaxed) {
+                    while pause.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
+                        sleep(Duration::from_millis(100));
+                    }
                 }
+                if cancel.load(Ordering::Relaxed) {
+                    self.wait_ready(Duration::from_secs(600), &never)?;
+                    self.send(&job.trailer)?;
+                    return Ok(Outcome::Cancelled);
+                }
+                self.write_plot(chunk)?;
+                done += 1;
+                progress(done, total);
             }
-            if cancel.load(Ordering::Relaxed) {
-                self.wait_ready(Duration::from_secs(600), &never)?;
-                self.send(&job.trailer)?;
-                return Ok(Outcome::Cancelled);
-            }
-            self.write_plot(chunk)?;
-            progress(i + 1, total);
         }
         // All data is in the device; wait until it has finished cutting.
         sleep(Duration::from_millis(200));

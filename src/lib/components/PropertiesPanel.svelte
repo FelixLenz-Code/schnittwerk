@@ -75,6 +75,33 @@
     }
   }
 
+  // ---------- cut type by colour ----------
+  const CUT_TYPES = [
+    { color: "#e5484d", label: "Anschneiden", hint: "Kiss-Cut: nur die obere Schicht (Sticker bleiben auf dem Trägerpapier)" },
+    { color: "#3e63dd", label: "Durchschneiden", hint: "Komplett durch – z. B. Bogenrahmen oder einzelne Sticker" },
+    { color: "#30a46c", label: "Zeichnen", hint: "Mit dem Stift zeichnen" },
+  ];
+
+  function setCutColor(color: string) {
+    if (!selPaths.length) return;
+    editor.checkpoint();
+    for (const o of selPaths) o.color = color;
+  }
+
+  function frameSelection() {
+    const b = aabb(editor.selected);
+    if (!b) return;
+    const pad = 2, r = 2;
+    const w = b.x1 - b.x0 + 2 * pad, h = b.y1 - b.y0 + 2 * pad;
+    const d = `M${r} 0H${w - r}A${r} ${r} 0 0 1 ${w} ${r}V${h - r}A${r} ${r} 0 0 1 ${w - r} ${h}H${r}A${r} ${r} 0 0 1 0 ${h - r}V${r}A${r} ${r} 0 0 1 ${r} 0Z`;
+    const frame: PathObj = {
+      id: uid(), type: "path", name: "Schnittrahmen", d, bbox: [0, 0, w, h], color: "#3e63dd", fill: false,
+      x: b.x0 - pad, y: b.y0 - pad, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
+    };
+    editor.add([frame], false);
+    editor.toast("Rahmen zum Durchschneiden hinzugefügt", "ok");
+  }
+
   // ---------- sheet fill ----------
   let gap = $state(3);
 
@@ -228,6 +255,30 @@
       <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
     </section>
   {/if}
+
+  {#if selPaths.length}
+    <section>
+      <h3 class="section-title">Schnittart</h3>
+      <div class="cut-types">
+        {#each CUT_TYPES as t}
+          <button
+            class="btn outline ctype"
+            class:active={selPaths.every((o) => o.color.toLowerCase() === t.color)}
+            title={t.hint}
+            onclick={() => setCutColor(t.color)}
+          >
+            <span class="dot" style:background={t.color}></span>{t.label}
+          </button>
+        {/each}
+      </div>
+      <p class="muted small">Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.</p>
+    </section>
+  {/if}
+
+  <section>
+    <h3 class="section-title">Rahmen</h3>
+    <button class="btn outline" onclick={frameSelection} title="Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten">Schnittrahmen um Auswahl</button>
+  </section>
 
   {#if selPaths.length}
     <section>
@@ -421,6 +472,19 @@
   }
   .pad-wide {
     padding-left: 60px !important;
+  }
+  .cut-types {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ctype {
+    padding: 0 8px;
+  }
+  .ctype .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
   }
   .toggle-row {
     display: flex;

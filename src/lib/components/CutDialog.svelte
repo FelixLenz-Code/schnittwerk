@@ -11,14 +11,21 @@
 
   let custom = $state<Material[]>(loadCustom());
   const all = $derived([...PRESETS, ...custom]);
+  const findMat = (id: string) => [...PRESETS, ...loadCustom()].find((p) => p.id === id);
+
+  // Every cut colour is its own pass with its own material. `m` / `materialId`
+  // are the working copy of the active colour; the others live in `byColor`.
+  let byColor = $state<Record<string, { materialId: string; m: Material }>>({});
+  let active = $state<string>("");
   let materialId = $state(lastMaterialId());
-  let m = $state<Material>(structuredClone(PRESETS.find((p) => p.id === lastMaterialId()) ?? loadCustom().find((p) => p.id === lastMaterialId()) ?? PRESETS[0]));
+  let m = $state<Material>(structuredClone(findMat(lastMaterialId()) ?? PRESETS[0]));
+  let mirror = $state(!!findMat(lastMaterialId())?.mirror);
   let mat = $state<MatKind>(matKindFor(editor.mat.name));
   let onlySelection = $state(editor.selected.some((o) => o.type === "path"));
   let optimize = $state(true);
   let testX = $state(5);
   let testY = $state(5);
-  let plan = $state<CutPlan | null>(null);
+  let plans = $state<CutPlan[]>([]);
   let planError = $state<string | null>(null);
 
   function pickMaterial(id: string) {
@@ -26,7 +33,19 @@
     if (!found) return;
     materialId = id;
     m = structuredClone($state.snapshot(found) as Material);
+    if (m.mirror) mirror = true;
     rememberMaterial(id);
+  }
+
+  function selectColor(c: string) {
+    if (c === active) return;
+    if (active) byColor[active] = { materialId, m: $state.snapshot(m) as Material };
+    active = c;
+    const entry = byColor[c];
+    if (entry) {
+      materialId = entry.materialId;
+      m = structuredClone(entry.m);
+    }
   }
 
   const modified = $derived.by(() => {
@@ -65,33 +84,67 @@
     return paths;
   });
 
-  const inputs = $derived<PathInput[]>(
-    cutObjects.map((o) => ({ d: o.d, matrix: pathMatrix(o, m.mirror ? editor.mat.w : null, editor.regmarks ? plotter.calib : undefined) })),
-  );
-  const options = $derived<PathOptions>({ overcut: m.tool === "pen" ? 0 : m.overcut, passes: m.passes, optimize });
-  const settings = $derived<CutSettings>({
-    tool: m.tool,
-    pressure: m.pressure,
-    speed: m.speed,
-    depth: m.tool === "blade" ? m.depth : null,
-    mat,
-    bladeOffset: 0.9,
-    liftCorners: false,
+  const colors = $derived([...new Set(cutObjects.map((o) => o.color.toLowerCase()))]);
+
+  // New colours get a material: the first the remembered one, further ones
+  // a through-cut preset (typical: kiss-cut stickers + through-cut frame).
+  $effect(() => {
+    for (const [i, c] of colors.entries()) {
+      if (c === active || byColor[c]) continue;
+      if (!active) {
+        active = c;
+        continue;
+      }
+      const preset = findMat(i === 0 ? lastMaterialId() : "sticker-through") ?? PRESETS[0];
+      byColor[c] = { materialId: preset.id, m: structuredClone($state.snapshot(preset) as Material) };
+    }
+    if (active && !colors.includes(active) && colors.length) selectColor(colors[0]);
   });
+
+  /** Material of a colour (live working copy for the active one). */
+  const matOf = (c: string): Material => (c === active ? m : (byColor[c]?.m ?? m));
+
+  /** Lighter passes first so the sheet holds together while kiss-cutting. */
+  const severity = (x: Material) => (x.tool === "pen" ? -1 : x.depth * 10 + x.pressure + x.passes * 5);
+  const order = $derived([...colors].sort((a, b) => severity(matOf(a)) - severity(matOf(b))));
+
+  const groups = $derived(
+    order.map((c) => {
+      const mm = matOf(c);
+      const objs = cutObjects.filter((o) => o.color.toLowerCase() === c);
+      return {
+        color: c,
+        name: mm.name,
+        paths: objs.map((o) => ({ d: o.d, matrix: pathMatrix(o, mirror ? editor.mat.w : null, editor.regmarks ? plotter.calib : undefined) })) as PathInput[],
+        options: { overcut: mm.tool === "pen" ? 0 : mm.overcut, passes: mm.passes, optimize } as PathOptions,
+        settings: {
+          tool: mm.tool,
+          pressure: mm.pressure,
+          speed: mm.speed,
+          depth: mm.tool === "blade" ? mm.depth : null,
+          mat,
+          bladeOffset: 0.9,
+          liftCorners: false,
+        } as CutSettings,
+      };
+    }),
+  );
+  /** Settings of the active colour (test cut, mark test). */
+  const settings = $derived(groups.find((g) => g.color === active)?.settings ?? groups[0]?.settings);
 
   let seq = 0;
   $effect(() => {
-    const req = { inputs: $state.snapshot(inputs) as PathInput[], options: $state.snapshot(options) as PathOptions };
+    const req = $state.snapshot(groups.map((g) => ({ paths: g.paths, options: g.options })));
     const my = ++seq;
-    if (!req.inputs.length) {
-      plan = null;
+    if (!req.length) {
+      plans = [];
       return;
     }
     const t = setTimeout(async () => {
       try {
-        const p = await api.cutPreview(req.inputs, req.options);
+        const p = await api.cutPreview(req);
         if (my === seq) {
-          plan = p;
+          plans = p;
           planError = null;
         }
       } catch (e) {
@@ -99,6 +152,12 @@
       }
     }, 120);
     return () => clearTimeout(t);
+  });
+
+  const totals = $derived({
+    paths: plans.reduce((n, p) => n + p.strokes.length, 0),
+    cut: plans.reduce((n, p) => n + p.cutLength, 0),
+    travel: plans.reduce((n, p) => n + p.travelLength, 0),
   });
 
   const reg = $derived(editor.regmarks);
@@ -127,9 +186,11 @@
   const area = $derived(reg ? { w: editor.mat.w, h: editor.mat.h } : mat === "portrait8_5x12" ? { w: 215.9, h: 304.8 } : mat === "portrait8x12" ? { w: 203.2, h: 304.8 } : { w: plotter.status.widthMm ?? 203, h: editor.mat.h });
   const limits = $derived(reg ? { x0: reg.originX, y0: reg.originY, x1: reg.originX + reg.width, y1: reg.originY + reg.length } : { x0: 0, y0: 0, x1: area.w, y1: area.h });
   const outside = $derived(
-    !!plan &&
-      plan.strokes.length > 0 &&
-      (plan.bbox[0] < limits.x0 - 0.05 || plan.bbox[1] < limits.y0 - 0.05 || plan.bbox[0] + plan.bbox[2] > limits.x1 + 0.05 || plan.bbox[1] + plan.bbox[3] > limits.y1 + 0.05),
+    plans.some(
+      (plan) =>
+        plan.strokes.length > 0 &&
+        (plan.bbox[0] < limits.x0 - 0.05 || plan.bbox[1] < limits.y0 - 0.05 || plan.bbox[0] + plan.bbox[2] > limits.x1 + 0.05 || plan.bbox[1] + plan.bbox[3] > limits.y1 + 0.05),
+    ),
   );
 
   // ---------- actions ----------
@@ -139,9 +200,7 @@
     try {
       plotter.begin();
       const r = await api.cutStart(
-        $state.snapshot(inputs) as PathInput[],
-        $state.snapshot(options) as PathOptions,
-        $state.snapshot(settings) as CutSettings,
+        $state.snapshot(groups).map((g) => ({ paths: g.paths, options: g.options, settings: g.settings })),
         reg ? { ...reg } : null,
       );
       if (r.clamped > 0) editor.toast(`${r.clamped} Punkte lagen außerhalb und wurden an den Rand gesetzt.`, "error");
@@ -156,7 +215,7 @@
     try {
       plotter.begin();
       plotter.regtest = true;
-      await api.cutRegtest({ ...reg }, $state.snapshot(settings) as CutSettings);
+      await api.cutRegtest({ ...reg }, $state.snapshot(settings ?? groups[0]?.settings) as CutSettings);
     } catch (e) {
       plotter.phase = "idle";
       editor.error(e);
@@ -166,7 +225,10 @@
   async function testCut() {
     try {
       plotter.begin();
-      await api.cutTest(testX, testY, $state.snapshot(settings) as CutSettings);
+      const st = settings ?? {
+        tool: m.tool, pressure: m.pressure, speed: m.speed, depth: m.tool === "blade" ? m.depth : null, mat, bladeOffset: 0.9, liftCorners: false,
+      };
+      await api.cutTest(testX, testY, $state.snapshot(st) as CutSettings);
     } catch (e) {
       plotter.phase = "idle";
       editor.error(e);
@@ -221,18 +283,38 @@
           {#each Array.from({ length: Math.floor(area.h / 25.4) + 1 }) as _, i}
             <line x1="0" y1={i * 25.4} x2={area.w} y2={i * 25.4} class="grid" />
           {/each}
-          {#if plan}
-            {@const n = plan.strokes.length}
-            {#each plan.strokes as s, i}
-              {@const prev = i === 0 ? [reg ? reg.originX : 0, reg ? reg.originY : 0] : plan.strokes[i - 1][plan.strokes[i - 1].length - 1]}
-              <line x1={prev[0]} y1={prev[1]} x2={s[0][0]} y2={s[0][1]} class="travel" />
-              <polyline points={s.map((p) => p.join(",")).join(" ")} fill="none" stroke={strokeColor(i, n)} stroke-width="0.5" stroke-linejoin="round" />
+          {#each plans as plan, gi}
+            {@const multi = plans.length > 1}
+            {#each plan.strokes as st, i}
+              {@const prev =
+                i > 0
+                  ? plan.strokes[i - 1][plan.strokes[i - 1].length - 1]
+                  : gi > 0 && plans[gi - 1].strokes.length
+                    ? plans[gi - 1].strokes[plans[gi - 1].strokes.length - 1].at(-1)!
+                    : [reg ? reg.originX : 0, reg ? reg.originY : 0]}
+              <line x1={prev[0]} y1={prev[1]} x2={st[0][0]} y2={st[0][1]} class="travel" />
+              <polyline
+                points={st.map((q) => q.join(",")).join(" ")}
+                fill="none"
+                stroke={multi ? groups[gi]?.color : strokeColor(i, plan.strokes.length)}
+                stroke-width="0.5"
+                stroke-linejoin="round"
+              />
             {/each}
+          {/each}
+          {#if plans.length}
             <circle cx={reg ? reg.originX : 0} cy={reg ? reg.originY : 0} r="1.5" class="origin" />
           {/if}
         </svg>
         <div class="legend">
-          Reihenfolge: zuerst <span class="sw" style:background={strokeColor(0, 2)}></span> zuletzt <span class="sw" style:background={strokeColor(1, 2)}></span>
+          {#if groups.length > 1}
+            Reihenfolge:
+            {#each groups as g, i}
+              <span class="sw" style:background={g.color}></span> {i + 1}. {g.name}{i < groups.length - 1 ? " →" : ""}
+            {/each}
+          {:else}
+            Reihenfolge: zuerst <span class="sw" style:background={strokeColor(0, 2)}></span> zuletzt <span class="sw" style:background={strokeColor(1, 2)}></span>
+          {/if}
           <span class="dash"></span> Leerfahrt
         </div>
       </div>
@@ -248,7 +330,17 @@
         </div>
 
         <section>
-          <h3 class="section-title">Material</h3>
+          <h3 class="section-title">Material{colors.length > 1 ? " je Schnittfarbe" : ""}</h3>
+          {#if colors.length > 1}
+            <div class="color-tabs">
+              {#each order as c, i}
+                <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title="Einstellungen für diese Farbe">
+                  <span class="sw" style:background={c}></span>
+                  <span class="ctab-text">{i + 1}. {matOf(c).name}</span>
+                </button>
+              {/each}
+            </div>
+          {/if}
           <div class="row">
             <select class="field" value={materialId} onchange={(e) => pickMaterial(e.currentTarget.value)} disabled={plotter.busy}>
               <optgroup label="Vorlagen">
@@ -305,15 +397,16 @@
                 <option value="none">Ohne Matte</option>
               </select>
             </label>
-            <Toggle label="Spiegeln (Flexfolie)" bind:checked={m.mirror} />
+            <Toggle label="Spiegeln (Flexfolie)" bind:checked={mirror} />
             <Toggle label="Nur Auswahl schneiden" bind:checked={onlySelection} />
             <Toggle label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
           </div>
           <div class="stats">
-            {#if plan}
-              <span><b>{plan.strokes.length}</b> Pfade</span>
-              <span><b>{fmtLen(plan.cutLength)}</b> Schnitt</span>
-              <span><b>{fmtLen(plan.travelLength)}</b> Leerweg</span>
+            {#if plans.length}
+              <span><b>{totals.paths}</b> Pfade</span>
+              <span><b>{fmtLen(totals.cut)}</b> Schnitt</span>
+              <span><b>{fmtLen(totals.travel)}</b> Leerweg</span>
+              {#if plans.length > 1}<span><b>{plans.length}</b> Durchgänge</span>{/if}
             {:else if planError}
               <span class="err-text">{planError}</span>
             {:else}
@@ -345,7 +438,7 @@
           {#if plotter.busy}
             <div class="progress">
               <div class="bar"><div style:width="{pct}%"></div></div>
-              <span>{plotter.registering ? "Suche Passermarken …" : plotter.phase === "paused" ? "Pausiert" : plotter.phase === "cancelling" ? "Breche ab …" : pct >= 100 ? "Schneidet die letzten Linien …" : `${pct} %`}</span>
+              <span>{plotter.registering ? "Suche Passermarken …" : plotter.phase === "paused" ? "Pausiert" : plotter.phase === "cancelling" ? "Breche ab …" : pct >= 100 ? "Schneidet die letzten Linien …" : groups.length > 1 ? `Durchgang ${plotter.pass + 1}/${groups.length} · ${pct} %` : `${pct} %`}</span>
             </div>
             <div class="actions">
               <button class="btn outline" disabled={plotter.phase === "cancelling"} onclick={() => plotter.pause(plotter.phase !== "paused")}>
@@ -368,7 +461,7 @@
               <span>mm</span>
               <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
             </div>
-            <button class="btn primary big" disabled={!ready || !plan || plan.strokes.length === 0} onclick={startCut}>
+            <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={startCut}>
               <Icon name="scissors" /> {m.tool === "pen" ? "Zeichnen" : "Schneiden"}
             </button>
             {#if !plotter.status.connected}
@@ -523,6 +616,33 @@
   .row {
     display: flex;
     gap: 6px;
+  }
+  .color-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .ctab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    cursor: pointer;
+    text-align: left;
+  }
+  .ctab.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .ctab-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .name-row {
     margin-top: 8px;

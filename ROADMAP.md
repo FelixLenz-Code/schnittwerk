@@ -35,7 +35,8 @@
 - ✅ Mehrfachdurchgänge, Testschnitt, Stiftmodus, Spiegeln für Flexfolie
 - ✅ Materialbibliothek mit Vorlagen und eigenen Profilen
 - ✅ Vorschau der Schnittreihenfolge, Fortschritt, Pause, Abbrechen
-- ⬜ Einstellungen je Farbe/Ebene, Prägen, Perforation
+- ✅ Kiss-Cut und Durchschnitt in einem Auftrag: Material je Schnittfarbe, leichte Durchgänge zuerst, Schnittrahmen
+- ⬜ Prägen, Perforation
 
 ## Etappe 4 – Print & Cut
 - ✅ Sticker-Assistent: Hintergrund entfernen oder Transparenz → Rand in mm → glatte Kontur (Live-Vorschau)
@@ -53,3 +54,10 @@
 - ⬜ Boolesche Operationen, Knotenbearbeitung, Entgitterungshilfen
 - ✅ .deb-Paket mit Menüeintrag, udev-Regel und Abhängigkeiten
 - ⬜ Nesting, Vorlagen, CLI-Modus
+
+## Etappe 6 – Anbindungen
+- ⬜ Bluetooth: Plotter kabellos ansprechen (Bluetooth Classic/RFCOMM bzw. BLE, je nach Modell);
+  gleiche GPGL-Befehle, nur anderer Transport
+- ⬜ MCP-Schnittstelle: Schnittwerk als MCP-Server, damit KI-Assistenten (z. B. Claude) Bilder tracen,
+  Sticker-Bögen anlegen, die Vorschau prüfen und Schnitte starten können – mit Bestätigung vor dem Schneiden
+

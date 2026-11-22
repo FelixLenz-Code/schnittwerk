@@ -83,18 +83,33 @@ pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<Statu
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CutRequest {
+pub struct CutGroup {
     paths: Vec<PathInput>,
     options: PathOptions,
     settings: CutSettings,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CutRequest {
+    /// Cut passes in order (e.g. kiss-cut first, through-cut last).
+    groups: Vec<CutGroup>,
     /// Print & cut: registration marks on the page.
     #[serde(default)]
     regmarks: Option<RegMarks>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewGroup {
+    paths: Vec<PathInput>,
+    options: PathOptions,
+}
+
+/// One plan per group, in the order given.
 #[tauri::command]
-pub async fn cut_preview(paths: Vec<PathInput>, options: PathOptions) -> Result<CutPlan, String> {
-    tauri::async_runtime::spawn_blocking(move || cut::plan(&paths, &options).map(|(p, _)| p))
+pub async fn cut_preview(groups: Vec<PreviewGroup>) -> Result<Vec<CutPlan>, String> {
+    tauri::async_runtime::spawn_blocking(move || groups.iter().map(|g| cut::plan(&g.paths, &g.options).map(|(p, _)| p)).collect())
         .await
         .map_err(|e| e.to_string())?
 }
@@ -121,8 +136,8 @@ pub struct Started {
     clamped: usize,
 }
 
-fn start_job(app: AppHandle, mgr: &PlotterManager, strokes: Vec<Vec<kurbo::Point>>, settings: CutSettings, reg: Option<RegMarks>) -> Result<Started, String> {
-    if strokes.is_empty() && reg.is_none() {
+fn start_job(app: AppHandle, mgr: &PlotterManager, groups: Vec<(Vec<Vec<kurbo::Point>>, CutSettings)>, reg: Option<RegMarks>) -> Result<Started, String> {
+    if groups.iter().all(|g| g.0.is_empty()) && reg.is_none() {
         return Err("Keine Schnittlinien vorhanden.".into());
     }
     let plotter = {
@@ -135,7 +150,7 @@ fn start_job(app: AppHandle, mgr: &PlotterManager, strokes: Vec<Vec<kurbo::Point
     if mgr.busy.swap(true, Ordering::SeqCst) {
         return Err("Es läuft bereits ein Schnitt.".into());
     }
-    let (job, clamped) = gpgl::build_job(&strokes, &settings, plotter.model.limits(), reg);
+    let (job, clamped) = gpgl::build_job(&groups, plotter.model.limits(), reg);
     mgr.cancel.store(false, Ordering::SeqCst);
     mgr.pause.store(false, Ordering::SeqCst);
     let (cancel, pause) = (mgr.cancel.clone(), mgr.pause.clone());
@@ -171,20 +186,26 @@ fn start_job(app: AppHandle, mgr: &PlotterManager, strokes: Vec<Vec<kurbo::Point
 
 #[tauri::command]
 pub async fn cut_start(app: AppHandle, req: CutRequest, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
-    let (_, strokes) = cut::plan(&req.paths, &req.options)?;
-    start_job(app, &mgr, strokes, req.settings, req.regmarks)
+    let mut groups = Vec::new();
+    for g in req.groups {
+        let (_, strokes) = cut::plan(&g.paths, &g.options)?;
+        if !strokes.is_empty() {
+            groups.push((strokes, g.settings));
+        }
+    }
+    start_job(app, &mgr, groups, req.regmarks)
 }
 
 /// Cuts the small test pattern (10 mm square + triangle) at (x, y) mm.
 #[tauri::command]
 pub async fn cut_test(app: AppHandle, x: f64, y: f64, settings: CutSettings, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
-    start_job(app, &mgr, gpgl::test_pattern(x, y), settings, None)
+    start_job(app, &mgr, vec![(gpgl::test_pattern(x, y), settings)], None)
 }
 
 /// Only searches the registration marks (no cutting) – for diagnosis.
 #[tauri::command]
 pub async fn cut_regtest(app: AppHandle, regmarks: RegMarks, settings: CutSettings, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
-    start_job(app, &mgr, vec![], settings, Some(regmarks))
+    start_job(app, &mgr, vec![(vec![], settings)], Some(regmarks))
 }
 
 #[tauri::command]

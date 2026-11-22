@@ -89,11 +89,20 @@ pub const PORTRAIT3: DeviceLimits = DeviceLimits { width_mm: 203.0, length_mm: 1
 /// wait for the device between plot chunks.
 #[derive(Debug, Clone, Default)]
 pub struct Job {
+    /// Media set-up (mat, boundaries) plus registration-mark settings.
     pub setup: Vec<String>,
     /// Registration-mark search command; its reply must be read (≈ 40 s).
     pub registration: Option<String>,
-    pub plot: Vec<String>,
+    /// One pass per cut setting (e.g. kiss-cut, then through-cut).
+    pub passes: Vec<Pass>,
     pub trailer: Vec<String>,
+}
+
+/// Tool settings followed by the move/draw commands cut with them.
+#[derive(Debug, Clone, Default)]
+pub struct Pass {
+    pub tool: Vec<String>,
+    pub plot: Vec<String>,
 }
 
 impl Job {
@@ -107,11 +116,11 @@ impl Job {
         out
     }
 
-    /// Plot data split into chunks of at most `max` bytes on command boundaries.
-    pub fn plot_chunks(&self, max: usize) -> Vec<Vec<u8>> {
+    /// Command list split into chunks of at most `max` bytes on command boundaries.
+    pub fn chunks(cmds: &[String], max: usize) -> Vec<Vec<u8>> {
         let mut chunks = Vec::new();
         let mut cur = Vec::new();
-        for c in &self.plot {
+        for c in cmds {
             if !cur.is_empty() && cur.len() + c.len() + 1 > max {
                 chunks.push(std::mem::take(&mut cur));
             }
@@ -123,19 +132,22 @@ impl Job {
         }
         chunks
     }
+
+    pub fn plot_len(&self) -> usize {
+        self.passes.iter().map(|p| p.plot.len()).sum()
+    }
 }
 
-/// Setup sequence for the Cameo 4 line (incl. Portrait 3), tool holder 1.
-pub fn setup_commands(s: &CutSettings, limits: DeviceLimits) -> Vec<String> {
-    let mut c = Vec::new();
-    let (tg, size) = s.mat.params();
-    c.push(format!("TG{tg}"));
-    c.push("FN0".into());
-    c.push("TB50,0".into());
+/// Media set-up: mat type and cuttable area.
+pub fn media_commands(mat: MatKind, limits: DeviceLimits) -> Vec<String> {
+    let (tg, size) = mat.params();
     let (w_mm, l_mm) = size.map(|(w, l)| (w * 25.4, l * 25.4)).unwrap_or((limits.width_mm, limits.length_mm));
-    c.push("\\0,0".into());
-    c.push(format!("Z{},{}", su(l_mm), su(w_mm)));
+    vec![format!("TG{tg}"), "FN0".into(), "TB50,0".into(), "\\0,0".into(), format!("Z{},{}", su(l_mm), su(w_mm))]
+}
 
+/// Tool settings for the Cameo 4 line (incl. Portrait 3), tool holder 1.
+pub fn tool_commands(s: &CutSettings) -> Vec<String> {
+    let mut c = Vec::new();
     let pressure = s.pressure.clamp(1, 33);
     let speed = s.speed.clamp(1, 30);
     let pen = s.tool == Tool::Pen;
@@ -159,6 +171,13 @@ pub fn setup_commands(s: &CutSettings, limits: DeviceLimits) -> Vec<String> {
     if let (false, Some(d)) = (pen, s.depth) {
         c.push(format!("TF{},1", d.min(10)));
     }
+    c
+}
+
+/// Complete single-setting set-up (media + tool).
+pub fn setup_commands(s: &CutSettings, limits: DeviceLimits) -> Vec<String> {
+    let mut c = media_commands(s.mat, limits);
+    c.extend(tool_commands(s));
     c
 }
 
@@ -239,28 +258,40 @@ impl RegMarks {
     }
 }
 
-/// Builds a full job for the given strokes (in mat / page mm). With
-/// registration marks, coordinates become relative to the mark origin.
-pub fn build_job(strokes: &[Vec<Point>], s: &CutSettings, limits: DeviceLimits, reg: Option<RegMarks>) -> (Job, usize) {
-    let mut setup = setup_commands(s, limits);
-    let (plot, clamped, registration) = if let Some(r) = reg {
-        let shifted: Vec<Vec<Point>> = strokes
-            .iter()
-            .map(|st| st.iter().map(|p| Point::new(p.x - r.origin_x, p.y - r.origin_y)).collect())
-            .collect();
-        let (plot, clamped) = plot_commands(&shifted, r.width, r.length);
+/// Builds a job with one pass per `(strokes, settings)` group, cut in the
+/// given order. The mat of the first group applies. With registration
+/// marks, coordinates become relative to the mark origin.
+pub fn build_job(groups: &[(Vec<Vec<Point>>, CutSettings)], limits: DeviceLimits, reg: Option<RegMarks>) -> (Job, usize) {
+    let mat = groups.first().map(|g| g.1.mat).unwrap_or(MatKind::Portrait8x12);
+    let mut setup = media_commands(mat, limits);
+    let mut registration = None;
+    if let Some(r) = reg {
         let (reg_setup, search) = r.commands();
         setup.extend(reg_setup);
-        (plot, clamped, Some(search))
-    } else {
-        let (w, h) = match s.mat.params().1 {
-            Some((w, l)) => ((w * 25.4).min(limits.width_mm), l * 25.4),
-            None => (limits.width_mm, limits.length_mm),
-        };
-        let (plot, clamped) = plot_commands(strokes, w, h);
-        (plot, clamped, None)
-    };
-    (Job { setup, registration, plot, trailer: trailer_commands() }, clamped)
+        registration = Some(search);
+    }
+    let mut clamped = 0;
+    let passes = groups
+        .iter()
+        .map(|(strokes, s)| {
+            let (plot, c) = if let Some(r) = reg {
+                let shifted: Vec<Vec<Point>> = strokes
+                    .iter()
+                    .map(|st| st.iter().map(|p| Point::new(p.x - r.origin_x, p.y - r.origin_y)).collect())
+                    .collect();
+                plot_commands(&shifted, r.width, r.length)
+            } else {
+                let (w, h) = match mat.params().1 {
+                    Some((w, l)) => ((w * 25.4).min(limits.width_mm), l * 25.4),
+                    None => (limits.width_mm, limits.length_mm),
+                };
+                plot_commands(strokes, w, h)
+            };
+            clamped += c;
+            Pass { tool: tool_commands(s), plot }
+        })
+        .collect();
+    (Job { setup, registration, passes, trailer: trailer_commands() }, clamped)
 }
 
 /// Small test pattern: 10 mm square with a triangle inside, top-left at (x, y).
@@ -309,24 +340,38 @@ mod tests {
     fn registration_shifts_coordinates() {
         let reg = RegMarks::for_page(210.0, 297.0, 10.0);
         let strokes = vec![vec![Point::new(30.0, 40.0), Point::new(50.0, 40.0)]];
-        let (job, clamped) = build_job(&strokes, &CutSettings::default(), PORTRAIT3, Some(reg));
+        let (job, clamped) = build_job(&[(strokes, CutSettings::default())], PORTRAIT3, Some(reg));
         assert_eq!(clamped, 0);
         assert_eq!(job.registration.as_deref(), Some("TB123,5540,3800,117,75"));
-        assert_eq!(job.plot[0], "M600,400", "40-10 mm down, 30-10 mm across");
+        assert_eq!(job.passes[0].plot[0], "M600,400", "40-10 mm down, 30-10 mm across");
         assert!(job.setup.contains(&"TB51,10".to_string()) && job.setup.contains(&"TB53,400".to_string()));
         assert!(job.setup.contains(&"TB54,0,0".to_string()));
     }
 
     #[test]
+    fn passes_keep_order_and_settings() {
+        let a = vec![vec![Point::new(10.0, 10.0), Point::new(20.0, 10.0)]];
+        let kiss = CutSettings { pressure: 10, depth: Some(1), ..Default::default() };
+        let through = CutSettings { pressure: 30, depth: Some(6), ..Default::default() };
+        let (job, _) = build_job(&[(a.clone(), kiss), (a, through)], PORTRAIT3, None);
+        assert_eq!(job.passes.len(), 2);
+        assert!(job.passes[0].tool.contains(&"TF1,1".to_string()));
+        assert!(job.passes[1].tool.contains(&"TF6,1".to_string()) && job.passes[1].tool.contains(&"FX30,1".to_string()));
+        // Media set-up only once.
+        assert_eq!(job.setup.iter().filter(|c| c.starts_with("TG")).count(), 1);
+        assert!(!job.passes[1].tool.iter().any(|c| c.starts_with("FN") || c.starts_with("TG")));
+    }
+
+    #[test]
     fn chunks_respect_command_boundaries() {
-        let job = Job { plot: (0..500).map(|i| format!("D{i},{i}")).collect(), ..Default::default() };
-        let chunks = job.plot_chunks(1024);
+        let plot: Vec<String> = (0..500).map(|i| format!("D{i},{i}")).collect();
+        let chunks = Job::chunks(&plot, 1024);
         assert!(chunks.len() > 1);
         for ch in &chunks {
             assert!(ch.len() <= 1024);
             assert_eq!(*ch.last().unwrap(), ETX);
         }
         let total: usize = chunks.iter().map(|c| c.len()).sum();
-        assert_eq!(total, Job::encode(&job.plot).len());
+        assert_eq!(total, Job::encode(&plot).len());
     }
 }

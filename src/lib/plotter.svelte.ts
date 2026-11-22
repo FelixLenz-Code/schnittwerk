@@ -56,6 +56,8 @@ class PlotterStore {
   registering = $state(false);
   /** The running job only tests the registration marks. */
   regtest = $state(false);
+  /** Index of the pass currently being cut (multi-pass jobs). */
+  pass = $state(0);
   lastResult = $state<{ status: string; message: string | null } | null>(null);
 
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -64,8 +66,9 @@ class PlotterStore {
     if (!inApp || this.#timer) return;
     this.poll();
     this.#timer = setInterval(() => this.poll(), 2000);
-    listen<string>("cut-phase", (e) => {
+    listen<string | { pass: number }>("cut-phase", (e) => {
       this.registering = e.payload === "registering";
+      if (typeof e.payload === "object") this.pass = e.payload.pass;
     });
     listen<{ done: number; total: number }>("cut-progress", (e) => {
       this.progress = e.payload;
@@ -108,6 +111,7 @@ class PlotterStore {
     this.progress = { done: 0, total: 0 };
     this.lastResult = null;
     this.regtest = false;
+    this.pass = 0;
     this.status = { ...this.status, state: "cutting" };
   }
 }
