@@ -12,6 +12,15 @@ pub trait Transport: Send + Sync {
     fn write(&self, data: &[u8], timeout: Duration) -> Result<()>;
     /// Returns the next chunk of reply bytes (usually one ETX-terminated message).
     fn read(&self, timeout: Duration) -> Result<Vec<u8>>;
+    /// Reply to a status query (ESC ENQ). Over Bluetooth this may arrive on
+    /// a different channel than other replies.
+    fn read_status(&self, timeout: Duration) -> Result<Vec<u8>> {
+        self.read(timeout)
+    }
+    /// False once the connection is known to be gone.
+    fn is_alive(&self) -> bool {
+        true
+    }
     /// Discards pending replies.
     fn drain(&self);
     /// "USB" or "Bluetooth".

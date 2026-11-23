@@ -29,7 +29,7 @@ pub fn log_path() -> std::path::PathBuf {
     base.join("schnittwerk").join("plotter.log")
 }
 
-fn log(line: &str) {
+pub(crate) fn log(line: &str) {
     use std::io::Write;
     let path = log_path();
     if let Some(dir) = path.parent() {
@@ -46,7 +46,7 @@ fn log(line: &str) {
 }
 
 /// Printable form of raw bytes (ESC/ETX made visible), shortened.
-fn show(bytes: &[u8]) -> String {
+pub(crate) fn show(bytes: &[u8]) -> String {
     let mut s = String::new();
     for &b in bytes.iter().take(160) {
         match b {
@@ -202,6 +202,11 @@ impl Plotter {
         Plotter { transport: p.transport, model }
     }
 
+    /// False once the connection is known to be gone (Bluetooth).
+    pub fn is_alive(&self) -> bool {
+        self.transport.is_alive()
+    }
+
     /// "USB" or "Bluetooth".
     pub fn connection(&self) -> &'static str {
         self.transport.kind()
@@ -249,7 +254,8 @@ impl Plotter {
     pub fn status(&self) -> Result<State> {
         self.drain();
         self.write(&[ESC, 0x05])?;
-        let r = self.read(Duration::from_secs(5))?;
+        let r = self.transport.read_status(Duration::from_secs(5))?;
+        log(&format!("RX status {}", show(&r)));
         let body = r.strip_suffix(&[ETX]).unwrap_or(&r);
         Ok(match body {
             b"0" => State::Ready,

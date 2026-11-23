@@ -78,8 +78,21 @@ pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<Statu
             message: None,
             width_mm: Some(p.model.width_mm),
         }),
+        Err(e) if p.connection() == "Bluetooth" && p.is_alive() => {
+            // Bluetooth link is up but the cutter did not answer the status
+            // query: keep the connection and report an unknown state.
+            Ok(StatusInfo {
+                connected: true,
+                model: Some(p.model.name.to_string()),
+                connection: Some("Bluetooth".into()),
+                state: "unknown".into(),
+                message: Some(format!("Status nicht lesbar: {e}")),
+                width_mm: Some(p.model.width_mm),
+            })
+        }
         Err(_) => {
-            // Unplugged or switched off: forget the handle, reconnect next time.
+            // Unplugged, switched off or Bluetooth link lost: forget the
+            // handle, reconnect next time.
             *conn = None;
             Ok(StatusInfo::disconnected(None))
         }

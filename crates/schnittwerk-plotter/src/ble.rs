@@ -88,7 +88,21 @@ pub fn scan(seconds: u64) -> Result<Vec<BleDevice>> {
     })
 }
 
-type Inbox = Arc<(Mutex<VecDeque<u8>>, Condvar)>;
+/// Bytes from the READ (replies) and CONTROL (state events) characteristics.
+#[derive(Default)]
+struct Buffers {
+    read: VecDeque<u8>,
+    control: VecDeque<u8>,
+    /// Last complete CONTROL message, e.g. `0<ETX>` (ready).
+    last_control: Option<Vec<u8>>,
+}
+
+type Inbox = Arc<(Mutex<Buffers>, Condvar)>;
+
+fn take_message(buf: &mut VecDeque<u8>) -> Option<Vec<u8>> {
+    let pos = buf.iter().position(|b| *b == ETX)?;
+    Some(buf.drain(..=pos).collect())
+}
 
 pub struct BleTransport {
     rt: Runtime,
@@ -101,7 +115,7 @@ impl BleTransport {
     /// Connects to a device found by [`scan`] and runs the init handshake.
     pub fn connect(id: &str) -> Result<(BleTransport, String)> {
         let rt = Runtime::new().map_err(ble_err)?;
-        let inbox: Inbox = Arc::new((Mutex::new(VecDeque::new()), Condvar::new()));
+        let inbox: Inbox = Arc::new((Mutex::new(Buffers::default()), Condvar::new()));
         let (peripheral, write_char, name) = rt.block_on(async {
             let manager = Manager::new().await.map_err(ble_err)?;
             let central = adapter(&manager).await?;
@@ -130,16 +144,27 @@ impl BleTransport {
             };
             peripheral.subscribe(&c).await.map_err(ble_err)?;
             peripheral.subscribe(&r).await.map_err(ble_err)?;
-            // Collect replies from READ only; CONTROL carries movement events.
+            // Replies arrive on READ; CONTROL carries state events ("0"/"1"/"2"),
+            // kept apart so they never pose as a command reply.
             let mut stream = peripheral.notifications().await.map_err(ble_err)?;
             let sink = inbox.clone();
             tokio::spawn(async move {
                 while let Some(n) = stream.next().await {
+                    let (lock, cv) = &*sink;
+                    let mut b = lock.lock().unwrap();
                     if n.uuid == READ {
-                        let (lock, cv) = &*sink;
-                        lock.lock().unwrap().extend(n.value);
-                        cv.notify_all();
+                        crate::log(&format!("BLE READ {}", crate::show(&n.value)));
+                        b.read.extend(n.value);
+                    } else if n.uuid == CONTROL {
+                        crate::log(&format!("BLE CONTROL {}", crate::show(&n.value)));
+                        b.control.extend(n.value);
+                        // Remember the newest complete state message.
+                        let mut copy = b.control.clone();
+                        while let Some(m) = take_message(&mut copy) {
+                            b.last_control = Some(m);
+                        }
                     }
+                    cv.notify_all();
                 }
             });
             for ch in [&c, &r, &w] {
@@ -148,7 +173,11 @@ impl BleTransport {
             tokio::time::sleep(Duration::from_secs(1)).await;
             Ok::<_, Error>((peripheral, w, name))
         })?;
-        inbox.0.lock().unwrap().clear();
+        {
+            let mut b = inbox.0.lock().unwrap();
+            b.read.clear();
+            b.control.clear();
+        }
         Ok((BleTransport { rt, peripheral, write_char, inbox }, name))
     }
 }
@@ -185,24 +214,51 @@ impl Transport for BleTransport {
     fn read(&self, timeout: Duration) -> Result<Vec<u8>> {
         let (lock, cv) = &*self.inbox;
         let deadline = Instant::now() + timeout;
-        let mut buf = lock.lock().unwrap();
+        let mut b = lock.lock().unwrap();
         loop {
-            if let Some(pos) = buf.iter().position(|b| *b == ETX) {
-                return Ok(buf.drain(..=pos).collect());
+            if let Some(m) = take_message(&mut b.read) {
+                return Ok(m);
             }
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
-                if buf.is_empty() {
+                if b.read.is_empty() {
                     return Err(Error::Timeout("Lesen"));
                 }
-                return Ok(buf.drain(..).collect());
+                return Ok(b.read.drain(..).collect());
             }
-            buf = cv.wait_timeout(buf, left).unwrap().0;
+            b = cv.wait_timeout(b, left).unwrap().0;
         }
     }
 
+    /// The status reply may come on CONTROL or READ; if neither answers, the
+    /// last state event the cutter pushed on CONTROL is used.
+    fn read_status(&self, timeout: Duration) -> Result<Vec<u8>> {
+        let (lock, cv) = &*self.inbox;
+        let deadline = Instant::now() + timeout.min(Duration::from_secs(2));
+        let mut b = lock.lock().unwrap();
+        loop {
+            if let Some(m) = take_message(&mut b.control) {
+                return Ok(m);
+            }
+            if let Some(m) = take_message(&mut b.read) {
+                return Ok(m);
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return b.last_control.clone().ok_or(Error::Timeout("Status per Bluetooth"));
+            }
+            b = cv.wait_timeout(b, left).unwrap().0;
+        }
+    }
+
+    fn is_alive(&self) -> bool {
+        self.rt.block_on(self.peripheral.is_connected()).unwrap_or(false)
+    }
+
     fn drain(&self) {
-        self.inbox.0.lock().unwrap().clear();
+        let mut b = self.inbox.0.lock().unwrap();
+        b.read.clear();
+        b.control.clear();
     }
 
     fn kind(&self) -> &'static str {
