@@ -92,6 +92,8 @@ class PlotterStore {
   regtest = $state(false);
   /** Index of the pass currently being cut (multi-pass jobs). */
   pass = $state(0);
+  /** All data of the current pass is sent; the cutter works through its buffer. */
+  draining = $state(false);
   /** Passes of the running job as sent (colour + material name), fixed at start. */
   job = $state<{ color: string; name: string }[]>([]);
   lastResult = $state<{ status: string; message: string | null } | null>(null);
@@ -102,9 +104,16 @@ class PlotterStore {
     if (!inApp || this.#timer) return;
     this.poll();
     this.#timer = setInterval(() => this.poll(), 2000);
-    listen<string | { pass: number }>("cut-phase", (e) => {
-      this.registering = e.payload === "registering";
-      if (typeof e.payload === "object") this.pass = e.payload.pass;
+    listen<string | { pass: number } | { draining: number }>("cut-phase", (e) => {
+      const p = e.payload;
+      this.registering = p === "registering";
+      if (typeof p === "object" && "pass" in p) {
+        this.pass = p.pass;
+        this.draining = false;
+      } else if (typeof p === "object" && "draining" in p) {
+        this.pass = p.draining;
+        this.draining = true;
+      }
     });
     listen<{ done: number; total: number }>("cut-progress", (e) => {
       this.progress = e.payload;
@@ -172,6 +181,7 @@ class PlotterStore {
     this.lastResult = null;
     this.regtest = false;
     this.pass = 0;
+    this.draining = false;
     this.status = { ...this.status, state: "cutting" };
   }
 }

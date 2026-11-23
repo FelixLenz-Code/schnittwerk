@@ -148,6 +148,7 @@ pub struct Plotter {
     pub model: Model,
 }
 
+#[derive(Debug)]
 pub enum Outcome {
     Done,
     Cancelled,
@@ -160,6 +161,9 @@ pub enum Phase {
     Cutting,
     /// Starting pass n (0-based) of a multi-pass job.
     Pass(usize),
+    /// All data of pass n is in the device; it is still working through its
+    /// buffer (sending runs ahead of cutting).
+    Draining(usize),
 }
 
 impl Plotter {
@@ -343,6 +347,24 @@ impl Plotter {
         job: &Job,
         cancel: &AtomicBool,
         pause: &AtomicBool,
+        progress: impl FnMut(usize, usize),
+        on_phase: impl FnMut(Phase),
+    ) -> Result<Outcome> {
+        self.transport.set_job_mode(true);
+        let r = self.run_job_inner(job, cancel, pause, progress, on_phase);
+        self.transport.set_job_mode(false);
+        match &r {
+            Ok(o) => log(&format!("=== job end: {o:?} ===")),
+            Err(e) => log(&format!("=== job failed: {e} ===")),
+        }
+        r
+    }
+
+    fn run_job_inner(
+        &self,
+        job: &Job,
+        cancel: &AtomicBool,
+        pause: &AtomicBool,
         mut progress: impl FnMut(usize, usize),
         mut on_phase: impl FnMut(Phase),
     ) -> Result<Outcome> {
@@ -401,6 +423,7 @@ impl Plotter {
                 done += 1;
                 progress(done, total);
             }
+            on_phase(Phase::Draining(pi));
         }
         // All data is in the device; wait until it has finished cutting.
         sleep(Duration::from_millis(200));

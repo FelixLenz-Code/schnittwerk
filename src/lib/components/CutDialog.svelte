@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { api } from "../api";
   import { editor, regBracketPath } from "../editor.svelte";
   import { fmt, uid } from "../geometry";
@@ -127,7 +128,31 @@
     const id = c === active ? materialId : byColor[c]?.materialId;
     return all.find((x) => x.id === id) ?? matOf(c);
   };
-  const order = $derived([...colors].sort((a, b) => severity(baseOf(a)) - severity(baseOf(b))));
+  const bySeverity = (list: string[]) => [...list].sort((a, b) => severity(baseOf(a)) - severity(baseOf(b)));
+
+  // Cut order of the colours. Sorted (lighter first) only when colours come
+  // or go – picking a material never reshuffles the tabs, so the one being
+  // edited stays where it is. The user can move passes by hand.
+  let manualOrder = $state<string[]>([]);
+  $effect(() => {
+    const cur = colors;
+    const prev = untrack(() => manualOrder);
+    if (prev.length === cur.length && cur.every((c) => prev.includes(c))) return;
+    manualOrder = untrack(() => bySeverity(cur));
+  });
+  const order = $derived([...manualOrder.filter((c) => colors.includes(c)), ...colors.filter((c) => !manualOrder.includes(c))]);
+
+  function moveColor(c: string, dir: -1 | 1) {
+    const list = [...order];
+    const i = list.indexOf(c);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    manualOrder = list;
+  }
+
+  /** A heavier pass comes before a lighter one (sheet may fall apart early). */
+  const misordered = $derived(order.some((c, i) => i > 0 && severity(baseOf(order[i - 1])) > severity(baseOf(c))));
 
   const groups = $derived(
     order.map((c) => {
@@ -273,7 +298,11 @@
     if (plotter.phase === "cancelling") return "Breche ab …";
     const n = plotter.job.length;
     const step = n > 1 ? `Schritt ${Math.min(plotter.pass + 1, n)}/${n} (${plotter.job[plotter.pass]?.name ?? ""}) · ` : "";
-    return pct >= 100 ? `${step}schneidet die letzten Linien …` : `${step}${pct} %`;
+    if (plotter.draining) {
+      const last = plotter.pass >= n - 1;
+      return `${step}${last ? "schneidet die letzten Linien …" : "schneidet den Rest dieses Schritts …"}`;
+    }
+    return `${step}${pct} %`;
   });
 
   const pct = $derived(plotter.progress.total ? Math.round((plotter.progress.done / plotter.progress.total) * 100) : 0);
@@ -372,12 +401,22 @@
           {#if colors.length > 1}
             <div class="color-tabs">
               {#each order as c, i}
-                <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title="Einstellungen für diese Farbe">
-                  <span class="sw" style:background={c}></span>
-                  <span class="ctab-text">{i + 1}. {matOf(c).name}</span>
-                </button>
+                <div class="ctab-row">
+                  <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title="Einstellungen für diese Farbe">
+                    <span class="sw" style:background={c}></span>
+                    <span class="ctab-text">{i + 1}. {matOf(c).name}</span>
+                  </button>
+                  <button class="btn icon mini" onclick={() => moveColor(c, -1)} disabled={plotter.busy || i === 0} title="Früher schneiden" aria-label="Früher schneiden"><Icon name="arrowUp" size={13} /></button>
+                  <button class="btn icon mini" onclick={() => moveColor(c, 1)} disabled={plotter.busy || i === order.length - 1} title="Später schneiden" aria-label="Später schneiden"><Icon name="arrowDown" size={13} /></button>
+                </div>
               {/each}
             </div>
+            {#if misordered}
+              <p class="warn-text order-warn">
+                Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.
+                <button class="btn small-btn" onclick={() => (manualOrder = bySeverity(colors))} disabled={plotter.busy}>Leichte zuerst</button>
+              </p>
+            {/if}
           {/if}
           <div class="row">
             <select class="field" value={materialId} onchange={(e) => pickMaterial(e.currentTarget.value)} disabled={plotter.busy}>
@@ -475,7 +514,7 @@
         <div class="footer">
           {#if plotter.busy}
             <div class="progress">
-              <div class="bar"><div style:width="{pct}%"></div></div>
+              <div class="bar" class:working={plotter.draining && plotter.phase === "cutting"}><div style:width="{pct}%"></div></div>
               <span>{progressText}</span>
             </div>
             <div class="actions">
@@ -661,6 +700,26 @@
     gap: 4px;
     margin-bottom: 10px;
   }
+  .ctab-row {
+    display: flex;
+    gap: 4px;
+  }
+  .ctab-row .ctab {
+    flex: 1;
+    min-width: 0;
+  }
+  .mini {
+    width: 26px;
+    height: 30px;
+    flex: none;
+  }
+  .order-warn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 10px;
+  }
   .ctab {
     display: flex;
     align-items: center;
@@ -828,6 +887,18 @@
     height: 100%;
     background: linear-gradient(90deg, var(--accent), #c04bff);
     transition: width 0.3s;
+  }
+  /* Data is sent, the cutter is still busy: moving stripes instead of a
+     frozen bar. */
+  .bar.working div {
+    background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, #c04bff 8px 16px);
+    background-size: 22.6px 22.6px;
+    animation: stripes 0.8s linear infinite;
+  }
+  @keyframes stripes {
+    to {
+      background-position: 22.6px 0;
+    }
   }
   .actions {
     display: flex;
