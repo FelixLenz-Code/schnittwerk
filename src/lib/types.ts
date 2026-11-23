@@ -67,7 +67,8 @@ export type TraceMode =
   | { kind: "threshold"; level: number | null; invert: boolean }
   | { kind: "colorKey"; color: [number, number, number]; tolerance: number }
   | { kind: "alpha" }
-  | { kind: "multiColor"; colors: number; skipBackground: boolean };
+  | { kind: "multiColor"; colors: number; skipBackground: boolean }
+  | { kind: "centerline"; level: number | null; invert: boolean };
 
 export interface TraceParams {
   mode: TraceMode;

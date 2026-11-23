@@ -10,6 +10,9 @@ fn main() {
     if let Some(s) = args.get(2) {
         p.smoothness = s.parse().unwrap();
     }
+    if args.get(3).map(|s| s == "center").unwrap_or(false) {
+        p.mode = schnittwerk_core::TraceMode::Centerline { level: None, invert: false };
+    }
     let r = schnittwerk_core::trace(&img, &p);
     let mut polys = Vec::new();
     let mut segs = 0;

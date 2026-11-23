@@ -3,10 +3,11 @@
     options,
     value,
     onchange,
-  }: { options: { value: T; label: string; hint?: string }[]; value: T; onchange: (v: T) => void } = $props();
+    cols,
+  }: { options: { value: T; label: string; hint?: string }[]; value: T; onchange: (v: T) => void; cols?: number } = $props();
 </script>
 
-<div class="seg" role="radiogroup">
+<div class="seg" class:wrap={!!cols} style:--cols={cols} role="radiogroup">
   {#each options as o}
     <button
       type="button"
@@ -29,6 +30,10 @@
     border-radius: var(--radius-sm);
     background: var(--panel-2);
     border: 1px solid var(--border);
+  }
+  .seg.wrap {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(var(--cols), 1fr);
   }
   button {
     height: 26px;

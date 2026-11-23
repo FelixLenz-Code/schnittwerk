@@ -33,6 +33,7 @@
   function buildMode(k: Kind): TraceMode {
     switch (k) {
       case "threshold":
+      case "centerline":
         return { kind: k, level: threshold.auto ? null : threshold.level, invert: threshold.invert };
       case "colorKey":
         return { kind: k, color: [...colorKey.color], tolerance: colorKey.tolerance };
@@ -117,10 +118,10 @@
       return {
         id: uid(),
         type: "path",
-        name: r.layers.length > 1 ? `${img.name} · Farbe ${i + 1}` : `${img.name} · Kontur`,
+        name: r.layers.length > 1 ? `${img.name} · Farbe ${i + 1}` : kind === "centerline" ? `${img.name} · Linien` : `${img.name} · Kontur`,
         d: l.d,
         bbox: l.bbox,
-        color: kind === "multiColor" ? l.color : "#e5484d",
+        color: kind === "multiColor" ? l.color : kind === "centerline" ? "#30a46c" : "#e5484d",
         fill: kind === "multiColor",
         x: ic.x + off.x - w / 2,
         y: ic.y + off.y - h / 2,
@@ -174,11 +175,13 @@
           { value: "colorKey", label: "Farbe", hint: "Alles in einer gewählten Farbe tracen" },
           { value: "multiColor", label: "Mehrfarbig", hint: "Bild in mehrere Farbebenen zerlegen" },
           { value: "alpha", label: "Freistellen", hint: "Umriss des nicht-transparenten Bereichs (PNG mit Transparenz)" },
+          { value: "centerline", label: "Linie", hint: "Eine Linie mitten durch jeden Strich – zum Zeichnen mit dem Stift oder für filigrane Linien" },
         ]}
+        cols={3}
       />
 
       <div class="controls">
-        {#if kind === "threshold"}
+        {#if kind === "threshold" || kind === "centerline"}
           <Toggle label="Schwellwert automatisch" bind:checked={threshold.auto} />
           <Slider
             label="Schwellwert"
@@ -190,6 +193,9 @@
             hint="Pixel dunkler als dieser Wert werden zur Form"
           />
           <Toggle label="Invertieren (helle Bereiche)" bind:checked={threshold.invert} />
+          {#if kind === "centerline"}
+            <p class="muted">Ergebnis sind offene Linien (grün = mit dem Stift zeichnen). „Flecken entfernen“ verwirft kurze Linien.</p>
+          {/if}
         {:else if kind === "colorKey"}
           <div class="color-row">
             <span class="swatch" style:background={hex}></span>

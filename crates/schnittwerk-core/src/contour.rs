@@ -216,7 +216,7 @@ fn signed_area(pts: &[Point]) -> f64 {
 
 // ---------------------------------------------------------------- helpers
 
-fn unit(v: Vec2) -> Vec2 {
+pub(crate) fn unit(v: Vec2) -> Vec2 {
     let l = v.hypot();
     if l < 1e-12 { Vec2::new(1.0, 0.0) } else { v / l }
 }
@@ -292,7 +292,7 @@ fn smooth_closed(pts: &[Point], sigma: f64) -> Vec<Point> {
 
 /// Smoothing of an open run; the kernel shrinks towards the ends so the
 /// endpoints stay fixed.
-fn smooth_open(pts: &[Point], sigma: f64) -> Vec<Point> {
+pub(crate) fn smooth_open(pts: &[Point], sigma: f64) -> Vec<Point> {
     let n = pts.len();
     let r = (sigma * 2.5).ceil() as usize;
     if r == 0 || n < 3 || sigma < 0.05 {
@@ -312,7 +312,7 @@ fn smooth_open(pts: &[Point], sigma: f64) -> Vec<Point> {
         .collect()
 }
 
-fn max_chord_dist(d: &[Point]) -> f64 {
+pub(crate) fn max_chord_dist(d: &[Point]) -> f64 {
     let (a, b) = (d[0], d[d.len() - 1]);
     let ab = b - a;
     let len = ab.hypot();
@@ -336,7 +336,7 @@ fn polygon_closed(ring: &[Point], tol: f64, out: &mut BezPath) {
     out.close_path();
 }
 
-fn rdp(pts: &[Point], tol: f64) -> Vec<Point> {
+pub(crate) fn rdp(pts: &[Point], tol: f64) -> Vec<Point> {
     if pts.len() < 3 {
         return pts.to_vec();
     }
@@ -478,7 +478,7 @@ fn fit_closed(ring: &[Point], p: &ContourParams, shape: &Shape, out: &mut BezPat
     out.close_path();
 }
 
-fn fit_cubic(d: &[Point], t1: Vec2, t2: Vec2, err2: f64, out: &mut BezPath) {
+pub(crate) fn fit_cubic(d: &[Point], t1: Vec2, t2: Vec2, err2: f64, out: &mut BezPath) {
     let n = d.len();
     if n < 2 {
         return;

@@ -9,6 +9,7 @@ use image::{imageops::FilterType, DynamicImage};
 use kurbo::Affine;
 use serde::{Deserialize, Serialize};
 
+use crate::centerline::trace_centerline;
 use crate::contour::{trace_field, ContourParams};
 use crate::field::Field;
 use crate::geom::{bbox, to_svg_d};
@@ -28,6 +29,8 @@ pub enum TraceMode {
     /// Reduce to N colors and trace each color as its own layer.
     #[serde(rename_all = "camelCase")]
     MultiColor { colors: u8, skip_background: bool },
+    /// Single open line along the middle of each dark stroke (pen drawing).
+    Centerline { level: Option<u8>, invert: bool },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,7 +134,7 @@ pub fn trace(img: &DynamicImage, p: &TraceParams) -> TraceResult {
 
     let mut threshold = None;
     let fields: Vec<(Field, [u8; 3])> = match &p.mode {
-        TraceMode::Threshold { level, invert } => {
+        TraceMode::Threshold { level, invert } | TraceMode::Centerline { level, invert } => {
             let lvl = level.unwrap_or_else(|| preprocess::otsu(&preprocess::luminance(&rgba)));
             threshold = Some(lvl);
             vec![(Field::threshold(&rgba, lvl, *invert), [0x22, 0x22, 0x22])]
@@ -159,6 +162,7 @@ pub fn trace(img: &DynamicImage, p: &TraceParams) -> TraceResult {
         }
     };
 
+    let centerline = matches!(p.mode, TraceMode::Centerline { .. });
     let to_source = Affine::scale(scale);
     let layers = fields
         .into_iter()
@@ -170,7 +174,12 @@ pub fn trace(img: &DynamicImage, p: &TraceParams) -> TraceResult {
             if field.is_empty() {
                 return None;
             }
-            let (path, contours) = trace_field(&field, &cp);
+            let (path, contours) = if centerline {
+                // Despeckle area → minimum line length (work px).
+                trace_centerline(&field.to_mask(), &cp, min_area.sqrt().max(3.0))
+            } else {
+                trace_field(&field, &cp)
+            };
             if contours == 0 {
                 return None;
             }

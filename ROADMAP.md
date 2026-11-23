@@ -27,7 +27,7 @@
 - ✅ Auflösung wählbar (schnell → Original)
 - ✅ Radierer/Pinsel zum Bereinigen vor dem Tracen (rückgängig machbar, Live-Neutracen)
 - ⬜ Perspektivkorrektur und Beleuchtungsausgleich für Fotos von Zeichnungen
-- ⬜ Kantenmodus (Umrisslinien von Strichzeichnungen)
+- ✅ Mittellinien-Modus: eine Linie mitten durch jeden Strich (Skelett, Sporn-Entfernung, Kurvenfit)
 
 ## Etappe 3 – Plotter
 - ✅ USB-Erkennung Portrait 3 (rusb), udev-Regel

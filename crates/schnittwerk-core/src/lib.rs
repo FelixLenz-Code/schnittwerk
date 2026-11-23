@@ -1,6 +1,7 @@
 //! Schnittwerk core: image tracing, vector import and (later) cutting logic.
 //! Contains no GUI or USB code so it can be tested on its own.
 
+pub mod centerline;
 pub mod contour;
 pub mod cut;
 pub mod field;
