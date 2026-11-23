@@ -15,6 +15,9 @@ export const api = {
   detectPage: (id: string) => call<[number, number][] | null>("detect_page", { id }),
   warpImage: (id: string, quad: [number, number][], aspect: number | null, name: string) =>
     call<ImageInfo>("warp_image", { id, quad, aspect, name }),
+  detectPixscan: (id: string) => call<{ frame: [number, number][]; oriented: boolean } | null>("detect_pixscan", { id }),
+  pixscanRectify: (id: string, frame: [number, number][], name: string) =>
+    call<{ info: ImageInfo; margin: number; frameW: number; frameH: number }>("pixscan_rectify", { id, frame, name }),
   sampleColor: (id: string, x: number, y: number) =>
     call<[number, number, number]>("sample_color", { id, x: Math.round(x), y: Math.round(y) }),
   importSvg: (path: string) => call<ImportedVector>("import_svg", { path }),

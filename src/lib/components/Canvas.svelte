@@ -616,7 +616,7 @@
             />
           {/each}
           {#each perspWorld as q, i}
-            <circle data-persp={i} cx={q.x} cy={q.y} r={px(8)} fill="var(--panel)" fill-opacity="0.6" stroke="var(--accent)" stroke-width={px(2)} style:cursor="move" />
+            <circle data-persp={i} cx={q.x} cy={q.y} r={px(8)} fill={perspective.custom && i === 0 ? "var(--accent)" : "var(--panel)"} fill-opacity="0.6" stroke="var(--accent)" stroke-width={px(2)} style:cursor="move" />
             <circle cx={q.x} cy={q.y} r={px(1.5)} fill="var(--accent)" pointer-events="none" />
           {/each}
         </g>
@@ -707,7 +707,11 @@
   {:else if nodes.objId}
     <div class="hint">Knoten ziehen · Doppelklick auf die Linie = neuer Knoten · <kbd>Entf</kbd> löscht · <kbd>Esc</kbd> fertig</div>
   {:else if perspective.objId}
-    <div class="hint">Die vier Punkte auf die Ecken des Blatts ziehen · rechts „Entzerren“</div>
+    {#if perspective.custom}
+      <div class="hint">Punkte auf die Ecken des schwarzen Rahmens ziehen · gefüllter Punkt an die Ecke beim großen Quadrat</div>
+    {:else}
+      <div class="hint">Die vier Punkte auf die Ecken des Blatts ziehen · rechts „Entzerren“</div>
+    {/if}
   {/if}
 </div>
 

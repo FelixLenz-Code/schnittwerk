@@ -25,6 +25,8 @@ export interface ImageObj extends BaseObj {
   /** Key into editor.images (backend image id). */
   imageId: string;
   opacity: number;
+  /** Straightened PixScan photo: where it was placed (mm), for calibration. */
+  pixscan?: { x: number; y: number };
 }
 
 export interface PathObj extends BaseObj {

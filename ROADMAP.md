@@ -50,6 +50,7 @@
 - ✅ Passermarken-Suche mit optischem Sensor (TB123, Werte nach py_silhouette)
 - ✅ Bleed (Randfarben des Motivs über die Schnittlinie hinaus)
 - ✅ Feinjustierung Druck ↔ Schnitt mit Testbogen
+- ✅ PixScan-Matte: Foto der Matte → Innenrahmen und Ausrichtung automatisch erkennen (Ecken notfalls von Hand), in Originalgröße an die Schneideposition legen; Kalibrierung mit Testkreuzen
 
 ## Etappe 5 – Ausbau
 - ✅ Text mit Systemschriften (Suche, fett/kursiv, Abstand, mehrzeilig, Ausrichtung), Verschweißen

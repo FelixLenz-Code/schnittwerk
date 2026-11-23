@@ -9,6 +9,7 @@
   import Toggle from "./Toggle.svelte";
   import { brush } from "../brush.svelte";
   import { PAPERS, perspective } from "../perspective.svelte";
+  import PixScanSection from "./PixScanSection.svelte";
 
   type Kind = TraceMode["kind"];
 
@@ -162,6 +163,7 @@
     <p><strong>Bild auswählen zum Tracen</strong></p>
     <p class="muted">Importiere ein Foto, eine Zeichnung oder ein Logo und wähle es auf der Arbeitsfläche aus.</p>
   </div>
+  <PixScanSection img={null} />
 {:else}
   <div class="panel">
     <div class="head">
@@ -230,7 +232,7 @@
 
     <section>
       <h3 class="section-title">Foto einer Zeichnung</h3>
-      {#if perspective.objId}
+      {#if perspective.objId && !perspective.custom}
         <p class="muted">
           {perspective.detected ? "Blatt erkannt – Ecken bei Bedarf nachziehen." : "Kein Blatt erkannt – die vier Punkte auf die Ecken ziehen."}
         </p>
@@ -259,6 +261,8 @@
         <Toggle label="Beleuchtung ausgleichen" bind:checked={p.flatten} hint="Schatten und Helligkeitsverläufe auf dem Papier entfernen – vor allem bei Handyfotos" />
       </div>
     </section>
+
+    <PixScanSection img={target} />
 
     <section>
       <h3 class="section-title">Bild bereinigen</h3>

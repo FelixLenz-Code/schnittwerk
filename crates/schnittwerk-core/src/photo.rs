@@ -218,7 +218,7 @@ pub fn flatten_light(img: &RgbaImage) -> RgbaImage {
 }
 
 /// Separable square max filter with radius `r`.
-fn max_filter(img: &GrayImage, r: i64) -> GrayImage {
+pub(crate) fn max_filter(img: &GrayImage, r: i64) -> GrayImage {
     let (w, h) = (img.width() as i64, img.height() as i64);
     let get = |im: &GrayImage, x: i64, y: i64| im.get_pixel(x.clamp(0, w - 1) as u32, y.clamp(0, h - 1) as u32).0[0];
     let mut tmp = GrayImage::new(w as u32, h as u32);

@@ -122,6 +122,48 @@ async fn warp_image(
     register_image(&store, png, name)
 }
 
+/// Finds the frame of a PixScan mat in a photo.
+#[tauri::command]
+async fn detect_pixscan(id: String, store: State<'_, ImageStore>) -> Result<Option<schnittwerk_core::pixscan::Detection>, String> {
+    let img = store.get(&id)?;
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::pixscan::detect(&img))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PixScanImage {
+    info: ImageInfo,
+    /// Photo kept around the frame on every side (mm).
+    margin: f64,
+    frame_w: f64,
+    frame_h: f64,
+}
+
+/// Straightens a PixScan photo from its frame corners (plotter orientation)
+/// into an image in true millimetres.
+#[tauri::command]
+async fn pixscan_rectify(
+    id: String,
+    frame: schnittwerk_core::photo::Quad,
+    name: String,
+    store: State<'_, ImageStore>,
+) -> Result<PixScanImage, String> {
+    use schnittwerk_core::pixscan;
+    let img = store.get(&id)?;
+    let png = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
+        let (out, _) = pixscan::rectify(&img, &frame).ok_or("Die Ecken bilden kein gültiges Viereck.")?;
+        let mut buf = std::io::Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(out).write_to(&mut buf, ImageFormat::Png).map_err(|e| e.to_string())?;
+        Ok(buf.into_inner())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let info = register_image(&store, png, name)?;
+    Ok(PixScanImage { info, margin: pixscan::MARGIN, frame_w: pixscan::FRAME_W, frame_h: pixscan::FRAME_H })
+}
+
 #[tauri::command]
 async fn trace_image(id: String, params: TraceParams, store: State<'_, ImageStore>) -> Result<TraceResult, String> {
     let img = store.get(&id)?;
@@ -342,6 +384,8 @@ pub fn run() {
             trace_image,
             detect_page,
             warp_image,
+            detect_pixscan,
+            pixscan_rectify,
             sample_color,
             import_svg,
             import_dxf,
