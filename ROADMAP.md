@@ -60,7 +60,7 @@
 - ⬜ Vorlagen, CLI-Modus
 
 ## Etappe 6 – Anbindungen
-- 🚧 Bluetooth LE: Suchen, Verbinden, Schneiden über den Silhouette-GATT-Dienst – implementiert, Hardware-Test ausstehend;
+- 🚧 Bluetooth LE: Suchen, Verbinden (automatisches Wiederverbinden), Schneiden über den Silhouette-GATT-Dienst – Hardware-Test ausstehend;
   gleiche GPGL-Befehle, nur anderer Transport
 - ✅ MCP-Schnittstelle (`schnittwerk-mcp`): Bilder tracen, Sticker-Bögen als Projekt anlegen,
   Schnitt-Vorschau und Schneiden nur mit Bestätigung; im .deb enthalten

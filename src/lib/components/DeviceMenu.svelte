@@ -30,7 +30,8 @@
     connecting = d.id;
     try {
       const name = await api.bleConnect(d.id);
-      editor.toast(`${name} per Bluetooth verbunden`, "ok");
+      plotter.rememberBle({ id: d.id, name: d.name || name });
+      editor.toast(`${name} per Bluetooth verbunden – verbindet sich künftig automatisch`, "ok");
       open = false;
       plotter.poll();
     } catch (e) {
@@ -42,6 +43,8 @@
 
   async function disconnect() {
     try {
+      // A deliberate disconnect also stops the automatic reconnect.
+      plotter.forgetBle();
       await api.plotterDisconnect();
       plotter.poll();
     } catch (e) {
@@ -66,6 +69,8 @@
     {#if plotter.status.connected}
       {#if plotter.status.connection === "Bluetooth"}<span class="bt">BT</span>{/if}
       {plotter.status.model?.replace("Silhouette ", "")} · {STATE[plotter.status.state] ?? ""}
+    {:else if plotter.reconnecting}
+      Verbinde per Bluetooth …
     {:else if plotter.status.state === "error"}
       Plotter-Fehler
     {:else}
@@ -86,6 +91,17 @@
       </div>
       {#if plotter.status.connection === "Bluetooth"}
         <button class="btn outline" onclick={disconnect} disabled={plotter.busy}>Bluetooth trennen</button>
+      {/if}
+      {#if plotter.knownBle}
+        <div class="known">
+          <span class="muted small">
+            Automatisch verbinden mit <strong>{plotter.knownBle.name || "Plotter"}</strong>
+            {#if plotter.reconnecting}– wird gesucht …{/if}
+          </span>
+          {#if plotter.status.connection !== "Bluetooth"}
+            <button class="btn small-btn" onclick={() => plotter.forgetBle()}>Vergessen</button>
+          {/if}
+        </div>
       {/if}
       <div class="sep"></div>
       <button class="btn outline" onclick={scan} disabled={scanning || plotter.busy}>
@@ -187,6 +203,17 @@
   .small {
     font-size: 12px;
     margin: 0;
+  }
+  .known {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .small-btn {
+    height: 24px;
+    font-size: 12px;
+    border: 1px solid var(--border);
   }
   .sep {
     height: 1px;

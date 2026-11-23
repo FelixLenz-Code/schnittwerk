@@ -28,6 +28,20 @@ export function matKindFor(name: string): MatKind {
 }
 
 const CALIB_KEY = "schnittwerk.calibration";
+const BLE_KEY = "schnittwerk.bleDevice";
+/** Pause between automatic Bluetooth reconnect attempts. */
+const RECONNECT_MS = 15000;
+
+type KnownBle = { id: string; name: string };
+
+function loadBle(): KnownBle | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(BLE_KEY) ?? "null");
+    return d && typeof d.id === "string" ? d : null;
+  } catch {
+    return null;
+  }
+}
 
 function loadCalib(): { dx: number; dy: number } {
   try {
@@ -38,6 +52,26 @@ function loadCalib(): { dx: number; dy: number } {
 }
 
 class PlotterStore {
+  /** Bluetooth cutter to reconnect to automatically (last successful connection). */
+  knownBle = $state<KnownBle | null>(loadBle());
+  /** An automatic Bluetooth reconnect is in progress. */
+  reconnecting = $state(false);
+  #lastAttempt = 0;
+
+  rememberBle(d: KnownBle) {
+    this.knownBle = d;
+    try {
+      localStorage.setItem(BLE_KEY, JSON.stringify(d));
+    } catch {}
+  }
+
+  forgetBle() {
+    this.knownBle = null;
+    try {
+      localStorage.removeItem(BLE_KEY);
+    } catch {}
+  }
+
   /** Print & cut fine adjustment (mm), added to every cut coordinate. */
   calib = $state(loadCalib());
 
@@ -89,7 +123,30 @@ class PlotterStore {
       this.status = await api.plotterStatus();
     } catch {
       /* not in app */
+      return;
     }
+    this.autoReconnect();
+  }
+
+  /** Reconnects to the remembered Bluetooth cutter while nothing is connected. */
+  autoReconnect() {
+    const known = this.knownBle;
+    if (!known || this.status.connected || this.reconnecting || this.busy) return;
+    if (Date.now() - this.#lastAttempt < RECONNECT_MS) return;
+    this.#lastAttempt = Date.now();
+    this.reconnecting = true;
+    api
+      .bleConnect(known.id)
+      .then((name) => {
+        editor.toast(`${name} automatisch per Bluetooth verbunden`, "ok");
+        return this.poll();
+      })
+      .catch(() => {
+        /* switched off or out of range – try again later */
+      })
+      .finally(() => {
+        this.reconnecting = false;
+      });
   }
 
   get busy() {
