@@ -105,7 +105,9 @@ fn take_message(buf: &mut VecDeque<u8>) -> Option<Vec<u8>> {
 }
 
 pub struct BleTransport {
-    rt: Runtime,
+    /// Own runtime for btleplug; `Option` so `Drop` can hand it to a plain
+    /// thread (a runtime must not be dropped inside another one).
+    rt: Option<Runtime>,
     peripheral: Peripheral,
     write_char: Characteristic,
     inbox: Inbox,
@@ -178,7 +180,13 @@ impl BleTransport {
             b.read.clear();
             b.control.clear();
         }
-        Ok((BleTransport { rt, peripheral, write_char, inbox }, name))
+        Ok((BleTransport { rt: Some(rt), peripheral, write_char, inbox }, name))
+    }
+}
+
+impl BleTransport {
+    fn rt(&self) -> &Runtime {
+        self.rt.as_ref().expect("runtime present until drop")
     }
 }
 
@@ -192,7 +200,7 @@ impl Transport for BleTransport {
                 if left.is_zero() {
                     return Err(Error::Timeout("Bluetooth senden"));
                 }
-                let r = self.rt.block_on(async {
+                let r = self.rt().block_on(async {
                     tokio::time::timeout(left, self.peripheral.write(&self.write_char, chunk, WriteType::WithResponse)).await
                 });
                 match r {
@@ -252,7 +260,7 @@ impl Transport for BleTransport {
     }
 
     fn is_alive(&self) -> bool {
-        self.rt.block_on(self.peripheral.is_connected()).unwrap_or(false)
+        self.rt().block_on(self.peripheral.is_connected()).unwrap_or(false)
     }
 
     fn drain(&self) {
@@ -268,7 +276,15 @@ impl Transport for BleTransport {
 
 impl Drop for BleTransport {
     fn drop(&mut self) {
-        let _ = self.rt.block_on(self.peripheral.disconnect());
+        // Disconnect and shut the runtime down on a plain thread, so dropping
+        // a connection is safe from any context.
+        if let Some(rt) = self.rt.take() {
+            let p = self.peripheral.clone();
+            std::thread::spawn(move || {
+                let _ = rt.block_on(p.disconnect());
+                drop(rt);
+            });
+        }
     }
 }
 

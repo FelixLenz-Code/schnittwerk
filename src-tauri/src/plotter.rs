@@ -37,10 +37,26 @@ impl StatusInfo {
     }
 }
 
+/// A poisoned lock must not take the whole plotter connection down.
+fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Plotter I/O blocks (and Bluetooth runs its own async runtime, which must
+/// not be driven from inside Tauri's), so it always runs on a worker thread.
 #[tauri::command]
-pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<StatusInfo, String> {
+pub async fn plotter_status(app: AppHandle) -> Result<StatusInfo, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mgr = tauri::Manager::state::<PlotterManager>(&app);
+        status_blocking(&mgr)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn status_blocking(mgr: &PlotterManager) -> Result<StatusInfo, String> {
     if mgr.busy.load(Ordering::Relaxed) {
-        let conn = mgr.conn.lock().unwrap();
+        let conn = lock(&mgr.conn);
         let model = conn.as_ref().map(|p| p.model);
         return Ok(StatusInfo {
             connected: true,
@@ -51,7 +67,7 @@ pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<Statu
             width_mm: model.map(|m| m.width_mm),
         });
     }
-    let mut conn = mgr.conn.lock().unwrap();
+    let mut conn = lock(&mgr.conn);
     if conn.is_none() {
         match Plotter::open() {
             Ok(Some(p)) => *conn = Some(Arc::new(p)),
@@ -109,11 +125,11 @@ pub async fn ble_scan() -> Result<Vec<schnittwerk_plotter::ble::BleDevice>, Stri
 
 /// Connects to a cutter found by `ble_scan`; replaces any USB connection.
 #[tauri::command]
-pub async fn ble_connect(id: String, mgr: TauriState<'_, PlotterManager>) -> Result<String, String> {
-    if mgr.busy.load(Ordering::Relaxed) {
+pub async fn ble_connect(id: String, app: AppHandle) -> Result<String, String> {
+    if tauri::Manager::state::<PlotterManager>(&app).busy.load(Ordering::Relaxed) {
         return Err("Es läuft gerade ein Schnitt.".into());
     }
-    let plotter = tauri::async_runtime::spawn_blocking(move || -> Result<Plotter, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let (transport, name) = schnittwerk_plotter::ble::BleTransport::connect(&id).map_err(|e| e.to_string())?;
         let mut model = schnittwerk_plotter::ble::model_for(&name);
         let p = Plotter::with_transport(Box::new(transport), model.unwrap_or(schnittwerk_plotter::MODELS[0]));
@@ -121,26 +137,35 @@ pub async fn ble_connect(id: String, mgr: TauriState<'_, PlotterManager>) -> Res
             // Advertised name unknown: ask the firmware ("Portrait 3 V1.05").
             model = p.firmware().as_deref().and_then(schnittwerk_plotter::ble::model_for);
         }
-        match model {
-            Some(m) if m.cameo4_line => Ok(Plotter::with_model(p, m)),
-            Some(m) => Err(format!("{} wird noch nicht unterstützt.", m.name)),
-            None => Ok(p),
-        }
+        let plotter = match model {
+            Some(m) if m.cameo4_line => Plotter::with_model(p, m),
+            Some(m) => return Err(format!("{} wird noch nicht unterstützt.", m.name)),
+            None => p,
+        };
+        let name = plotter.model.name.to_string();
+        // Replacing (and dropping) a previous connection happens here, on the
+        // worker thread, too.
+        let mgr = tauri::Manager::state::<PlotterManager>(&app);
+        *lock(&mgr.conn) = Some(Arc::new(plotter));
+        Ok(name)
     })
     .await
-    .map_err(|e| e.to_string())??;
-    let name = plotter.model.name.to_string();
-    *mgr.conn.lock().unwrap() = Some(Arc::new(plotter));
-    Ok(name)
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn plotter_disconnect(mgr: TauriState<'_, PlotterManager>) -> Result<(), String> {
-    if mgr.busy.load(Ordering::Relaxed) {
-        return Err("Es läuft gerade ein Schnitt.".into());
-    }
-    *mgr.conn.lock().unwrap() = None;
-    Ok(())
+pub async fn plotter_disconnect(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mgr = tauri::Manager::state::<PlotterManager>(&app);
+        if mgr.busy.load(Ordering::Relaxed) {
+            return Err("Es läuft gerade ein Schnitt.".into());
+        }
+        let old = lock(&mgr.conn).take();
+        drop(old);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(Deserialize)]
@@ -203,7 +228,7 @@ fn start_job(app: AppHandle, mgr: &PlotterManager, groups: Vec<(Vec<Vec<kurbo::P
         return Err("Keine Schnittlinien vorhanden.".into());
     }
     let plotter = {
-        let mut conn = mgr.conn.lock().unwrap();
+        let mut conn = lock(&mgr.conn);
         if conn.is_none() {
             *conn = Plotter::open().map_err(|e| e.to_string())?.map(Arc::new);
         }
@@ -238,7 +263,7 @@ fn start_job(app: AppHandle, mgr: &PlotterManager, groups: Vec<(Vec<Vec<kurbo::P
         };
         let mgr = tauri::Manager::state::<PlotterManager>(&app);
         if fin.status == "error" {
-            *mgr.conn.lock().unwrap() = None;
+            *lock(&mgr.conn) = None;
         }
         mgr.busy.store(false, Ordering::SeqCst);
         let _ = app.emit("cut-finished", fin);
