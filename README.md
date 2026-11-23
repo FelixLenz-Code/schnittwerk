@@ -34,6 +34,22 @@ npm run tauri build    # .deb unter target/release/bundle/deb/
 
 Tests des Kerns: `cargo test -p schnittwerk-core`
 
+## MCP-Schnittstelle (KI-Assistenten)
+
+`schnittwerk-mcp` ist ein MCP-Server (stdio). Damit können KI-Assistenten wie
+Claude Bilder tracen, Sticker-Bögen als `.schnitt`-Projekt anlegen und SVGs
+schneiden – geschnitten wird nur mit ausdrücklicher Bestätigung (`confirm`).
+
+```bash
+# nach Installation des .deb
+claude mcp add schnittwerk -- /usr/bin/schnittwerk-mcp
+# aus dem Quellcode
+cargo build --release -p schnittwerk-mcp
+claude mcp add schnittwerk -- "$PWD/target/release/schnittwerk-mcp"
+```
+
+Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `cut_svg`.
+
 ## Aufbau
 
 ```
@@ -46,6 +62,7 @@ crates/schnittwerk-core/   Rust-Bibliothek ohne GUI
   src/offset.rs            Distanztransformation, Konturversatz (Bilder + Vektoren)
   src/sticker.rs           Sticker-Kontur: Motiv freistellen, Rand, Löcher füllen
 crates/schnittwerk-plotter/ USB (rusb) und Bluetooth LE (btleplug): Status, Senden, Pause/Abbruch
+crates/schnittwerk-mcp/    MCP-Server für KI-Assistenten
 src-tauri/                 Tauri-Backend (Befehle, Bildspeicher, Schneide-Thread, PDF/Druck)
 src/                       Oberfläche
   lib/editor.svelte.ts     Dokument-Zustand, Auswahl, Undo/Redo

@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && cargo build --release -p schnittwerk-mcp",
     "frontendDist": "../dist"
   },
   "app": {
@@ -46,7 +46,8 @@
           "poppler-utils"
         ],
         "files": {
-          "/usr/lib/udev/rules.d/70-silhouette.rules": "../packaging/70-silhouette.rules"
+          "/usr/lib/udev/rules.d/70-silhouette.rules": "../packaging/70-silhouette.rules",
+          "/usr/bin/schnittwerk-mcp": "../target/release/schnittwerk-mcp"
         }
       }
     },
