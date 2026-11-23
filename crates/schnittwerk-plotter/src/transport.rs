@@ -21,6 +21,9 @@ pub trait Transport: Send + Sync {
     fn is_alive(&self) -> bool {
         true
     }
+    /// A job is running: ride out short connection dropouts (retry,
+    /// reconnect) instead of failing at the first error.
+    fn set_job_mode(&self, _on: bool) {}
     /// Discards pending replies.
     fn drain(&self);
     /// "USB" or "Bluetooth".

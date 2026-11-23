@@ -9,6 +9,7 @@
 //! cross-checked them against bob-takuya/cameo-cut.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -17,6 +18,7 @@ use btleplug::platform::{Adapter, Manager, Peripheral};
 use futures::StreamExt;
 use serde::Serialize;
 use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 use crate::transport::Transport;
@@ -28,6 +30,11 @@ const READ: Uuid = Uuid::from_u128(0x8dcf199a_30e7_4bd4_beb6_beb57dca866c);
 const CONTROL: Uuid = Uuid::from_u128(0x61490654_b5b4_458c_a867_9e15bc1471e0);
 const INIT: [u8; 2] = [0x1b, 0x04];
 const CHUNK: usize = 20;
+/// Longest a single acknowledged write may take before it counts as failed.
+const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(35);
+/// During a job: how long to keep retrying / reconnecting after the first
+/// failed write before giving up (radio interference, e.g. a phone call).
+const RECOVERY: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,6 +111,90 @@ fn take_message(buf: &mut VecDeque<u8>) -> Option<Vec<u8>> {
     Some(buf.drain(..=pos).collect())
 }
 
+/// Splits a byte stream into BLE writes of at most `max` bytes that end on
+/// command boundaries (ETX) and start a new write at every move command.
+///
+/// When a write fails, it is unknown whether the cutter already got it, so it
+/// is sent again. Packed like this, a write that arrives twice only repeats
+/// whole commands, and its first command is either a move (tool up) or a cut
+/// back along the stroke that was just cut – never a stray line.
+fn pieces(data: &[u8], max: usize) -> Vec<&[u8]> {
+    let mut out = Vec::new();
+    let mut cur = 0..0;
+    let mut s = 0;
+    while s < data.len() {
+        let e = data[s..].iter().position(|b| *b == ETX).map_or(data.len(), |i| s + i + 1);
+        if !cur.is_empty() && (cur.len() + (e - s) > max || data[s] == b'M') {
+            out.push(&data[cur.clone()]);
+            cur = s..s;
+        }
+        if e - s > max {
+            // A single command longer than one write (not used for plot data).
+            out.extend(data[s..e].chunks(max));
+            cur = e..e;
+        } else {
+            cur.end = e;
+        }
+        s = e;
+    }
+    if !cur.is_empty() {
+        out.push(&data[cur]);
+    }
+    out
+}
+
+/// Connects (or reconnects) `peripheral`, subscribes to replies and state
+/// events and starts feeding them into `inbox`. The init handshake goes to
+/// the given characteristics. Returns the WRITE characteristic and the task
+/// that forwards notifications.
+async fn link(peripheral: &Peripheral, inbox: &Inbox, init_write: bool) -> Result<(Characteristic, JoinHandle<()>)> {
+    if !peripheral.is_connected().await.unwrap_or(false) {
+        peripheral.connect().await.map_err(ble_err)?;
+    }
+    peripheral.discover_services().await.map_err(ble_err)?;
+    let chars = peripheral.characteristics();
+    let find = |u: Uuid| chars.iter().find(|c| c.uuid == u).cloned();
+    let (Some(w), Some(r), Some(c)) = (find(WRITE), find(READ), find(CONTROL)) else {
+        let _ = peripheral.disconnect().await;
+        return Err(Error::Other("Gerät hat nicht den Silhouette-Bluetooth-Dienst.".into()));
+    };
+    peripheral.subscribe(&c).await.map_err(ble_err)?;
+    peripheral.subscribe(&r).await.map_err(ble_err)?;
+    // Replies arrive on READ; CONTROL carries state events ("0"/"1"/"2"),
+    // kept apart so they never pose as a command reply.
+    let mut stream = peripheral.notifications().await.map_err(ble_err)?;
+    let sink = inbox.clone();
+    let task = tokio::spawn(async move {
+        while let Some(n) = stream.next().await {
+            let (lock, cv) = &*sink;
+            let mut b = lock.lock().unwrap();
+            if n.uuid == READ {
+                crate::log(&format!("BLE READ {}", crate::show(&n.value)));
+                b.read.extend(n.value);
+            } else if n.uuid == CONTROL {
+                crate::log(&format!("BLE CONTROL {}", crate::show(&n.value)));
+                b.control.extend(n.value);
+                // Remember the newest complete state message.
+                let mut copy = b.control.clone();
+                while let Some(m) = take_message(&mut copy) {
+                    b.last_control = Some(m);
+                }
+            }
+            cv.notify_all();
+        }
+    });
+    // ESC EOT on WRITE also reaches the cutter's command stream, so a
+    // reconnect in the middle of a job leaves it out.
+    let init: Vec<&Characteristic> = if init_write { vec![&c, &r, &w] } else { vec![&c, &r] };
+    for ch in init {
+        if let Err(e) = peripheral.write(ch, &INIT, WriteType::WithResponse).await {
+            task.abort();
+            return Err(ble_err(e));
+        }
+    }
+    Ok((w, task))
+}
+
 pub struct BleTransport {
     /// Own runtime for btleplug; `Option` so `Drop` can hand it to a plain
     /// thread (a runtime must not be dropped inside another one).
@@ -111,6 +202,10 @@ pub struct BleTransport {
     peripheral: Peripheral,
     write_char: Characteristic,
     inbox: Inbox,
+    /// Task forwarding notifications of the current link.
+    notify_task: Mutex<Option<JoinHandle<()>>>,
+    /// A job is running: ride out dropouts instead of failing fast.
+    job_mode: AtomicBool,
 }
 
 impl BleTransport {
@@ -136,51 +231,33 @@ impl BleTransport {
             };
             let _ = central.stop_scan().await;
             let name = peripheral.properties().await.ok().flatten().and_then(|p| p.local_name).unwrap_or_default();
-            peripheral.connect().await.map_err(ble_err)?;
-            peripheral.discover_services().await.map_err(ble_err)?;
-            let chars = peripheral.characteristics();
-            let find = |u: Uuid| chars.iter().find(|c| c.uuid == u).cloned();
-            let (Some(w), Some(r), Some(c)) = (find(WRITE), find(READ), find(CONTROL)) else {
-                let _ = peripheral.disconnect().await;
-                return Err(Error::Other("Gerät hat nicht den Silhouette-Bluetooth-Dienst.".into()));
-            };
-            peripheral.subscribe(&c).await.map_err(ble_err)?;
-            peripheral.subscribe(&r).await.map_err(ble_err)?;
-            // Replies arrive on READ; CONTROL carries state events ("0"/"1"/"2"),
-            // kept apart so they never pose as a command reply.
-            let mut stream = peripheral.notifications().await.map_err(ble_err)?;
-            let sink = inbox.clone();
-            tokio::spawn(async move {
-                while let Some(n) = stream.next().await {
-                    let (lock, cv) = &*sink;
-                    let mut b = lock.lock().unwrap();
-                    if n.uuid == READ {
-                        crate::log(&format!("BLE READ {}", crate::show(&n.value)));
-                        b.read.extend(n.value);
-                    } else if n.uuid == CONTROL {
-                        crate::log(&format!("BLE CONTROL {}", crate::show(&n.value)));
-                        b.control.extend(n.value);
-                        // Remember the newest complete state message.
-                        let mut copy = b.control.clone();
-                        while let Some(m) = take_message(&mut copy) {
-                            b.last_control = Some(m);
-                        }
-                    }
-                    cv.notify_all();
-                }
-            });
-            for ch in [&c, &r, &w] {
-                peripheral.write(ch, &INIT, WriteType::WithResponse).await.map_err(ble_err)?;
-            }
+            let (w, task) = link(&peripheral, &inbox, true).await?;
             tokio::time::sleep(Duration::from_secs(1)).await;
-            Ok::<_, Error>((peripheral, w, name))
+            Ok::<_, Error>((peripheral, (w, task), name))
         })?;
+        let (write_char, task) = write_char;
         {
             let mut b = inbox.0.lock().unwrap();
             b.read.clear();
             b.control.clear();
         }
-        Ok((BleTransport { rt: Some(rt), peripheral, write_char, inbox }, name))
+        let t = BleTransport { rt: Some(rt), peripheral, write_char, inbox, notify_task: Mutex::new(Some(task)), job_mode: AtomicBool::new(false) };
+        Ok((t, name))
+    }
+
+    /// Re-establishes a dropped link to the same cutter (same runtime and
+    /// inbox), keeping the cutter's job state.
+    fn relink(&self) -> Result<()> {
+        if let Some(old) = self.notify_task.lock().unwrap().take() {
+            old.abort();
+        }
+        let (_, task) = self.rt().block_on(async {
+            tokio::time::timeout(Duration::from_secs(20), link(&self.peripheral, &self.inbox, false))
+                .await
+                .unwrap_or(Err(Error::Timeout("Bluetooth neu verbinden")))
+        })?;
+        *self.notify_task.lock().unwrap() = Some(task);
+        Ok(())
     }
 }
 
@@ -193,30 +270,58 @@ impl BleTransport {
 impl Transport for BleTransport {
     fn write(&self, data: &[u8], timeout: Duration) -> Result<()> {
         let deadline = Instant::now() + timeout;
-        for chunk in data.chunks(CHUNK) {
-            let mut attempt = 0;
+        let resilient = self.job_mode.load(Ordering::Relaxed);
+        for piece in pieces(data, CHUNK) {
+            let mut attempt = 0u32;
+            let mut trouble_since: Option<Instant> = None;
             loop {
-                let left = deadline.saturating_duration_since(Instant::now());
+                let limit = match trouble_since {
+                    Some(t) if resilient => deadline.max(t + RECOVERY),
+                    _ => deadline,
+                };
+                let left = limit.saturating_duration_since(Instant::now());
                 if left.is_zero() {
                     return Err(Error::Timeout("Bluetooth senden"));
                 }
                 let r = self.rt().block_on(async {
-                    tokio::time::timeout(left, self.peripheral.write(&self.write_char, chunk, WriteType::WithResponse)).await
+                    tokio::time::timeout(left.min(ATTEMPT_TIMEOUT), self.peripheral.write(&self.write_char, piece, WriteType::WithResponse)).await
                 });
-                match r {
+                let err = match r {
                     Ok(Ok(())) => break,
-                    // The cutter answers "busy" while its buffer is full: back off and retry.
-                    Ok(Err(e)) if attempt < 8 => {
-                        let _ = e;
-                        attempt += 1;
-                        std::thread::sleep(Duration::from_millis(100 * (1 << attempt.min(4))));
+                    Ok(Err(e)) => ble_err(e),
+                    Err(_) => Error::Timeout("Bluetooth senden"),
+                };
+                attempt += 1;
+                if !resilient {
+                    // Outside a job: the cutter answers "busy" while its buffer
+                    // is full; back off a few times, then report the error.
+                    if attempt > 8 || matches!(err, Error::Timeout(_)) {
+                        return Err(err);
                     }
-                    Ok(Err(e)) => return Err(ble_err(e)),
-                    Err(_) => return Err(Error::Timeout("Bluetooth senden")),
+                    std::thread::sleep(Duration::from_millis(100 * (1 << attempt.min(4))));
+                    continue;
+                }
+                crate::log(&format!("BLE write failed (attempt {attempt}): {err}"));
+                trouble_since.get_or_insert_with(Instant::now);
+                if self.is_alive() {
+                    std::thread::sleep(Duration::from_millis(100 * (1 << attempt.min(4))));
+                } else {
+                    crate::log("BLE link lost – reconnecting");
+                    match self.relink() {
+                        Ok(()) => crate::log("BLE reconnected – resending"),
+                        Err(e) => {
+                            crate::log(&format!("BLE reconnect failed: {e}"));
+                            std::thread::sleep(Duration::from_secs(2));
+                        }
+                    }
                 }
             }
         }
         Ok(())
+    }
+
+    fn set_job_mode(&self, on: bool) {
+        self.job_mode.store(on, Ordering::Relaxed);
     }
 
     fn read(&self, timeout: Duration) -> Result<Vec<u8>> {
@@ -279,6 +384,9 @@ impl Drop for BleTransport {
         // Disconnect and shut the runtime down on a plain thread, so dropping
         // a connection is safe from any context.
         if let Some(rt) = self.rt.take() {
+            if let Some(t) = self.notify_task.lock().unwrap().take() {
+                t.abort();
+            }
             let p = self.peripheral.clone();
             std::thread::spawn(move || {
                 let _ = rt.block_on(p.disconnect());
@@ -295,5 +403,22 @@ mod tests {
         assert_eq!(super::model_for("PORTRAIT3-1A2B").map(|m| m.product_id), Some(0x113a));
         assert_eq!(super::model_for("Portrait 3 V1.05").map(|m| m.product_id), Some(0x113a));
         assert!(super::model_for("Kopfhörer").is_none());
+    }
+
+    #[test]
+    fn pieces_end_on_commands_and_break_before_moves() {
+        let data = schnittwerk_core::gpgl::Job::encode(&["M100,200", "D110,200", "D120,210", "D9999,9999", "M5,5", "D6,6"].map(String::from));
+        let p = super::pieces(&data, 20);
+        assert_eq!(p.concat(), data);
+        for w in &p {
+            assert!(w.len() <= 20);
+            assert_eq!(*w.last().unwrap(), super::ETX);
+            // A move only ever opens a write.
+            let cmds: Vec<&[u8]> = w.split(|b| *b == super::ETX).filter(|c| !c.is_empty()).collect();
+            assert!(cmds.iter().skip(1).all(|c| c[0] != b'M'), "{:?}", String::from_utf8_lossy(w));
+        }
+        assert_eq!(p[0], b"M100,200\x03D110,200\x03");
+        // ESC sequences without ETX stay intact.
+        assert_eq!(super::pieces(&[0x1b, 0x05], 20), vec![&[0x1b, 0x05][..]]);
     }
 }
