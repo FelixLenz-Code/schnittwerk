@@ -57,6 +57,16 @@ export function toLocal(o: Obj, p: Vec2): Vec2 {
   return { x: x + o.w / 2, y: y + o.h / 2 };
 }
 
+/** Inverse of `toLocal`: local box coords (0..w, 0..h) → world point. */
+export function fromLocal(o: Obj, l: Vec2): Vec2 {
+  let x = l.x - o.w / 2, y = l.y - o.h / 2;
+  if (o.flipX) x = -x;
+  if (o.flipY) y = -y;
+  const r = rotate({ x, y }, o.rot);
+  const c = center(o);
+  return { x: c.x + r.x, y: c.y + r.y };
+}
+
 /** SVG transform that maps the 0..w × 0..h box onto the mat. */
 export function boxTransform(o: Obj): string {
   let t = `translate(${o.x} ${o.y}) rotate(${o.rot} ${o.w / 2} ${o.h / 2})`;

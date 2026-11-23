@@ -1,9 +1,12 @@
 <script lang="ts">
   import { editor, regBracketPath } from "../editor.svelte";
-  import { aabb, boxTransform, center, corners, ellipsePath, rectPath, rotate, toLocal, uid } from "../geometry";
+  import { aabb, boxTransform, center, corners, ellipsePath, fromLocal, rectPath, rotate, toLocal, uid } from "../geometry";
   import type { Obj, PathObj, Vec2 } from "../types";
   import { createText } from "../text.svelte";
   import { brush } from "../brush.svelte";
+  import { perspective } from "../perspective.svelte";
+  import { key, nodes, type NodeKey } from "../nodes.svelte";
+  import { nearestSegment, type PNode } from "../pathdata";
 
   type Drag =
     | { kind: "pan"; sx: number; sy: number; panX: number; panY: number }
@@ -12,7 +15,11 @@
     | { kind: "rotate"; id: string; c: Vec2; a0: number; rot0: number; moved: boolean }
     | { kind: "marquee"; start: Vec2; cur: Vec2; additive: boolean }
     | { kind: "draw"; shape: "rect" | "ellipse"; start: Vec2; cur: Vec2 }
-    | { kind: "brush"; id: string };
+    | { kind: "brush"; id: string }
+    | { kind: "persp"; i: number }
+    | { kind: "nodes"; start: Vec2; orig: Map<NodeKey, PNode>; moved: boolean }
+    | { kind: "nodeh"; k: NodeKey; side: "cin" | "cout"; moved: boolean }
+    | { kind: "nodeMarquee"; start: Vec2; cur: Vec2; additive: boolean };
 
   let svg: SVGSVGElement;
   let drag = $state<Drag | null>(null);
@@ -43,6 +50,33 @@
       return;
     }
     if (e.button !== 0) return;
+
+    // Node editing: nodes, handles, or a marquee to select nodes.
+    if (nodes.objId) {
+      const hk = target.closest("[data-nh]")?.getAttribute("data-nh");
+      if (hk) {
+        const [si, ni, side] = hk.split(":");
+        drag = { kind: "nodeh", k: key(+si, +ni), side: side as "cin" | "cout", moved: false };
+        return;
+      }
+      const nk = target.closest("[data-node]")?.getAttribute("data-node");
+      if (nk) {
+        if (e.shiftKey) nodes.sel = nodes.sel.includes(nk) ? nodes.sel.filter((k) => k !== nk) : [...nodes.sel, nk];
+        else if (!nodes.sel.includes(nk)) nodes.sel = [nk];
+        const orig = new Map(nodes.sel.map((k) => [k, $state.snapshot(nodes.node(k)!) as PNode]));
+        drag = { kind: "nodes", start: nodes.fromWorld(p), orig, moved: false };
+        return;
+      }
+      drag = { kind: "nodeMarquee", start: p, cur: p, additive: e.shiftKey };
+      return;
+    }
+
+    // Perspective correction: only the four corner handles react.
+    if (perspective.objId) {
+      const h = target.closest("[data-persp]")?.getAttribute("data-persp");
+      if (h !== null && h !== undefined) drag = { kind: "persp", i: Number(h) };
+      return;
+    }
 
     // Eraser / paint brush on the selected image (trace panel).
     if (brush.mode && !brush.busy && brushTarget) {
@@ -196,6 +230,47 @@
         drag.cur = p;
         break;
 
+      case "nodes": {
+        const q = nodes.fromWorld(p);
+        let dx = q.x - drag.start.x, dy = q.y - drag.start.y;
+        if (!drag.moved) {
+          if (Math.hypot(p.x - nodes.toWorld(drag.start).x, p.y - nodes.toWorld(drag.start).y) * z < 3) return;
+          editor.checkpoint();
+          drag.moved = true;
+        }
+        if (e.shiftKey) Math.abs(dx) > Math.abs(dy) ? (dy = 0) : (dx = 0);
+        nodes.moveSelected(drag.orig, dx, dy);
+        break;
+      }
+
+      case "nodeh": {
+        if (!drag.moved) {
+          editor.checkpoint();
+          drag.moved = true;
+          // Alt: move this handle on its own (makes a corner).
+          const n = nodes.node(drag.k);
+          if (n && e.altKey) n.smooth = false;
+        }
+        nodes.moveHandle(drag.k, drag.side, nodes.fromWorld(p));
+        break;
+      }
+
+      case "nodeMarquee":
+        drag.cur = p;
+        break;
+
+      case "persp": {
+        const img = perspImg;
+        const a = img ? editor.images[img.imageId] : undefined;
+        if (!img || !a) return;
+        const l = toLocal(img, p);
+        perspective.pts[drag.i] = {
+          x: Math.min(a.pxW, Math.max(0, (l.x / img.w) * a.pxW)),
+          y: Math.min(a.pxH, Math.max(0, (l.y / img.h) * a.pxH)),
+        };
+        break;
+      }
+
       case "brush": {
         const img = editor.byId(drag.id);
         if (img?.type !== "image") return;
@@ -212,7 +287,22 @@
 
   function onPointerUp(e: PointerEvent) {
     svg.releasePointerCapture(e.pointerId);
-    if (drag?.kind === "brush") {
+    if (drag?.kind === "nodeMarquee") {
+      const x0 = Math.min(drag.start.x, drag.cur.x), x1 = Math.max(drag.start.x, drag.cur.x);
+      const y0 = Math.min(drag.start.y, drag.cur.y), y1 = Math.max(drag.start.y, drag.cur.y);
+      if ((x1 - x0) * z > 3 || (y1 - y0) * z > 3) {
+        const hit: NodeKey[] = [];
+        nodes.subs.forEach((s, si) =>
+          s.nodes.forEach((n, ni) => {
+            const w = nodes.toWorld(n);
+            if (w.x >= x0 && w.x <= x1 && w.y >= y0 && w.y <= y1) hit.push(key(si, ni));
+          }),
+        );
+        nodes.sel = drag.additive ? [...new Set([...nodes.sel, ...hit])] : hit;
+      } else if (!drag.additive) {
+        nodes.sel = [];
+      }
+    } else if (drag?.kind === "brush") {
       const img = editor.byId(drag.id);
       if (img?.type === "image") brush.commit(img);
     } else if (drag?.kind === "marquee") {
@@ -246,6 +336,39 @@
     }
     drag = null;
   }
+
+  /** Double-click: path → node editing; in node editing, on the outline →
+   *  insert a node, elsewhere → done. */
+  function onDblClick(e: MouseEvent) {
+    const p = toWorld(e);
+    // With pointer capture the event targets the svg itself: hit-test instead.
+    const target = document.elementFromPoint(e.clientX, e.clientY) ?? (e.target as Element);
+    if (nodes.objId) {
+      if (target.closest("[data-node],[data-nh]")) return;
+      const o = nodes.obj;
+      if (!o) return;
+      const hit = nearestSegment(nodes.subs, nodes.fromWorld(p));
+      const scale = (o.w / (o.bbox[2] || 1) + o.h / (o.bbox[3] || 1)) / 2;
+      if (hit && hit.dist * scale <= px(8)) nodes.insertAt(hit.si, hit.i, hit.t);
+      else nodes.stop();
+      return;
+    }
+    if (perspective.objId || brush.mode || editor.picking || editor.tool !== "select") return;
+    const id = target.closest("[data-obj]")?.getAttribute("data-obj");
+    const o = id ? editor.byId(id) : undefined;
+    if (o?.type === "path" && !o.locked) nodes.start(o);
+  }
+
+  // Undo/redo or outside changes re-read the edited path; leaving the
+  // selection or switching tools ends node editing.
+  $effect(() => {
+    if (!nodes.objId) return;
+    void nodeObj?.d;
+    nodes.sync();
+  });
+  $effect(() => {
+    if (nodes.objId && (!editor.selection.includes(nodes.objId) || editor.tool !== "select")) nodes.stop();
+  });
 
   function onWheel(e: WheelEvent) {
     e.preventDefault();
@@ -293,13 +416,28 @@
     drag?.kind === "pan" ? "grabbing"
       : editor.tool === "pan" || spaceDown ? "grab"
       : editor.picking ? "crosshair"
+      : perspective.objId ? "default"
       : brush.mode && brushTarget ? "crosshair"
       : editor.tool === "rect" || editor.tool === "ellipse" ? "crosshair"
       : editor.tool === "text" ? "text"
       : "default",
   );
 
-  const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
+  const perspImg = $derived.by(() => {
+    const o = perspective.objId ? editor.byId(perspective.objId) : undefined;
+    return o?.type === "image" ? o : null;
+  });
+  /** Perspective corners in world coordinates. */
+  const perspWorld = $derived.by(() => {
+    const img = perspImg;
+    const a = img ? editor.images[img.imageId] : undefined;
+    if (!img || !a) return [];
+    return perspective.pts.map((q) => fromLocal(img, { x: (q.x / a.pxW) * img.w, y: (q.y / a.pxH) * img.h }));
+  });
+
+  const nodeObj = $derived(nodes.obj);
+
+  const single = $derived(perspective.objId || nodes.objId ? null : editor.selected.length === 1 ? editor.selected[0] : null);
   const multiBox = $derived(editor.selected.length > 1 ? aabb(editor.selected) : null);
   const previewObj = $derived(editor.tracePreview ? editor.byId(editor.tracePreview.objId) : undefined);
   const HANDLES: [number, number][] = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
@@ -318,6 +456,7 @@
     onpointerup={onPointerUp}
     onpointerleave={() => (editor.cursor = null)}
     onwheel={onWheel}
+    ondblclick={onDblClick}
     oncontextmenu={(e) => e.preventDefault()}
   >
     <defs>
@@ -393,7 +532,7 @@
       {/if}
 
       <!-- Live trace preview -->
-      {#if editor.tracePreview && previewObj?.type === "image"}
+      {#if editor.tracePreview && previewObj?.type === "image" && !perspective.objId}
         {@const r = editor.tracePreview.result}
         <g transform="{boxTransform(previewObj)} scale({previewObj.w / r.width} {previewObj.h / r.height})" pointer-events="none">
           {#each r.layers as l}
@@ -421,6 +560,66 @@
       {/if}
       {#if brushTarget && editor.cursor}
         <circle cx={editor.cursor.x} cy={editor.cursor.y} r={brush.size / 2} fill="none" stroke="var(--accent)" stroke-width={px(1.2)} pointer-events="none" />
+      {/if}
+
+      <!-- Node editing -->
+      {#if nodeObj}
+        <path d={nodeObj.d} transform={pathTransform(nodeObj)} fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke" pointer-events="none" />
+        <g>
+          {#each nodes.subs as s, si}
+            {#each s.nodes as n, ni}
+              {@const k = key(si, ni)}
+              {@const on = nodes.sel.includes(k)}
+              {@const w = nodes.toWorld(n)}
+              {#if on}
+                {#each ["cin", "cout"] as const as side}
+                  {@const c = n[side]}
+                  {#if c}
+                    {@const cw = nodes.toWorld(c)}
+                    <line x1={w.x} y1={w.y} x2={cw.x} y2={cw.y} stroke="var(--accent)" stroke-width={px(1)} pointer-events="none" />
+                    <circle data-nh="{si}:{ni}:{side}" cx={cw.x} cy={cw.y} r={px(4)} fill="var(--panel)" stroke="var(--accent)" stroke-width={px(1.5)} style:cursor="move" />
+                  {/if}
+                {/each}
+              {/if}
+              {#if n.smooth}
+                <circle data-node={k} cx={w.x} cy={w.y} r={px(4)} fill={on ? "var(--accent)" : "var(--panel)"} stroke="var(--accent)" stroke-width={px(1.5)} style:cursor="move" />
+              {:else}
+                <rect data-node={k} x={w.x - px(3.5)} y={w.y - px(3.5)} width={px(7)} height={px(7)} fill={on ? "var(--accent)" : "var(--panel)"} stroke="var(--accent)" stroke-width={px(1.5)} style:cursor="move" />
+              {/if}
+            {/each}
+          {/each}
+        </g>
+      {/if}
+      {#if drag?.kind === "nodeMarquee"}
+        {@const x = Math.min(drag.start.x, drag.cur.x)}
+        {@const y = Math.min(drag.start.y, drag.cur.y)}
+        <rect {x} {y} width={Math.abs(drag.cur.x - drag.start.x)} height={Math.abs(drag.cur.y - drag.start.y)} fill="var(--accent-soft)" stroke="var(--accent)" stroke-width={px(1)} pointer-events="none" />
+      {/if}
+
+      <!-- Perspective correction -->
+      {#if perspWorld.length === 4}
+        {@const pts = perspWorld.map((q) => `${q.x},${q.y}`).join(" ")}
+        <g>
+          <polygon points={pts} fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width={px(1.5)} pointer-events="none" />
+          {#each [0, 1] as k}
+            <!-- Guide lines through the middle help to line up the edges -->
+            {@const [a, b, c, d] = k === 0 ? [0, 1, 3, 2] : [0, 3, 1, 2]}
+            <line
+              x1={(perspWorld[a].x + perspWorld[c].x) / 2}
+              y1={(perspWorld[a].y + perspWorld[c].y) / 2}
+              x2={(perspWorld[b].x + perspWorld[d].x) / 2}
+              y2={(perspWorld[b].y + perspWorld[d].y) / 2}
+              stroke="var(--accent)"
+              stroke-width={px(1)}
+              stroke-dasharray="{px(4)} {px(4)}"
+              pointer-events="none"
+            />
+          {/each}
+          {#each perspWorld as q, i}
+            <circle data-persp={i} cx={q.x} cy={q.y} r={px(8)} fill="var(--panel)" fill-opacity="0.6" stroke="var(--accent)" stroke-width={px(2)} style:cursor="move" />
+            <circle cx={q.x} cy={q.y} r={px(1.5)} fill="var(--accent)" pointer-events="none" />
+          {/each}
+        </g>
       {/if}
 
       <!-- Selection -->
@@ -505,6 +704,10 @@
 
   {#if editor.picking}
     <div class="hint">Klicke auf eine Farbe im Bild · <kbd>Esc</kbd> zum Abbrechen</div>
+  {:else if nodes.objId}
+    <div class="hint">Knoten ziehen · Doppelklick auf die Linie = neuer Knoten · <kbd>Entf</kbd> löscht · <kbd>Esc</kbd> fertig</div>
+  {:else if perspective.objId}
+    <div class="hint">Die vier Punkte auf die Ecken des Blatts ziehen · rechts „Entzerren“</div>
   {/if}
 </div>
 

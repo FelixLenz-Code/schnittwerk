@@ -12,6 +12,10 @@
   import PrintDialog from "./lib/components/PrintDialog.svelte";
   import DeviceMenu from "./lib/components/DeviceMenu.svelte";
   import { plotter } from "./lib/plotter.svelte";
+  import { perspective } from "./lib/perspective.svelte";
+  import { nodes } from "./lib/nodes.svelte";
+  import { templatesUi } from "./lib/templates.svelte";
+  import TemplatesDialog from "./lib/components/TemplatesDialog.svelte";
 
   // ---------- theme ----------
   type Theme = "system" | "light" | "dark";
@@ -68,13 +72,35 @@
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     const step = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
 
+    if (nodes.objId) {
+      const act: Record<string, () => void> = {
+        delete: () => nodes.deleteSelected(),
+        backspace: () => nodes.deleteSelected(),
+        escape: () => nodes.stop(),
+        enter: () => nodes.stop(),
+        arrowleft: () => nodes.nudge(-step, 0),
+        arrowright: () => nodes.nudge(step, 0),
+        arrowup: () => nodes.nudge(0, -step),
+        arrowdown: () => nodes.nudge(0, step),
+      };
+      if (act[k] && !mod) {
+        act[k]();
+        e.preventDefault();
+        return;
+      }
+      if (mod && k === "a") {
+        nodes.selectAll();
+        e.preventDefault();
+        return;
+      }
+    }
     if (mod) {
       const actions: Record<string, () => void> = {
         z: () => (e.shiftKey ? editor.redo() : editor.undo()),
@@ -87,7 +113,7 @@
         i: () => importDialog(),
         o: () => openDialog(),
         s: () => saveProject(e.shiftKey),
-        n: () => newProject(),
+        n: () => (e.shiftKey ? (templatesUi.open = true) : newProject()),
         e: () => exportSvg(),
         enter: () => (plotter.dialogOpen = true),
         p: () => (plotter.printOpen = true),
@@ -106,13 +132,19 @@
       }
       return;
     }
+    if (perspective.objId && k === "enter") {
+      perspective.apply();
+      e.preventDefault();
+      return;
+    }
     switch (k) {
       case "delete":
       case "backspace":
         editor.removeSelected();
         break;
       case "escape":
-        if (editor.picking) editor.picking = null;
+        if (perspective.objId) perspective.cancel();
+        else if (editor.picking) editor.picking = null;
         else editor.selection = [];
         editor.tool = "select";
         break;
@@ -161,6 +193,7 @@
 
     <div class="group">
       <button class="btn icon" title="Neu (Strg+N)" onclick={newProject}><Icon name="filePlus" /></button>
+      <button class="btn icon" title="Neu aus Vorlage (Strg+Umschalt+N)" onclick={() => (templatesUi.open = true)}><Icon name="layers" /></button>
       <button class="btn icon" title="Öffnen (Strg+O)" onclick={openDialog}><Icon name="folder" /></button>
       <button class="btn icon" title="Speichern (Strg+S)" onclick={() => saveProject()}><Icon name="save" /></button>
     </div>
@@ -253,6 +286,9 @@
   {/if}
   {#if plotter.printOpen}
     <PrintDialog />
+  {/if}
+  {#if templatesUi.open}
+    <TemplatesDialog />
   {/if}
 
   <div class="toasts">

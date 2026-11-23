@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Schnittwerk",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "identifier": "de.schnittwerk.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build && cargo build --release -p schnittwerk-mcp",
+    "beforeBuildCommand": "npm run build && cargo build --release -p schnittwerk-mcp -p schnittwerk-cli",
     "frontendDist": "../dist"
   },
   "app": {
@@ -47,7 +47,8 @@
         ],
         "files": {
           "/usr/lib/udev/rules.d/70-silhouette.rules": "../packaging/70-silhouette.rules",
-          "/usr/bin/schnittwerk-mcp": "../target/release/schnittwerk-mcp"
+          "/usr/bin/schnittwerk-mcp": "../target/release/schnittwerk-mcp",
+          "/usr/bin/schnittwerk-cli": "../target/release/schnittwerk-cli"
         }
       }
     },

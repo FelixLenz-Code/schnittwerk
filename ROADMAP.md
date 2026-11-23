@@ -26,7 +26,7 @@
 - ✅ Glättung, Flecken entfernen, Dicker/Dünner, Nur Außenkontur, Kurven/Ecken
 - ✅ Auflösung wählbar (schnell → Original)
 - ✅ Radierer/Pinsel zum Bereinigen vor dem Tracen (rückgängig machbar, Live-Neutracen)
-- ⬜ Perspektivkorrektur und Beleuchtungsausgleich für Fotos von Zeichnungen
+- ✅ Perspektivkorrektur (Blatt automatisch erkennen, Ecken nachziehen, Papierformat in Originalgröße) und Beleuchtungsausgleich für Fotos von Zeichnungen
 - ✅ Mittellinien-Modus: eine Linie mitten durch jeden Strich (Skelett, Sporn-Entfernung, Kurvenfit)
 
 ## Etappe 3 – Plotter
@@ -35,7 +35,7 @@
 - ✅ Schnittoptimierung: innen vor außen, kurze Wege, Überschnitt (Messerversatz macht das Gerät, FC)
 - ✅ Mehrfachdurchgänge, Testschnitt, Stiftmodus, Spiegeln für Flexfolie
 - ✅ Materialbibliothek mit Vorlagen und eigenen Profilen
-- ✅ Vorschau der Schnittreihenfolge, Fortschritt, Pause, Abbrechen
+- ✅ Vorschau der Schnittreihenfolge, Fortschritt (je Schritt, auch während der Plotter den Puffer abarbeitet), Pause, Abbrechen
 - ✅ Kiss-Cut und Durchschnitt in einem Auftrag: Material je Schnittfarbe, leichte Durchgänge zuerst, Schnittrahmen
 - ⬜ Prägen, Perforation
 
@@ -54,10 +54,12 @@
 ## Etappe 5 – Ausbau
 - ✅ Text mit Systemschriften (Suche, fett/kursiv, Abstand, mehrzeilig, Ausrichtung), Verschweißen
 - ✅ Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen (i_overlay)
-- ⬜ Knotenbearbeitung, Entgitterungshilfen
+- ✅ Knotenbearbeitung: Knoten/Griffe ziehen, einfügen (Doppelklick), löschen, Ecke/Glatt, Gerade/Kurve
+- ✅ Entgitterungshilfen: Rahmen und Linien durch den Abfall (mit Abstand zum Motiv, auch durch Innenräume)
 - ✅ .deb-Paket mit Menüeintrag, udev-Regel und Abhängigkeiten
 - ✅ Nesting: echte Umrisse verschachteln und drehen (Füllen mit Kopien oder Anordnen)
-- ⬜ Vorlagen, CLI-Modus
+- ✅ Vorlagen: Sticker/Etiketten (Print & Cut), Klappkarte, Lesezeichen, Geschenkanhänger
+- ✅ CLI-Modus (`schnittwerk-cli`): tracen, SVG/DXF/Projekte schneiden, USB und Bluetooth
 
 ## Etappe 6 – Anbindungen
 - 🚧 Bluetooth LE: Suchen, Verbinden (automatisches Wiederverbinden), Schneiden über den Silhouette-GATT-Dienst – Hardware-Test ausstehend;

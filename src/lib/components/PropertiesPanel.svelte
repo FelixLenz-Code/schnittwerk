@@ -7,6 +7,9 @@
   import Icon from "./Icon.svelte";
   import Toggle from "./Toggle.svelte";
   import TextEditor from "./TextEditor.svelte";
+  import { nodes } from "../nodes.svelte";
+  import { pathBbox, parsePath } from "../pathdata";
+  import { polysBox, weedLines, worldPolys } from "../weed";
 
   const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
   const box = $derived(aabb(editor.selected));
@@ -100,6 +103,43 @@
     };
     editor.add([frame], false);
     editor.toast("Rahmen zum Durchschneiden hinzugefügt", "ok");
+  }
+
+  // ---------- weeding aids ----------
+  let weedMargin = $state(3);
+  let weedSpacing = $state(20);
+  let weedDir = $state<"h" | "v" | "hv" | "none">("h");
+
+  /** Box around the design plus lines through the waste (vinyl). */
+  function addWeeding() {
+    const designs = selPaths.filter((o) => o.visible && o.cut !== false);
+    if (!designs.length) return;
+    const polys = worldPolys(designs);
+    const b0 = polysBox(polys);
+    if (!b0) return;
+    const m = Math.max(0.5, weedMargin);
+    const box = { x0: b0.x0 - m, y0: b0.y0 - m, x1: b0.x1 + m, y1: b0.y1 + m };
+    const color = designs[0].color;
+    const group = uid();
+    const mk = (name: string, d: string): PathObj | null => {
+      if (!d) return null;
+      const [x, y, w, h] = pathBbox(parsePath(d));
+      return {
+        id: uid(), type: "path", name, d, bbox: [x, y, w || 0.01, h || 0.01], color, fill: false,
+        x, y, w: w || 0.01, h: h || 0.01, rot: 0, flipX: false, flipY: false, visible: true, locked: false, group,
+      };
+    };
+    const rect = `M${box.x0} ${box.y0}H${box.x1}V${box.y1}H${box.x0}Z`;
+    const lines =
+      weedDir === "none"
+        ? ""
+        : weedLines(polys, box, Math.max(3, weedSpacing), Math.min(m, Math.max(0.5, weedMargin / 2)), {
+            horizontal: weedDir.includes("h"),
+            vertical: weedDir.includes("v"),
+          });
+    const objs = [mk("Entgitterungsrahmen", rect), mk("Entgitterungslinien", lines)].filter((o): o is PathObj => !!o);
+    editor.add(objs, false);
+    editor.toast(lines ? "Entgitterungsrahmen und -linien angelegt" : "Entgitterungsrahmen angelegt", "ok");
   }
 
   // ---------- boolean operations ----------
@@ -334,6 +374,26 @@
       </div>
     </section>
 
+    {#if single.type === "path"}
+      <section>
+        <h3 class="section-title">Knoten</h3>
+        {#if nodes.objId === single.id}
+          <p class="muted small">{nodes.count} Knoten · {nodes.sel.length} ausgewählt</p>
+          <div class="cut-types">
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(false)} title="Knick: Griffe unabhängig">Ecke</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(true)} title="Weicher Übergang: Griffe in einer Linie">Glatt</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(true)} title="Abschnitt nach dem Knoten wird gerade">Gerade</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(false)} title="Abschnitt nach dem Knoten wird zur Kurve">Kurve</button>
+            <button class="btn outline danger" disabled={!nodes.sel.length} onclick={() => nodes.deleteSelected()}>Löschen</button>
+            <button class="btn primary" onclick={() => nodes.stop()}><Icon name="check" /> Fertig</button>
+          </div>
+          <p class="muted small">Doppelklick auf die Linie fügt einen Knoten ein. <kbd>Alt</kbd> beim Ziehen eines Griffs macht eine Ecke.</p>
+        {:else}
+          <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title="Auch per Doppelklick auf den Pfad">Knoten bearbeiten</button>
+        {/if}
+      </section>
+    {/if}
+
     {#if single.type === "path" && single.text}
       <TextEditor obj={single as PathObj & { text: NonNullable<PathObj["text"]> }} />
     {/if}
@@ -423,6 +483,33 @@
   </section>
 
   {#if selPaths.length}
+    <section>
+      <h3 class="section-title">Entgittern (Folie)</h3>
+      <div class="stack">
+        <label class="toggle-row" title="Abstand des Rahmens zum Motiv">
+          <span>Rand</span>
+          <span class="row unit-field"><input class="field" type="number" min="0.5" step="0.5" bind:value={weedMargin} /> mm</span>
+        </label>
+        <label class="toggle-row">
+          <span>Linien</span>
+          <select class="field weed-select" bind:value={weedDir}>
+            <option value="h">Waagrecht</option>
+            <option value="v">Senkrecht</option>
+            <option value="hv">Beides</option>
+            <option value="none">Keine</option>
+          </select>
+        </label>
+        {#if weedDir !== "none"}
+          <label class="toggle-row" title="Abstand zwischen den Linien">
+            <span>Linienabstand</span>
+            <span class="row unit-field"><input class="field" type="number" min="3" step="1" bind:value={weedSpacing} /> mm</span>
+          </label>
+        {/if}
+        <button class="btn outline" onclick={addWeeding} title="Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen">Entgitterungshilfe anlegen</button>
+      </div>
+      <p class="muted small">Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).</p>
+    </section>
+
     <section>
       <h3 class="section-title">Kontur versetzen</h3>
       <div class="row">
@@ -568,6 +655,18 @@
   }
   .stack:first-of-type {
     margin-top: 0;
+  }
+  .weed-select {
+    width: 130px;
+  }
+  .unit-field {
+    align-items: center;
+    gap: 6px;
+    color: var(--text-3);
+  }
+  .unit-field input {
+    width: 96px;
+    text-align: right;
   }
   .colors {
     display: flex;

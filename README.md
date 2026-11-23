@@ -34,6 +34,20 @@ npm run tauri dev      # Entwicklungsmodus mit Hot-Reload
 
 Tests des Kerns: `cargo test -p schnittwerk-core`
 
+## Kommandozeile
+
+`schnittwerk-cli` (im .deb enthalten) tract Bilder und schneidet ohne Oberfläche:
+
+```bash
+schnittwerk-cli trace zeichnung.jpg --flatten --width 120   # → zeichnung.svg
+schnittwerk-cli cut logo.svg --material vinyl --dry-run     # nur Vorschau
+schnittwerk-cli cut bogen.schnitt                            # Projekt, Material je Schnittfarbe, Rückfrage
+schnittwerk-cli cut bogen.schnitt --material '#e5484d=sticker-glossy' --yes
+schnittwerk-cli scan && schnittwerk-cli status --ble ID      # Bluetooth
+```
+
+Alle Optionen: `schnittwerk-cli --help`.
+
 ## MCP-Schnittstelle (KI-Assistenten)
 
 `schnittwerk-mcp` ist ein MCP-Server (stdio). Damit können KI-Assistenten wie
@@ -61,8 +75,10 @@ crates/schnittwerk-core/   Rust-Bibliothek ohne GUI
   src/gpgl.rs              GPGL-Befehle (Silhouette/Graphtec-Protokoll), Passermarken
   src/offset.rs            Distanztransformation, Konturversatz (Bilder + Vektoren)
   src/sticker.rs           Sticker-Kontur: Motiv freistellen, Rand, Löcher füllen
+  src/photo.rs             Fotos: Perspektivkorrektur (Blatt erkennen, entzerren), Beleuchtungsausgleich
 crates/schnittwerk-plotter/ USB (rusb) und Bluetooth LE (btleplug): Status, Senden, Pause/Abbruch
 crates/schnittwerk-mcp/    MCP-Server für KI-Assistenten
+crates/schnittwerk-cli/    Kommandozeile (tracen, schneiden)
 src-tauri/                 Tauri-Backend (Befehle, Bildspeicher, Schneide-Thread, PDF/Druck)
 src/                       Oberfläche
   lib/editor.svelte.ts     Dokument-Zustand, Auswahl, Undo/Redo
