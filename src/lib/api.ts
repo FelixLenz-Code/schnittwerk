@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { CutPlan, CutSettings, ImageInfo, ImportedVector, OffsetResult, PathInput, PathOptions, PlotterStatus, Printers, RegMarks, StickerParams, TextSpec, TraceParams, TraceResult, MotifMask } from "./types";
+import type { CutPlan, CutSettings, ImageInfo, ImportedVector, OffsetResult, PathInput, PathOptions, PlotterStatus, Printers, BleDevice, RegMarks, StickerParams, TextSpec, TraceParams, TraceResult, MotifMask } from "./types";
 
 export const inApp = isTauri();
 
@@ -22,6 +22,9 @@ export const api = {
   writeText: (path: string, contents: string) => call<void>("write_text", { path, contents }),
 
   plotterStatus: () => call<PlotterStatus>("plotter_status", {}),
+  bleScan: () => call<BleDevice[]>("ble_scan", {}),
+  bleConnect: (id: string) => call<string>("ble_connect", { id }),
+  plotterDisconnect: () => call<void>("plotter_disconnect", {}),
   cutPreview: (groups: { paths: PathInput[]; options: PathOptions }[]) => call<CutPlan[]>("cut_preview", { groups }),
   cutStart: (groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[], regmarks: RegMarks | null) =>
     call<{ clamped: number }>("cut_start", { req: { groups, regmarks } }),

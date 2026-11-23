@@ -8,9 +8,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use rusb::{DeviceHandle, GlobalContext};
 use schnittwerk_core::gpgl::{DeviceLimits, Job, ESC, ETX};
 use serde::Serialize;
+
+pub mod ble;
+pub mod transport;
+
+use transport::{Transport, UsbTransport};
 
 pub const VENDOR_GRAPHTEC: u16 = 0x0b4d;
 
@@ -57,8 +61,6 @@ fn show(bytes: &[u8]) -> String {
     }
     s
 }
-const EP_OUT: u8 = 0x01;
-const EP_IN: u8 = 0x82;
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Plot data goes out in packets of at most 1 KiB (like Silhouette Studio).
 pub const PLOT_CHUNK: usize = 1024;
@@ -142,7 +144,7 @@ pub fn scan() -> Vec<Found> {
 }
 
 pub struct Plotter {
-    handle: DeviceHandle<GlobalContext>,
+    transport: Box<dyn Transport>,
     pub model: Model,
 }
 
@@ -181,54 +183,43 @@ impl Plotter {
                 Err(rusb::Error::Busy) => return Err(Error::Other("Plotter wird von einem anderen Programm benutzt.".into())),
                 Err(e) => return Err(e.into()),
             }
-            let p = Plotter { handle, model: *model };
+            let p = Plotter { transport: Box::new(UsbTransport { handle }), model: *model };
             p.drain();
             return Ok(Some(p));
         }
         Ok(None)
     }
 
-    pub fn write(&self, data: &[u8]) -> Result<()> {
-        self.write_timeout(data, WRITE_TIMEOUT)
+    /// Wraps an already connected transport (e.g. Bluetooth LE).
+    pub fn with_transport(transport: Box<dyn Transport>, model: Model) -> Plotter {
+        let p = Plotter { transport, model };
+        p.drain();
+        p
     }
 
-    /// Plot data: the device NAKs while its buffer is full, so a write may
-    /// block for as long as the cutter needs to work through the buffer.
-    /// A generous timeout avoids retrying a partially transferred packet.
+    /// Same connection, corrected model (e.g. after asking the firmware).
+    pub fn with_model(p: Plotter, model: Model) -> Plotter {
+        Plotter { transport: p.transport, model }
+    }
+
+    /// "USB" or "Bluetooth".
+    pub fn connection(&self) -> &'static str {
+        self.transport.kind()
+    }
+
+    pub fn write(&self, data: &[u8]) -> Result<()> {
+        log(&format!("TX {}", show(data)));
+        self.transport.write(data, WRITE_TIMEOUT)
+    }
+
+    /// Plot data: the device holds back while its buffer is full, so a write
+    /// may block for as long as the cutter needs to work through the buffer.
     fn write_plot(&self, data: &[u8]) -> Result<()> {
         log(&format!("TX plot {} Bytes", data.len()));
-        let mut off = 0;
-        while off < data.len() {
-            match self.handle.write_bulk(EP_OUT, &data[off..], Duration::from_secs(300)) {
-                Ok(n) if n > 0 => off += n,
-                Ok(_) => return Err(Error::Other("Plotter nimmt keine Daten an.".into())),
-                Err(rusb::Error::Timeout) => return Err(Error::Timeout("Schneiddaten senden")),
-                Err(e) => return Err(e.into()),
-            }
-        }
-        Ok(())
-    }
-
-    fn write_timeout(&self, data: &[u8], timeout: Duration) -> Result<()> {
-        log(&format!("TX {}", show(data)));
-        let mut off = 0;
-        let mut retries = 0;
-        while off < data.len() {
-            let end = (off + 4096).min(data.len());
-            match self.handle.write_bulk(EP_OUT, &data[off..end], timeout) {
-                Ok(0) | Err(rusb::Error::Timeout) if retries < 5 => {
-                    retries += 1;
-                    sleep(Duration::from_secs(1));
-                }
-                Ok(n) => {
-                    off += n;
-                    retries = 0;
-                }
-                Err(rusb::Error::Timeout) => return Err(Error::Timeout("Schreiben")),
-                Err(e) => return Err(e.into()),
-            }
-        }
-        Ok(())
+        self.transport.write(data, Duration::from_secs(300)).map_err(|e| match e {
+            Error::Timeout(_) => Error::Timeout("Schneiddaten senden"),
+            e => e,
+        })
     }
 
     pub fn send(&self, cmds: &[String]) -> Result<()> {
@@ -237,25 +228,14 @@ impl Plotter {
 
     /// Reads one reply (up to ETX or what arrives in one transfer).
     pub fn read(&self, timeout: Duration) -> Result<Vec<u8>> {
-        let mut buf = [0u8; 64];
-        match self.handle.read_bulk(EP_IN, &mut buf, timeout) {
-            Ok(n) => {
-                log(&format!("RX {}", show(&buf[..n])));
-                Ok(buf[..n].to_vec())
-            }
-            Err(rusb::Error::Timeout) => Err(Error::Timeout("Lesen")),
-            Err(e) => Err(e.into()),
-        }
+        let r = self.transport.read(timeout)?;
+        log(&format!("RX {}", show(&r)));
+        Ok(r)
     }
 
     /// Discards pending replies.
     fn drain(&self) {
-        let mut buf = [0u8; 64];
-        while let Ok(n) = self.handle.read_bulk(EP_IN, &mut buf, Duration::from_millis(10)) {
-            if n == 0 {
-                break;
-            }
-        }
+        self.transport.drain();
     }
 
     /// Sends a query command and returns the reply without ETX.

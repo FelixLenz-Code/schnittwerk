@@ -140,6 +140,7 @@ export interface CutPlan {
 export interface PlotterStatus {
   connected: boolean;
   model: string | null;
+  connection: "USB" | "Bluetooth" | null;
   state: "ready" | "moving" | "unloaded" | "cutting" | "unknown" | "disconnected" | "error";
   message: string | null;
   widthMm: number | null;
@@ -188,4 +189,11 @@ export interface TextSpec {
   align: "start" | "middle" | "end";
   /** Merge overlapping letters into one outline (script fonts). */
   weld: boolean;
+}
+
+export interface BleDevice {
+  id: string;
+  name: string;
+  address: string;
+  rssi: number | null;
 }

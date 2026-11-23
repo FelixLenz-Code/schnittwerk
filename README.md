@@ -45,7 +45,7 @@ crates/schnittwerk-core/   Rust-Bibliothek ohne GUI
   src/gpgl.rs              GPGL-Befehle (Silhouette/Graphtec-Protokoll), Passermarken
   src/offset.rs            Distanztransformation, Konturversatz (Bilder + Vektoren)
   src/sticker.rs           Sticker-Kontur: Motiv freistellen, Rand, Löcher füllen
-crates/schnittwerk-plotter/ USB-Anbindung (rusb): Status, Senden, Pause/Abbruch
+crates/schnittwerk-plotter/ USB (rusb) und Bluetooth LE (btleplug): Status, Senden, Pause/Abbruch
 src-tauri/                 Tauri-Backend (Befehle, Bildspeicher, Schneide-Thread, PDF/Druck)
 src/                       Oberfläche
   lib/editor.svelte.ts     Dokument-Zustand, Auswahl, Undo/Redo

@@ -23,6 +23,8 @@ pub struct PlotterManager {
 pub struct StatusInfo {
     connected: bool,
     model: Option<String>,
+    /// "USB" | "Bluetooth"
+    connection: Option<String>,
     /// ready | moving | unloaded | cutting | unknown | disconnected | error
     state: String,
     message: Option<String>,
@@ -31,17 +33,19 @@ pub struct StatusInfo {
 
 impl StatusInfo {
     fn disconnected(message: Option<String>) -> Self {
-        Self { connected: false, model: None, state: if message.is_some() { "error" } else { "disconnected" }.into(), message, width_mm: None }
+        Self { connected: false, model: None, connection: None, state: if message.is_some() { "error" } else { "disconnected" }.into(), message, width_mm: None }
     }
 }
 
 #[tauri::command]
 pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<StatusInfo, String> {
     if mgr.busy.load(Ordering::Relaxed) {
-        let model = mgr.conn.lock().unwrap().as_ref().map(|p| p.model);
+        let conn = mgr.conn.lock().unwrap();
+        let model = conn.as_ref().map(|p| p.model);
         return Ok(StatusInfo {
             connected: true,
             model: model.map(|m| m.name.to_string()),
+            connection: conn.as_ref().map(|p| p.connection().to_string()),
             state: "cutting".into(),
             message: None,
             width_mm: model.map(|m| m.width_mm),
@@ -64,6 +68,7 @@ pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<Statu
         Ok(st) => Ok(StatusInfo {
             connected: true,
             model: Some(p.model.name.to_string()),
+            connection: Some(p.connection().to_string()),
             state: match st {
                 State::Ready => "ready".into(),
                 State::Moving => "moving".into(),
@@ -79,6 +84,50 @@ pub async fn plotter_status(mgr: TauriState<'_, PlotterManager>) -> Result<Statu
             Ok(StatusInfo::disconnected(None))
         }
     }
+}
+
+/// Scans for cutters via Bluetooth LE (takes a few seconds).
+#[tauri::command]
+pub async fn ble_scan() -> Result<Vec<schnittwerk_plotter::ble::BleDevice>, String> {
+    tauri::async_runtime::spawn_blocking(|| schnittwerk_plotter::ble::scan(5).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Connects to a cutter found by `ble_scan`; replaces any USB connection.
+#[tauri::command]
+pub async fn ble_connect(id: String, mgr: TauriState<'_, PlotterManager>) -> Result<String, String> {
+    if mgr.busy.load(Ordering::Relaxed) {
+        return Err("Es läuft gerade ein Schnitt.".into());
+    }
+    let plotter = tauri::async_runtime::spawn_blocking(move || -> Result<Plotter, String> {
+        let (transport, name) = schnittwerk_plotter::ble::BleTransport::connect(&id).map_err(|e| e.to_string())?;
+        let mut model = schnittwerk_plotter::ble::model_for(&name);
+        let p = Plotter::with_transport(Box::new(transport), model.unwrap_or(schnittwerk_plotter::MODELS[0]));
+        if model.is_none() {
+            // Advertised name unknown: ask the firmware ("Portrait 3 V1.05").
+            model = p.firmware().as_deref().and_then(schnittwerk_plotter::ble::model_for);
+        }
+        match model {
+            Some(m) if m.cameo4_line => Ok(Plotter::with_model(p, m)),
+            Some(m) => Err(format!("{} wird noch nicht unterstützt.", m.name)),
+            None => Ok(p),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let name = plotter.model.name.to_string();
+    *mgr.conn.lock().unwrap() = Some(Arc::new(plotter));
+    Ok(name)
+}
+
+#[tauri::command]
+pub fn plotter_disconnect(mgr: TauriState<'_, PlotterManager>) -> Result<(), String> {
+    if mgr.busy.load(Ordering::Relaxed) {
+        return Err("Es läuft gerade ein Schnitt.".into());
+    }
+    *mgr.conn.lock().unwrap() = None;
+    Ok(())
 }
 
 #[derive(Deserialize)]

@@ -47,7 +47,7 @@ class PlotterStore {
     } catch {}
   }
 
-  status = $state<PlotterStatus>({ connected: false, model: null, state: "disconnected", message: null, widthMm: null });
+  status = $state<PlotterStatus>({ connected: false, model: null, connection: null, state: "disconnected", message: null, widthMm: null });
   phase = $state<Phase>("idle");
   progress = $state({ done: 0, total: 0 });
   dialogOpen = $state(false);

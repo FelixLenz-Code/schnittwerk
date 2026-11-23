@@ -10,6 +10,7 @@
   import RightPanel from "./lib/components/RightPanel.svelte";
   import CutDialog from "./lib/components/CutDialog.svelte";
   import PrintDialog from "./lib/components/PrintDialog.svelte";
+  import DeviceMenu from "./lib/components/DeviceMenu.svelte";
   import { plotter } from "./lib/plotter.svelte";
 
   // ---------- theme ----------
@@ -184,25 +185,7 @@
       <button class="btn icon" title="Design wechseln" onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
-    <div
-      class="device"
-      class:ok={plotter.status.connected && plotter.status.state !== "unloaded"}
-      class:warn={plotter.status.state === "unloaded"}
-      class:busy={plotter.status.state === "cutting" || plotter.status.state === "moving"}
-      class:err={plotter.status.state === "error"}
-      title={plotter.status.message ?? ""}
-    >
-      <span class="dot"></span>
-      {#if plotter.status.connected}
-        {plotter.status.model?.replace("Silhouette ", "")} · {
-          { ready: "bereit", moving: "bewegt sich", unloaded: "Matte laden", cutting: "schneidet", unknown: "bereit" }[plotter.status.state as string] ?? ""
-        }
-      {:else if plotter.status.state === "error"}
-        Plotter-Fehler
-      {:else}
-        Kein Plotter
-      {/if}
-    </div>
+    <DeviceMenu />
     <button class="btn outline" title="Für Print & Cut drucken (Strg+P)" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> Drucken</button>
     <button class="btn primary" title="Schneiden-Dialog öffnen (Strg+Enter)" onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> Schneiden</button>
   </header>
@@ -336,42 +319,6 @@
     min-width: 58px;
     justify-content: center;
     font-variant-numeric: tabular-nums;
-  }
-  .device {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--text-2);
-    font-size: 12px;
-  }
-  .device .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-3);
-  }
-  .device.ok .dot {
-    background: var(--ok);
-  }
-  .device.warn .dot {
-    background: var(--warn);
-  }
-  .device.busy .dot {
-    background: var(--accent);
-    animation: blink 0.9s infinite alternate;
-  }
-  .device.err .dot {
-    background: var(--danger);
-  }
-  @keyframes blink {
-    to {
-      opacity: 0.3;
-    }
   }
   main {
     position: relative;

@@ -59,7 +59,7 @@
 - ⬜ Vorlagen, CLI-Modus
 
 ## Etappe 6 – Anbindungen
-- ⬜ Bluetooth: Plotter kabellos ansprechen (Bluetooth Classic/RFCOMM bzw. BLE, je nach Modell);
+- 🚧 Bluetooth LE: Suchen, Verbinden, Schneiden über den Silhouette-GATT-Dienst – implementiert, Hardware-Test ausstehend;
   gleiche GPGL-Befehle, nur anderer Transport
 - ⬜ MCP-Schnittstelle: Schnittwerk als MCP-Server, damit KI-Assistenten (z. B. Claude) Bilder tracen,
   Sticker-Bögen anlegen, die Vorschau prüfen und Schnitte starten können – mit Bestätigung vor dem Schneiden
