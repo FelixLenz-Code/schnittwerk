@@ -52,7 +52,8 @@
 
 ## Etappe 5 – Ausbau
 - ✅ Text mit Systemschriften (Suche, fett/kursiv, Abstand, mehrzeilig, Ausrichtung), Verschweißen
-- ⬜ Boolesche Operationen, Knotenbearbeitung, Entgitterungshilfen
+- ✅ Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen (i_overlay)
+- ⬜ Knotenbearbeitung, Entgitterungshilfen
 - ✅ .deb-Paket mit Menüeintrag, udev-Regel und Abhängigkeiten
 - ⬜ Nesting, Vorlagen, CLI-Modus
 

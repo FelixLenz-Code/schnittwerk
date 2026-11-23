@@ -102,6 +102,42 @@
     editor.toast("Rahmen zum Durchschneiden hinzugefügt", "ok");
   }
 
+  // ---------- boolean operations ----------
+  let boolBusy = $state(false);
+  const BOOL_OPS = [
+    { op: "union", label: "Vereinen", hint: "Alles zu einer Kontur verschmelzen (Verschweißen)" },
+    { op: "difference", label: "Abziehen", hint: "Obere Pfade aus dem untersten ausschneiden" },
+    { op: "intersect", label: "Schnittmenge", hint: "Nur die gemeinsame Fläche behalten" },
+    { op: "xor", label: "Ausschließen", hint: "Überlappungen entfernen" },
+  ] as const;
+
+  async function combine(op: (typeof BOOL_OPS)[number]["op"]) {
+    // Stacking order: the bottom-most path is the base (difference).
+    const ordered = editor.objects.filter((o): o is PathObj => o.type === "path" && editor.selection.includes(o.id));
+    if (ordered.length < 2) return;
+    boolBusy = true;
+    try {
+      const r = await api.booleanPaths(ordered.map((o) => ({ d: o.d, matrix: pathMatrix(o, null) })), op);
+      const base = ordered[0];
+      const [x, y, w, h] = r.bbox;
+      const obj: PathObj = {
+        id: uid(), type: "path", name: `${base.name} · ${BOOL_OPS.find((b) => b.op === op)!.label}`,
+        d: r.d, bbox: r.bbox, color: base.color, fill: base.fill, printFill: base.printFill, cut: base.cut,
+        x, y, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
+      };
+      editor.checkpoint();
+      const ids = new Set(ordered.map((o) => o.id));
+      const at = editor.objects.findIndex((o) => ids.has(o.id));
+      editor.objects = editor.objects.filter((o) => !ids.has(o.id));
+      editor.objects.splice(Math.min(at, editor.objects.length), 0, obj);
+      editor.selection = [obj.id];
+    } catch (e) {
+      editor.error(e);
+    } finally {
+      boolBusy = false;
+    }
+  }
+
   // ---------- sheet fill ----------
   let gap = $state(3);
 
@@ -272,6 +308,17 @@
         {/each}
       </div>
       <p class="muted small">Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.</p>
+    </section>
+  {/if}
+
+  {#if selPaths.length >= 2}
+    <section>
+      <h3 class="section-title">Pfade kombinieren</h3>
+      <div class="cut-types">
+        {#each BOOL_OPS as b}
+          <button class="btn outline" disabled={boolBusy} title={b.hint} onclick={() => combine(b.op)}>{b.label}</button>
+        {/each}
+      </div>
     </section>
   {/if}
 

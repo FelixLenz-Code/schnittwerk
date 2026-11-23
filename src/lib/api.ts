@@ -40,6 +40,8 @@ export const api = {
   clipboardMark: () => call<void>("clipboard_mark", {}),
   fontFamilies: () => call<string[]>("font_families", {}),
   textToPath: (spec: TextSpec) => call<ImportedVector>("text_to_path", { spec }),
+  booleanPaths: (paths: PathInput[], op: "union" | "difference" | "intersect" | "xor") =>
+    call<OffsetResult>("boolean_paths", { paths, op }),
   listPrinters: () => call<Printers>("list_printers", {}),
   printPage: (png: string, pageWMm: number, pageHMm: number, media: string, printer: string | null, savePath: string | null) =>
     call<void>("print_page", { png, pageWMm, pageHMm, media, printer, savePath }),

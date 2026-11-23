@@ -12,4 +12,5 @@ serde = { version = "1", features = ["derive"] }
 base64 = "0.22"
 thiserror = "2"
 dxf = "0.6"
+i_overlay = "4"
 tiny-skia = { version = "0.11", default-features = false, features = ["std"] }

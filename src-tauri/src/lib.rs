@@ -189,6 +189,13 @@ async fn text_to_path(spec: TextSpec) -> Result<ImportedVector, String> {
 }
 
 #[tauri::command]
+async fn boolean_paths(paths: Vec<PathInput>, op: schnittwerk_core::boolean::BoolOp) -> Result<OffsetResult, String> {
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::boolean::boolean(&paths, op))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn offset_paths(paths: Vec<PathInput>, offset: f64, smoothness: f32) -> Result<OffsetResult, String> {
     tauri::async_runtime::spawn_blocking(move || schnittwerk_core::offset::offset_paths(&paths, offset, smoothness))
         .await
@@ -309,6 +316,7 @@ pub fn run() {
             plotter::cut_cancel,
             sticker_outline,
             offset_paths,
+            boolean_paths,
             bleed_image,
             font_families,
             clipboard_read,
