@@ -73,12 +73,20 @@ fn tools() -> Value {
         },
         {
             "name": "sticker_sheet",
-            "description": "Erstellt aus einem Motiv einen Print-&-Cut-Sticker-Bogen: Schnittkontur mit Rand, Silhouette-Passermarken, Sticker platzsparend verschachtelt. Speichert eine .schnitt-Projektdatei, die man in der Schnittwerk-App öffnet, druckt und schneidet.",
+            "description": "Erstellt aus einem oder mehreren Motiven einen Print-&-Cut-Sticker-Bogen: Schnittkontur mit Rand, Silhouette-Passermarken, Sticker platzsparend verschachtelt (mehrere Motive abwechselnd, gleich oft). Speichert eine .schnitt-Projektdatei, die man in der Schnittwerk-App öffnet, druckt und schneidet.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "image_path": { "type": "string" },
-                    "output_path": { "type": "string", "description": "Ziel (.schnitt), Standard: neben dem Bild" },
+                    "image_path": { "type": "string", "description": "Ein Motiv (oder image_paths verwenden)" },
+                    "image_paths": {
+                        "type": "array",
+                        "description": "Mehrere Motive auf einem Bogen: Pfade oder {path, width_mm}",
+                        "items": { "anyOf": [
+                            { "type": "string" },
+                            { "type": "object", "properties": { "path": { "type": "string" }, "width_mm": { "type": "number" } }, "required": ["path"] }
+                        ] }
+                    },
+                    "output_path": { "type": "string", "description": "Ziel (.schnitt), Standard: neben dem (ersten) Bild" },
                     "sticker_width_mm": { "type": "number", "default": 50 },
                     "margin_mm": { "type": "number", "default": 3, "description": "Rand um das Motiv" },
                     "gap_mm": { "type": "number", "default": 3, "description": "Abstand zwischen Stickern" },
@@ -88,7 +96,7 @@ fn tools() -> Value {
                     "die_cut": { "type": "boolean", "default": true, "description": "Jeden Sticker anschneiden (rot, abziehbar) und mit Trägerrand durchschneiden (blau). false = nur anschneiden" },
                     "backing_margin_mm": { "type": "number", "default": 2, "description": "Trägerrand zwischen Sticker-Kontur und Durchschnitt" }
                 },
-                "required": ["image_path"]
+                "required": []
             }
         },
         {
@@ -211,13 +219,22 @@ fn uid(n: usize) -> String {
     format!("mcp{n:05}")
 }
 
-fn sticker_sheet(a: &Value) -> Result<String, String> {
-    let path = arg_str(a, "image_path").ok_or("image_path fehlt")?;
+/// One prepared motif: image data plus its kiss-cut and optional through-cut outline.
+struct Motif {
+    name: String,
+    src: String,
+    width_mm: f64,
+    s: f64,
+    pw: f64,
+    ph: f64,
+    layer: schnittwerk_core::TraceLayer,
+    through: Option<schnittwerk_core::TraceLayer>,
+}
+
+fn prepare_motif(path: &str, width_mm: f64, a: &Value) -> Result<Motif, String> {
     let (img, bytes) = load_image(path)?;
     let (pw, ph) = (img.width() as f64, img.height() as f64);
-    let width_mm = arg_f64(a, "sticker_width_mm").unwrap_or(50.0).max(5.0);
     let margin = arg_f64(a, "margin_mm").unwrap_or(3.0).max(0.0);
-    let gap = arg_f64(a, "gap_mm").unwrap_or(3.0).max(0.0);
     let s = width_mm / pw;
     let has_alpha = img.color().has_alpha() && img.to_rgba8().pixels().any(|p| p[3] < 128);
     let mask = match arg_str(a, "background").unwrap_or("auto") {
@@ -226,18 +243,53 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
         _ if has_alpha => MotifMask::Alpha,
         _ => MotifMask::Background { tolerance: 12.0 },
     };
-    let outline = sticker_outline(&img, &StickerParams { mask, offset_px: margin / s, smoothness: 60.0, fill_holes: true, despeckle: 30.0 });
-    let layer = outline.layers.first().ok_or("Kein Motiv gefunden – Hintergrund-Modus ändern?")?.clone();
-    let die_cut = a.get("die_cut").and_then(Value::as_bool).unwrap_or(true);
-    let backing = arg_f64(a, "backing_margin_mm").unwrap_or(2.0).max(0.5);
-    let through = if die_cut {
-        let o = sticker_outline(&img, &StickerParams { mask, offset_px: (margin + backing) / s, smoothness: 60.0, fill_holes: true, despeckle: 30.0 });
-        o.layers.into_iter().next()
+    let params = |offset_mm: f64| StickerParams { mask, offset_px: offset_mm / s, smoothness: 60.0, fill_holes: true, despeckle: 30.0 };
+    let name = Path::new(path).file_stem().and_then(|n| n.to_str()).unwrap_or("Sticker").to_string();
+    let layer = sticker_outline(&img, &params(margin))
+        .layers
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("{name}: kein Motiv gefunden – Hintergrund-Modus ändern?"))?;
+    let through = if a.get("die_cut").and_then(Value::as_bool).unwrap_or(true) {
+        let backing = arg_f64(a, "backing_margin_mm").unwrap_or(2.0).max(0.5);
+        sticker_outline(&img, &params(margin + backing)).layers.into_iter().next()
     } else {
         None
     };
-    // Nest by the outermost cut line.
-    let outer = through.as_ref().unwrap_or(&layer);
+    let mime = image::guess_format(&bytes).ok().map(|f| f.to_mime_type()).unwrap_or("image/png");
+    let src = format!("data:{mime};base64,{}", B64.encode(&bytes));
+    Ok(Motif { name, src, width_mm, s, pw, ph, layer, through })
+}
+
+/// Motif list from `image_paths` (strings or {path, width_mm}) or `image_path`.
+fn motif_specs(a: &Value) -> Result<Vec<(String, f64)>, String> {
+    let default_w = arg_f64(a, "sticker_width_mm").unwrap_or(50.0);
+    let mut specs = Vec::new();
+    if let Some(list) = a.get("image_paths").and_then(Value::as_array) {
+        for v in list {
+            match v {
+                Value::String(p) => specs.push((p.clone(), default_w)),
+                Value::Object(_) => {
+                    let p = arg_str(v, "path").ok_or("image_paths: Eintrag ohne path")?;
+                    specs.push((p.to_string(), arg_f64(v, "width_mm").unwrap_or(default_w)));
+                }
+                _ => return Err("image_paths: Pfad oder {path, width_mm} erwartet".into()),
+            }
+        }
+    } else if let Some(p) = arg_str(a, "image_path") {
+        specs.push((p.to_string(), default_w));
+    }
+    if specs.is_empty() {
+        return Err("image_path oder image_paths fehlt".into());
+    }
+    Ok(specs.into_iter().map(|(p, w)| (p, w.max(5.0))).collect())
+}
+
+fn sticker_sheet(a: &Value) -> Result<String, String> {
+    let specs = motif_specs(a)?;
+    let motifs = specs.iter().map(|(p, w)| prepare_motif(p, *w, a)).collect::<Result<Vec<_>, _>>()?;
+    let gap = arg_f64(a, "gap_mm").unwrap_or(3.0).max(0.0);
+    let margin = arg_f64(a, "margin_mm").unwrap_or(3.0).max(0.0);
 
     let (page_name, page_w, page_h) = if arg_str(a, "page") == Some("Letter") { ("Letter", 215.9, 279.4) } else { ("A4", 210.0, 297.0) };
     let (inset_x, inset_y) = (15.0, 10.0);
@@ -248,38 +300,59 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
         [reg.origin_x + reg.width - zone, reg.origin_y, zone, zone],
         [reg.origin_x, reg.origin_y + reg.length - zone, zone, zone],
     ];
-    // Unit at the origin: image (0,0)-(w,h), contour in image pixels scaled by s.
-    let contour_input = PathInput { d: outer.d.clone(), matrix: [s, 0.0, 0.0, s, 0.0, 0.0] };
-    let result = nest(&NestRequest {
-        items: vec![NestItem { paths: vec![contour_input] }],
-        area: [reg.origin_x + 1.0, reg.origin_y + 1.0, reg.width - 2.0, reg.length - 2.0],
-        keepouts,
-        gap,
-        rotate: true,
-        fill: true,
-    })?;
+    let area = [reg.origin_x + 1.0, reg.origin_y + 1.0, reg.width - 2.0, reg.length - 2.0];
+    // Nest by the outermost cut line. Unit at the origin: image (0,0)-(w,h).
+    let unit = |m: &Motif| NestItem {
+        paths: vec![PathInput { d: m.through.as_ref().unwrap_or(&m.layer).d.clone(), matrix: [m.s, 0.0, 0.0, m.s, 0.0, 0.0] }],
+    };
     let max = a.get("count").and_then(Value::as_u64).map(|c| c as usize).unwrap_or(usize::MAX);
-    let placements: Vec<_> = result.placements.into_iter().take(max).collect();
-    if placements.is_empty() {
+    let try_nest = |list: &[usize]| -> Result<Option<Vec<schnittwerk_core::nest::Placement>>, String> {
+        let r = nest(&NestRequest { items: list.iter().map(|&i| unit(&motifs[i])).collect(), area, keepouts: keepouts.clone(), gap, rotate: true, fill: false })?;
+        Ok(r.unplaced.is_empty().then_some(r.placements))
+    };
+
+    // Balanced fill: the motifs take turns; stop at the first one that no longer
+    // fits (or at `count`). Every motif appears equally often (±1).
+    let mut list: Vec<usize> = Vec::new();
+    let mut best = Vec::new();
+    let mut misses = 0;
+    let mut next = 0;
+    while list.len() < max && misses < motifs.len() && list.len() < 500 {
+        list.push(next);
+        match try_nest(&list)? {
+            Some(p) => {
+                best = p;
+                misses = 0;
+            }
+            None => {
+                list.pop();
+                misses += 1;
+            }
+        }
+        next = (next + 1) % motifs.len();
+    }
+    if best.is_empty() {
         return Err("Sticker ist zu groß für den Bogen.".into());
     }
 
     // Objects at their unit pose, then rotated about `center` and shifted.
     // z-order bottom → top: through-cut, kiss-cut, image.
-    let mut base: Vec<(&str, f64, f64, f64, f64)> = Vec::new();
-    if let Some(t) = &through {
-        let [bx, by, bw, bh] = t.bbox;
-        base.push(("through", bx * s, by * s, bw * s, bh * s));
-    }
-    let [bx, by, bw, bh] = layer.bbox;
-    base.push(("kiss", bx * s, by * s, bw * s, bh * s));
-    base.push(("image", 0.0, 0.0, pw * s, ph * s));
-    let mime = image::guess_format(&bytes).ok().map(|f| f.to_mime_type()).unwrap_or("image/png");
-    let src = format!("data:{mime};base64,{}", B64.encode(&bytes));
-    let name = Path::new(path).file_stem().and_then(|n| n.to_str()).unwrap_or("Sticker").to_string();
     let mut objects = Vec::new();
+    let mut counts = vec![0usize; motifs.len()];
     let mut n = 0;
-    for p in &placements {
+    for p in &best {
+        let mi = list[p.item];
+        let m = &motifs[mi];
+        counts[mi] += 1;
+        let s = m.s;
+        let mut base: Vec<(&str, f64, f64, f64, f64)> = Vec::new();
+        if let Some(t) = &m.through {
+            let [bx, by, bw, bh] = t.bbox;
+            base.push(("through", bx * s, by * s, bw * s, bh * s));
+        }
+        let [bx, by, bw, bh] = m.layer.bbox;
+        base.push(("kiss", bx * s, by * s, bw * s, bh * s));
+        base.push(("image", 0.0, 0.0, m.pw * s, m.ph * s));
         n += 1;
         let group = uid(n);
         for &(kind, x, y, w, h) in &base {
@@ -295,17 +368,17 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
             let mut obj = common.as_object().unwrap().clone();
             if kind == "image" {
                 obj.insert("type".into(), json!("image"));
-                obj.insert("name".into(), json!(name));
-                obj.insert("imageId".into(), json!("motif"));
+                obj.insert("name".into(), json!(m.name));
+                obj.insert("imageId".into(), json!(format!("motif{mi}")));
                 obj.insert("opacity".into(), json!(1));
             } else {
                 let (l, label, color) = if kind == "through" {
-                    (through.as_ref().unwrap(), "Durchschneiden", "#3e63dd")
+                    (m.through.as_ref().unwrap(), "Durchschneiden", "#3e63dd")
                 } else {
-                    (&layer, "Anschneiden", "#e5484d")
+                    (&m.layer, "Anschneiden", "#e5484d")
                 };
                 obj.insert("type".into(), json!("path"));
-                obj.insert("name".into(), json!(format!("{name} · {label}")));
+                obj.insert("name".into(), json!(format!("{} · {label}", m.name)));
                 obj.insert("d".into(), json!(l.d));
                 obj.insert("bbox".into(), json!(l.bbox));
                 obj.insert("color".into(), json!(color));
@@ -315,23 +388,37 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
             objects.push(Value::Object(obj));
         }
     }
+    let images: serde_json::Map<String, Value> = motifs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| counts[*i] > 0)
+        .map(|(i, m)| (format!("motif{i}"), json!({ "src": m.src, "name": m.name })))
+        .collect();
     let project = json!({
         "app": "schnittwerk",
         "version": 1,
         "mat": { "name": format!("{page_name} · Print & Cut"), "w": page_w, "h": page_h },
         "printCut": { "enabled": true, "page": page_name, "insetX": inset_x, "insetY": inset_y },
         "objects": objects,
-        "images": { "motif": { "src": src, "name": name } },
+        "images": images,
     });
-    let out = arg_str(a, "output_path").map(PathBuf::from).unwrap_or_else(|| with_ext(Path::new(path), "schnitt"));
+    let first = Path::new(&specs[0].0);
+    let default_out = if motifs.len() > 1 { first.with_file_name("Sticker-Bogen.schnitt") } else { with_ext(first, "schnitt") };
+    let out = arg_str(a, "output_path").map(PathBuf::from).unwrap_or(default_out);
     std::fs::write(&out, serde_json::to_string(&project).unwrap()).map_err(|e| format!("{}: {e}", out.display()))?;
+    let detail = motifs
+        .iter()
+        .zip(&counts)
+        .map(|(m, c)| format!("{c}× {} ({} mm breit)", m.name, mm(m.width_mm)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let any_through = motifs.iter().any(|m| m.through.is_some());
     Ok(format!(
-        "Sticker-Bogen gespeichert: {}\n{} Sticker à {} mm Breite ({} mm Rand) auf {page_name}. {}In Schnittwerk öffnen (Strg+O), drucken (Strg+P), dann schneiden.",
+        "Sticker-Bogen gespeichert: {}\n{} Sticker auf {page_name}: {detail}; {} mm Rand. {}In Schnittwerk öffnen (Strg+O), drucken (Strg+P), dann schneiden.",
         out.display(),
-        placements.len(),
-        mm(width_mm),
+        best.len(),
         mm(margin),
-        if through.is_some() { "Rot wird angeschnitten (Sticker-Papier), blau mit Trägerrand durchgeschnitten. " } else { "Nur angeschnitten (Material z. B. „sticker-matt“). " }
+        if any_through { "Rot wird angeschnitten (Sticker-Papier), blau mit Trägerrand durchgeschnitten. " } else { "Nur angeschnitten (Material z. B. „sticker-matt“). " }
     ))
 }
 
@@ -479,5 +566,31 @@ mod tests {
         // Through-cut + kiss-cut + image per sticker.
         assert_eq!(proj["objects"].as_array().unwrap().len(), 18);
         assert_eq!(proj["printCut"]["enabled"], true);
+    }
+
+    #[test]
+    fn sticker_sheet_mixes_motifs_evenly() {
+        let dir = std::env::temp_dir().join("schnittwerk-mcp-test-multi");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut paths = Vec::new();
+        for (name, r) in [("a", 40.0), ("b", 30.0), ("c", 20.0)] {
+            let png = dir.join(format!("{name}.png"));
+            let mut img = image::RgbaImage::from_pixel(100, 100, image::Rgba([0, 0, 0, 0]));
+            for y in 0..100 {
+                for x in 0..100 {
+                    if (x as f64 - 50.0).hypot(y as f64 - 50.0) < r {
+                        img.put_pixel(x, y, image::Rgba([40, 40, 200, 255]));
+                    }
+                }
+            }
+            img.save(&png).unwrap();
+            paths.push(png.to_str().unwrap().to_string());
+        }
+        let r = sticker_sheet(&json!({ "image_paths": paths, "sticker_width_mm": 40, "count": 7 })).unwrap();
+        assert!(r.contains("7 Sticker"), "{r}");
+        assert!(r.contains("3× a") && r.contains("2× b") && r.contains("2× c"), "{r}");
+        let proj: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("Sticker-Bogen.schnitt")).unwrap()).unwrap();
+        assert_eq!(proj["images"].as_object().unwrap().len(), 3);
+        assert_eq!(proj["objects"].as_array().unwrap().len(), 21);
     }
 }
