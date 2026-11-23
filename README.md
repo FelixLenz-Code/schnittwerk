@@ -10,7 +10,7 @@ Rust (Kern + Backend) · Tauri 2 · Svelte 5 + TypeScript (Oberfläche)
 ```bash
 # Systempakete für Tauri + USB
 sudo apt install pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev libdbus-1-dev \
-  librsvg2-dev libayatana-appindicator3-dev libxdo-dev libusb-1.0-0-dev
+  librsvg2-dev libayatana-appindicator3-dev libxdo-dev libusb-1.0-0-dev poppler-utils
 
 # Rust (falls nicht vorhanden)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

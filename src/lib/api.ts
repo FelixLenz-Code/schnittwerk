@@ -15,6 +15,9 @@ export const api = {
   sampleColor: (id: string, x: number, y: number) =>
     call<[number, number, number]>("sample_color", { id, x: Math.round(x), y: Math.round(y) }),
   importSvg: (path: string) => call<ImportedVector>("import_svg", { path }),
+  importDxf: (path: string) => call<ImportedVector>("import_dxf", { path }),
+  importPdf: (path: string) =>
+    call<{ kind: "vector"; vector: ImportedVector } | { kind: "image"; info: ImageInfo }>("import_pdf", { path, page: 1 }),
   readText: (path: string) => call<string>("read_text", { path }),
   writeText: (path: string, contents: string) => call<void>("write_text", { path, contents }),
 

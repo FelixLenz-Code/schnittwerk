@@ -4,6 +4,7 @@
 pub mod centerline;
 pub mod contour;
 pub mod cut;
+pub mod dxf_import;
 pub mod field;
 pub mod geom;
 pub mod gpgl;

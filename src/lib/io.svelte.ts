@@ -5,7 +5,7 @@ import { boxTransform, uid } from "./geometry";
 import type { ImageInfo, ImportedVector, Obj, PathObj } from "./types";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff"];
-const VECTOR_EXT = ["svg"];
+const VECTOR_EXT = ["svg", "dxf", "pdf"];
 const PROJECT_EXT = "schnitt";
 
 function ext(path: string) {
@@ -106,8 +106,18 @@ export async function importPaths(paths: string[]) {
       if (IMAGE_EXT.includes(e)) {
         addImage(await api.loadImage(path));
         editor.rightTab = "trace";
-      } else if (VECTOR_EXT.includes(e)) {
+      } else if (e === "svg") {
         addVector(await api.importSvg(path));
+      } else if (e === "dxf") {
+        addVector(await api.importDxf(path));
+      } else if (e === "pdf") {
+        const r = await api.importPdf(path);
+        if (r.kind === "vector") addVector(r.vector);
+        else {
+          addImage(r.info);
+          editor.rightTab = "trace";
+          editor.toast("PDF ohne Vektoren – Seite als Bild eingefügt, zum Tracen bereit.");
+        }
       } else if (e === PROJECT_EXT) {
         await openProject(path);
       } else {
@@ -125,7 +135,7 @@ export async function importDialog() {
     filters: [
       { name: "Bilder & Vektoren", extensions: [...IMAGE_EXT, ...VECTOR_EXT] },
       { name: "Bilder", extensions: IMAGE_EXT },
-      { name: "SVG", extensions: VECTOR_EXT },
+      { name: "Vektoren (SVG, DXF, PDF)", extensions: VECTOR_EXT },
     ],
   });
   if (res) await importPaths(Array.isArray(res) ? res : [res]);

@@ -9,11 +9,11 @@
 - ✅ Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
 - ✅ Ausrichten, Anordnen, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
 - ✅ Rückgängig/Wiederholen
-- ✅ Import: PNG, JPG, WebP, BMP, GIF, TIFF, SVG; Drag & Drop
+- ✅ Import: PNG, JPG, WebP, BMP, GIF, TIFF, SVG, PDF, DXF; Drag & Drop
 - ✅ Projektdateien (.schnitt, Bilder eingebettet), SVG-Export der Schnittlinien
 - ✅ Rechteck- und Ellipsen-Werkzeug
 - ✅ Einfügen aus der Zwischenablage (Bilder, SVG), Kopieren/Ausschneiden/Einfügen von Objekten
-- ⬜ PDF/DXF-Import
+- ✅ PDF-Import (Vektoren 1:1, Scans als Bild) und DXF-Import (Linien, Polylinien mit Bögen, Kreise, Ellipsen, Splines, Blöcke)
 
 ## Etappe 2 – Tracen
 - ✅ Live-Vorschau beim Verstellen der Regler

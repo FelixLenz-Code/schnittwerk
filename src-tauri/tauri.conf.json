@@ -42,7 +42,8 @@
       "deb": {
         "depends": [
           "libusb-1.0-0",
-          "cups-client"
+          "cups-client",
+          "poppler-utils"
         ],
         "files": {
           "/usr/lib/udev/rules.d/70-silhouette.rules": "../packaging/70-silhouette.rules"

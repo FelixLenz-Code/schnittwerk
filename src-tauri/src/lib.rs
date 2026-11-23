@@ -221,6 +221,60 @@ async fn import_svg(path: String) -> Result<NamedVector, String> {
 }
 
 #[tauri::command]
+async fn import_dxf(path: String) -> Result<NamedVector, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("{path}: {e}"))?;
+    let vector = tauri::async_runtime::spawn_blocking(move || schnittwerk_core::dxf_import::import_dxf(&bytes))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    Ok(NamedVector { name: file_stem(&path), vector })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+enum PdfContent {
+    Vector { vector: NamedVector },
+    Image { info: ImageInfo },
+}
+
+/// Imports page `page` (1-based) of a PDF via poppler's `pdftocairo`:
+/// vector content as paths, otherwise (scans) the page as a 300 dpi image.
+#[tauri::command]
+async fn import_pdf(path: String, page: Option<u32>, store: State<'_, ImageStore>) -> Result<PdfContent, String> {
+    let page = page.unwrap_or(1).max(1).to_string();
+    let dir = std::env::temp_dir().join(format!("schnittwerk-pdf-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let run = |args: &[&str]| -> Result<(), String> {
+        let out = std::process::Command::new("pdftocairo")
+            .args(args)
+            .output()
+            .map_err(|e| format!("pdftocairo nicht gefunden (Paket poppler-utils): {e}"))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!("PDF konnte nicht gelesen werden: {}", String::from_utf8_lossy(&out.stderr).trim()))
+        }
+    };
+    let svg = dir.join("page.svg");
+    let svg_s = svg.to_string_lossy().to_string();
+    // Exact 1:1 geometry: no fitting to a paper size, no centring.
+    run(&["-svg", "-origpagesizes", "-noshrink", "-nocenter", "-f", &page, "-l", &page, &path, &svg_s])?;
+    if let Ok(bytes) = std::fs::read(&svg) {
+        if let Ok(vector) = schnittwerk_core::import_svg(&bytes) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return Ok(PdfContent::Vector { vector: NamedVector { name: file_stem(&path), vector } });
+        }
+    }
+    // No vector paths: render the page.
+    let base = dir.join("page");
+    let base_s = base.to_string_lossy().to_string();
+    run(&["-png", "-r", "300", "-singlefile", "-f", &page, "-l", &page, &path, &base_s])?;
+    let png = std::fs::read(dir.join("page.png")).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_dir_all(&dir);
+    Ok(PdfContent::Image { info: register_image(&store, png, file_stem(&path))? })
+}
+
+#[tauri::command]
 async fn read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))
 }
@@ -242,6 +296,8 @@ pub fn run() {
             trace_image,
             sample_color,
             import_svg,
+            import_dxf,
+            import_pdf,
             read_text,
             write_text,
             plotter::plotter_status,
