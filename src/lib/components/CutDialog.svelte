@@ -45,7 +45,7 @@
     const entry = byColor[c];
     if (entry) {
       materialId = entry.materialId;
-      m = structuredClone(entry.m);
+      m = $state.snapshot(entry.m) as Material;
     }
   }
 
@@ -121,7 +121,13 @@
 
   /** Lighter passes first so the sheet holds together while kiss-cutting. */
   const severity = (x: Material) => (x.tool === "pen" ? -1 : x.depth * 10 + x.pressure + x.passes * 5);
-  const order = $derived([...colors].sort((a, b) => severity(matOf(a)) - severity(matOf(b))));
+  /** Chosen material of a colour as stored (not the live slider values), so
+   *  adjusting a slider never reshuffles the passes under the cursor. */
+  const baseOf = (c: string): Material => {
+    const id = c === active ? materialId : byColor[c]?.materialId;
+    return all.find((x) => x.id === id) ?? matOf(c);
+  };
+  const order = $derived([...colors].sort((a, b) => severity(baseOf(a)) - severity(baseOf(b))));
 
   const groups = $derived(
     order.map((c) => {
@@ -213,9 +219,12 @@
 
   async function startCut() {
     try {
-      plotter.begin();
+      // Empty groups are skipped by the backend too; dropping them here keeps
+      // the pass numbers in the progress display in step with the device.
+      const job = ($state.snapshot(groups) as typeof groups).filter((g) => g.paths.length > 0);
+      plotter.begin(job.map((g) => ({ color: g.color, name: g.name })));
       const r = await api.cutStart(
-        $state.snapshot(groups).map((g) => ({ paths: g.paths, options: g.options, settings: g.settings })),
+        job.map((g) => ({ paths: g.paths, options: g.options, settings: g.settings })),
         reg ? { ...reg } : null,
       );
       if (r.clamped > 0) editor.toast(`${r.clamped} Punkte lagen außerhalb und wurden an den Rand gesetzt.`, "error");
@@ -253,6 +262,19 @@
   function close() {
     if (!plotter.busy) plotter.dialogOpen = false;
   }
+
+  /** Colour of the pass being cut right now (multi-pass jobs), else null. */
+  const runningColor = $derived(plotter.busy && plotter.job.length > 1 ? (plotter.job[plotter.pass]?.color ?? null) : null);
+  const allPen = $derived(groups.length > 0 && groups.every((g) => g.settings.tool === "pen"));
+
+  const progressText = $derived.by(() => {
+    if (plotter.registering) return "Suche Passermarken …";
+    if (plotter.phase === "paused") return "Pausiert";
+    if (plotter.phase === "cancelling") return "Breche ab …";
+    const n = plotter.job.length;
+    const step = n > 1 ? `Schritt ${Math.min(plotter.pass + 1, n)}/${n} (${plotter.job[plotter.pass]?.name ?? ""}) · ` : "";
+    return pct >= 100 ? `${step}schneidet die letzten Linien …` : `${step}${pct} %`;
+  });
 
   const pct = $derived(plotter.progress.total ? Math.round((plotter.progress.done / plotter.progress.total) * 100) : 0);
 
@@ -312,6 +334,7 @@
                 points={st.map((q) => q.join(",")).join(" ")}
                 fill="none"
                 stroke={multi ? groups[gi]?.color : strokeColor(i, plan.strokes.length)}
+                opacity={runningColor && groups[gi]?.color !== runningColor ? 0.25 : 1}
                 stroke-width="0.5"
                 stroke-linejoin="round"
               />
@@ -383,17 +406,17 @@
           <p class="hint">{modified ? "Angepasst – speichern, um die Werte zu behalten." : "Startwerte – vorher mit einem Testschnitt prüfen."}</p>
           <div class="controls">
             {#if m.tool === "blade"}
-              <Slider label="Messertiefe" bind:value={m.depth} min={1} max={10} hint="AutoBlade-Tiefe, wird vor dem Schnitt automatisch eingestellt" />
+              <Slider disabled={plotter.busy} label="Messertiefe" bind:value={m.depth} min={1} max={10} hint="AutoBlade-Tiefe, wird vor dem Schnitt automatisch eingestellt" />
             {/if}
-            <Slider label="Druck" bind:value={m.pressure} min={1} max={33} />
-            <Slider label="Geschwindigkeit" bind:value={m.speed} min={1} max={30} />
-            <Slider label="Durchgänge" bind:value={m.passes} min={1} max={5} unit="×" />
+            <Slider disabled={plotter.busy} label="Druck" bind:value={m.pressure} min={1} max={33} />
+            <Slider disabled={plotter.busy} label="Geschwindigkeit" bind:value={m.speed} min={1} max={30} />
+            <Slider disabled={plotter.busy} label="Durchgänge" bind:value={m.passes} min={1} max={5} unit="×" />
             {#if m.tool === "blade"}
-              <Slider label="Überschnitt" bind:value={m.overcut} min={0} max={2} step={0.1} unit=" mm" hint="Schneidet geschlossene Formen etwas über den Startpunkt hinaus" />
+              <Slider disabled={plotter.busy} label="Überschnitt" bind:value={m.overcut} min={0} max={2} step={0.1} unit=" mm" hint="Schneidet geschlossene Formen etwas über den Startpunkt hinaus" />
             {/if}
             <label class="select-row">
               <span>Werkzeug</span>
-              <select class="field" bind:value={m.tool}>
+              <select class="field" bind:value={m.tool} disabled={plotter.busy}>
                 <option value="blade">AutoBlade (Messer)</option>
                 <option value="pen">Stift</option>
               </select>
@@ -406,22 +429,22 @@
           <div class="controls">
             <label class="select-row">
               <span>Matte</span>
-              <select class="field" bind:value={mat}>
+              <select class="field" bind:value={mat} disabled={plotter.busy}>
                 <option value="portrait8x12">Matte 8″ × 12″</option>
                 <option value="portrait8_5x12">Matte 8,5″ × 12″</option>
                 <option value="none">Ohne Matte</option>
               </select>
             </label>
-            <Toggle label="Spiegeln (Flexfolie)" bind:checked={mirror} />
-            <Toggle label="Nur Auswahl schneiden" bind:checked={onlySelection} />
-            <Toggle label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
+            <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
+            <Toggle disabled={plotter.busy} label="Nur Auswahl schneiden" bind:checked={onlySelection} />
+            <Toggle disabled={plotter.busy} label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
           </div>
           <div class="stats">
             {#if plans.length}
               <span><b>{totals.paths}</b> Pfade</span>
               <span><b>{fmtLen(totals.cut)}</b> Schnitt</span>
               <span><b>{fmtLen(totals.travel)}</b> Leerweg</span>
-              {#if plans.length > 1}<span><b>{plans.length}</b> Durchgänge</span>{/if}
+              {#if plans.length > 1}<span><b>{plans.length}</b> Schritte</span>{/if}
             {:else if planError}
               <span class="err-text">{planError}</span>
             {:else}
@@ -435,11 +458,11 @@
             <div class="calib">
               <div class="calib-head">
                 <span>Feinjustierung Druck ↔ Schnitt</span>
-                <button class="btn small-btn" onclick={addCalibrationSheet} title="Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite">Testbogen</button>
+                <button class="btn small-btn" onclick={addCalibrationSheet} disabled={plotter.busy} title="Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite">Testbogen</button>
               </div>
               <div class="calib-row">
-                <label>X <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dx} onchange={() => plotter.saveCalib()} /> mm</label>
-                <label>Y <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dy} onchange={() => plotter.saveCalib()} /> mm</label>
+                <label>X <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dx} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
+                <label>Y <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dy} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
               </div>
               <p class="hint">Schnitt liegt zu weit rechts → X verringern; zu weit unten → Y verringern. Beim Testbogen ist der weiße Rand dann ringsum gleich (2 mm).</p>
             </div>
@@ -453,7 +476,7 @@
           {#if plotter.busy}
             <div class="progress">
               <div class="bar"><div style:width="{pct}%"></div></div>
-              <span>{plotter.registering ? "Suche Passermarken …" : plotter.phase === "paused" ? "Pausiert" : plotter.phase === "cancelling" ? "Breche ab …" : pct >= 100 ? "Schneidet die letzten Linien …" : groups.length > 1 ? `Durchgang ${plotter.pass + 1}/${groups.length} · ${pct} %` : `${pct} %`}</span>
+              <span>{progressText}</span>
             </div>
             <div class="actions">
               <button class="btn outline" disabled={plotter.phase === "cancelling"} onclick={() => plotter.pause(plotter.phase !== "paused")}>
@@ -477,7 +500,7 @@
               <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
             </div>
             <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={startCut}>
-              <Icon name="scissors" /> {m.tool === "pen" ? "Zeichnen" : "Schneiden"}
+              <Icon name="scissors" /> {allPen ? "Zeichnen" : "Schneiden"}
             </button>
             {#if !plotter.status.connected}
               <p class="hint center">Plotter per USB anschließen und einschalten.</p>

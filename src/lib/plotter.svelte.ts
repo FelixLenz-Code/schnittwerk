@@ -92,6 +92,8 @@ class PlotterStore {
   regtest = $state(false);
   /** Index of the pass currently being cut (multi-pass jobs). */
   pass = $state(0);
+  /** Passes of the running job as sent (colour + material name), fixed at start. */
+  job = $state<{ color: string; name: string }[]>([]);
   lastResult = $state<{ status: string; message: string | null } | null>(null);
 
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -163,7 +165,8 @@ class PlotterStore {
     await api.cutCancel();
   }
 
-  begin() {
+  begin(job: { color: string; name: string }[] = []) {
+    this.job = job;
     this.phase = "cutting";
     this.progress = { done: 0, total: 0 };
     this.lastResult = null;
