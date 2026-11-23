@@ -28,13 +28,14 @@
   let plans = $state<CutPlan[]>([]);
   let planError = $state<string | null>(null);
 
-  function pickMaterial(id: string) {
+  /** `remember` = the user chose it (automatic defaults are not stored). */
+  function pickMaterial(id: string, remember = true) {
     const found = all.find((x) => x.id === id);
     if (!found) return;
     materialId = id;
     m = structuredClone($state.snapshot(found) as Material);
     if (m.mirror) mirror = true;
-    rememberMaterial(id);
+    if (remember) rememberMaterial(id);
   }
 
   function selectColor(c: string) {
@@ -86,6 +87,18 @@
 
   const colors = $derived([...new Set(cutObjects.map((o) => o.color.toLowerCase()))]);
 
+  /** Blue = through-cut, green = pen, otherwise the remembered material. */
+  function defaultMaterialFor(color: string, index: number): string {
+    if (color === "#3e63dd") return "sticker-through";
+    if (color === "#30a46c") return "pen";
+    if (color === "#e5484d") {
+      // Red is the kiss-cut: never a through-cut or pen preset.
+      const last = lastMaterialId();
+      return ["sticker-through", "pen", "cardstock", "magnet"].includes(last) ? "sticker-matt" : last;
+    }
+    return index === 0 ? lastMaterialId() : "sticker-through";
+  }
+
   // New colours get a material: the first the remembered one, further ones
   // a through-cut preset (typical: kiss-cut stickers + through-cut frame).
   $effect(() => {
@@ -93,9 +106,11 @@
       if (c === active || byColor[c]) continue;
       if (!active) {
         active = c;
+        const id = defaultMaterialFor(c, 0);
+        if (id !== materialId) pickMaterial(id, false);
         continue;
       }
-      const preset = findMat(i === 0 ? lastMaterialId() : "sticker-through") ?? PRESETS[0];
+      const preset = findMat(defaultMaterialFor(c, i)) ?? PRESETS[0];
       byColor[c] = { materialId: preset.id, m: structuredClone($state.snapshot(preset) as Material) };
     }
     if (active && !colors.includes(active) && colors.length) selectColor(colors[0]);

@@ -84,7 +84,9 @@ fn tools() -> Value {
                     "gap_mm": { "type": "number", "default": 3, "description": "Abstand zwischen Stickern" },
                     "background": { "type": "string", "enum": ["auto", "transparent", "remove"], "default": "auto", "description": "Freistellen über Transparenz oder durch Entfernen der Randfarbe" },
                     "page": { "type": "string", "enum": ["A4", "Letter"], "default": "A4" },
-                    "count": { "type": "integer", "description": "Höchstens so viele Sticker (Standard: Bogen füllen)" }
+                    "count": { "type": "integer", "description": "Höchstens so viele Sticker (Standard: Bogen füllen)" },
+                    "die_cut": { "type": "boolean", "default": true, "description": "Jeden Sticker anschneiden (rot, abziehbar) und mit Trägerrand durchschneiden (blau). false = nur anschneiden" },
+                    "backing_margin_mm": { "type": "number", "default": 2, "description": "Trägerrand zwischen Sticker-Kontur und Durchschnitt" }
                 },
                 "required": ["image_path"]
             }
@@ -225,7 +227,17 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
         _ => MotifMask::Background { tolerance: 12.0 },
     };
     let outline = sticker_outline(&img, &StickerParams { mask, offset_px: margin / s, smoothness: 60.0, fill_holes: true, despeckle: 30.0 });
-    let layer = outline.layers.first().ok_or("Kein Motiv gefunden – Hintergrund-Modus ändern?")?;
+    let layer = outline.layers.first().ok_or("Kein Motiv gefunden – Hintergrund-Modus ändern?")?.clone();
+    let die_cut = a.get("die_cut").and_then(Value::as_bool).unwrap_or(true);
+    let backing = arg_f64(a, "backing_margin_mm").unwrap_or(2.0).max(0.5);
+    let through = if die_cut {
+        let o = sticker_outline(&img, &StickerParams { mask, offset_px: (margin + backing) / s, smoothness: 60.0, fill_holes: true, despeckle: 30.0 });
+        o.layers.into_iter().next()
+    } else {
+        None
+    };
+    // Nest by the outermost cut line.
+    let outer = through.as_ref().unwrap_or(&layer);
 
     let (page_name, page_w, page_h) = if arg_str(a, "page") == Some("Letter") { ("Letter", 215.9, 279.4) } else { ("A4", 210.0, 297.0) };
     let (inset_x, inset_y) = (15.0, 10.0);
@@ -237,7 +249,7 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
         [reg.origin_x, reg.origin_y + reg.length - zone, zone, zone],
     ];
     // Unit at the origin: image (0,0)-(w,h), contour in image pixels scaled by s.
-    let contour_input = PathInput { d: layer.d.clone(), matrix: [s, 0.0, 0.0, s, 0.0, 0.0] };
+    let contour_input = PathInput { d: outer.d.clone(), matrix: [s, 0.0, 0.0, s, 0.0, 0.0] };
     let result = nest(&NestRequest {
         items: vec![NestItem { paths: vec![contour_input] }],
         area: [reg.origin_x + 1.0, reg.origin_y + 1.0, reg.width - 2.0, reg.length - 2.0],
@@ -253,11 +265,15 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
     }
 
     // Objects at their unit pose, then rotated about `center` and shifted.
+    // z-order bottom → top: through-cut, kiss-cut, image.
+    let mut base: Vec<(&str, f64, f64, f64, f64)> = Vec::new();
+    if let Some(t) = &through {
+        let [bx, by, bw, bh] = t.bbox;
+        base.push(("through", bx * s, by * s, bw * s, bh * s));
+    }
     let [bx, by, bw, bh] = layer.bbox;
-    let base = [
-        ("image", 0.0, 0.0, pw * s, ph * s),
-        ("path", bx * s, by * s, bw * s, bh * s),
-    ];
+    base.push(("kiss", bx * s, by * s, bw * s, bh * s));
+    base.push(("image", 0.0, 0.0, pw * s, ph * s));
     let mime = image::guess_format(&bytes).ok().map(|f| f.to_mime_type()).unwrap_or("image/png");
     let src = format!("data:{mime};base64,{}", B64.encode(&bytes));
     let name = Path::new(path).file_stem().and_then(|n| n.to_str()).unwrap_or("Sticker").to_string();
@@ -266,7 +282,7 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
     for p in &placements {
         n += 1;
         let group = uid(n);
-        for (kind, x, y, w, h) in base {
+        for &(kind, x, y, w, h) in &base {
             let (cx, cy) = (x + w / 2.0, y + h / 2.0);
             let (sin, cos) = p.rot.to_radians().sin_cos();
             let (rx, ry) = (cx - p.center[0], cy - p.center[1]);
@@ -283,20 +299,21 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
                 obj.insert("imageId".into(), json!("motif"));
                 obj.insert("opacity".into(), json!(1));
             } else {
+                let (l, label, color) = if kind == "through" {
+                    (through.as_ref().unwrap(), "Durchschneiden", "#3e63dd")
+                } else {
+                    (&layer, "Anschneiden", "#e5484d")
+                };
                 obj.insert("type".into(), json!("path"));
-                obj.insert("name".into(), json!(format!("{name} · Sticker-Kontur")));
-                obj.insert("d".into(), json!(layer.d));
-                obj.insert("bbox".into(), json!(layer.bbox));
-                obj.insert("color".into(), json!("#e5484d"));
+                obj.insert("name".into(), json!(format!("{name} · {label}")));
+                obj.insert("d".into(), json!(l.d));
+                obj.insert("bbox".into(), json!(l.bbox));
+                obj.insert("color".into(), json!(color));
                 obj.insert("fill".into(), json!(false));
                 obj.insert("printFill".into(), Value::Null);
             }
             objects.push(Value::Object(obj));
         }
-    }
-    // Contour below the image (z-order): swap each pair.
-    for pair in objects.chunks_mut(2) {
-        pair.swap(0, 1);
     }
     let project = json!({
         "app": "schnittwerk",
@@ -309,11 +326,12 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
     let out = arg_str(a, "output_path").map(PathBuf::from).unwrap_or_else(|| with_ext(Path::new(path), "schnitt"));
     std::fs::write(&out, serde_json::to_string(&project).unwrap()).map_err(|e| format!("{}: {e}", out.display()))?;
     Ok(format!(
-        "Sticker-Bogen gespeichert: {}\n{} Sticker à {} mm Breite ({} mm Rand) auf {page_name}. In Schnittwerk öffnen (Strg+O), drucken (Strg+P), dann schneiden – Material z. B. „sticker-matt“.",
+        "Sticker-Bogen gespeichert: {}\n{} Sticker à {} mm Breite ({} mm Rand) auf {page_name}. {}In Schnittwerk öffnen (Strg+O), drucken (Strg+P), dann schneiden.",
         out.display(),
         placements.len(),
         mm(width_mm),
-        mm(margin)
+        mm(margin),
+        if through.is_some() { "Rot wird angeschnitten (Sticker-Papier), blau mit Trägerrand durchgeschnitten. " } else { "Nur angeschnitten (Material z. B. „sticker-matt“). " }
     ))
 }
 
@@ -458,7 +476,8 @@ mod tests {
         let r = sticker_sheet(&json!({ "image_path": png.to_str().unwrap(), "sticker_width_mm": 40, "count": 6 })).unwrap();
         assert!(r.contains("6 Sticker"), "{r}");
         let proj: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("dot.schnitt")).unwrap()).unwrap();
-        assert_eq!(proj["objects"].as_array().unwrap().len(), 12);
+        // Through-cut + kiss-cut + image per sticker.
+        assert_eq!(proj["objects"].as_array().unwrap().len(), 18);
         assert_eq!(proj["printCut"]["enabled"], true);
     }
 }

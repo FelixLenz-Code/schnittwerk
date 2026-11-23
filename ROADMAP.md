@@ -41,6 +41,7 @@
 
 ## Etappe 4 – Print & Cut
 - ✅ Sticker-Assistent: Hintergrund entfernen oder Transparenz → Rand in mm → glatte Kontur (Live-Vorschau)
+- ✅ Einzelsticker automatisch: anschneiden (Kiss-Cut, abziehbar) + mit Trägerrand durchschneiden
 - ✅ Konturversatz für Pfade (innen/außen, Teile verschmelzen) per Distanztransformation
 - ✅ Print & Cut-Seite (A4/Letter) mit Silhouette-Passermarken (Typ 1) und gesperrten Zonen
 - ✅ Bogen füllen (Raster, Abstand einstellbar, Markenzonen werden ausgespart), Gruppieren

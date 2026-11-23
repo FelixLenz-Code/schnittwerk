@@ -17,6 +17,9 @@
   let colored = $state(false);
   let borderColor = $state("#ffffff");
   let bleedOn = $state(false);
+  /** Kiss-cut the sticker and through-cut a backing outline around it. */
+  let dieCut = $state(true);
+  let backingMm = $state(2);
   let bleedMm = $state(1.5);
   let applying = $state(false);
 
@@ -37,9 +40,14 @@
     };
   });
 
+  const KISS = "#e5484d";
+  const THROUGH = "#3e63dd";
+
   let seq = 0;
   $effect(() => {
     const p = params ? (JSON.parse(JSON.stringify(params)) as StickerParams) : null;
+    void dieCut;
+    void backingMm;
     const obj = target;
     if (!p || !obj) {
       editor.tracePreview = null;
@@ -50,7 +58,17 @@
       editor.tracing = true;
       const t0 = performance.now();
       try {
-        const result = await api.stickerOutline(obj.imageId, p);
+        // Kiss-cut contour, plus a wider through-cut outline for the backing.
+        const extraPx = (backingMm * (editor.images[obj.imageId]?.pxW ?? 1)) / obj.w;
+        const [kiss, through] = await Promise.all([
+          api.stickerOutline(obj.imageId, p),
+          dieCut ? api.stickerOutline(obj.imageId, { ...p, offsetPx: p.offsetPx + extraPx }) : Promise.resolve(null),
+        ]);
+        const layers = [
+          ...kiss.layers.slice(0, 1).map((l) => ({ ...l, color: KISS })),
+          ...(through?.layers.slice(0, 1).map((l) => ({ ...l, color: THROUGH })) ?? []),
+        ];
+        const result = { ...kiss, layers };
         if (my === seq) editor.tracePreview = { objId: obj.id, result, ms: Math.round(performance.now() - t0) };
       } catch (e) {
         if (my === seq) editor.error(e);
@@ -87,11 +105,16 @@
       }
     }
     const group = img.group ?? uid();
-    const contour = layerToPath(img, preview.result.width, preview.result.height, preview.result.layers[0], {
-      name: `${img.name} · Sticker-Kontur`,
+    const r = preview.result;
+    const contour = layerToPath(img, r.width, r.height, r.layers[0], {
+      name: `${img.name} · Anschneiden`,
+      color: KISS,
       printFill: colored ? borderColor : null,
       group,
     });
+    const backing = r.layers[1]
+      ? layerToPath(img, r.width, r.height, r.layers[1], { name: `${img.name} · Durchschneiden`, color: THROUGH, group })
+      : null;
     editor.checkpoint();
     const idx = editor.objects.findIndex((o) => o.id === img.id);
     const live = editor.objects[idx];
@@ -106,10 +129,10 @@
       live.x = cx - live.w / 2;
       live.y = cy - live.h / 2;
     }
-    // Contour goes below the image so a coloured border is printed underneath.
-    editor.objects.splice(idx, 0, contour);
-    editor.selection = [contour.id, img.id];
-    editor.toast("Sticker-Kontur erstellt", "ok");
+    // Contours go below the image so a coloured border is printed underneath.
+    editor.objects.splice(idx, 0, ...(backing ? [backing, contour] : [contour]));
+    editor.selection = [...(backing ? [backing.id] : []), contour.id, img.id];
+    editor.toast(backing ? "Sticker angelegt: rot wird angeschnitten, blau durchgeschnitten" : "Sticker-Kontur erstellt", "ok");
     editor.rightTab = "object";
   }
 </script>
@@ -166,6 +189,26 @@
             <input type="color" bind:value={borderColor} />
             <span class="mono">{borderColor}</span>
           </label>
+        {/if}
+      </div>
+    </section>
+
+    <section>
+      <h3 class="section-title">Schneiden</h3>
+      <div class="controls">
+        <Toggle
+          label="Einzeln ausschneiden"
+          bind:checked={dieCut}
+          hint="Sticker wird angeschnitten (abziehbar) und mit etwas Trägerpapier komplett ausgeschnitten"
+        />
+        {#if dieCut}
+          <Slider label="Trägerrand" bind:value={backingMm} min={1} max={6} step={0.5} unit=" mm" hint="Abstand der Durchschnitt-Linie zur Sticker-Kontur" />
+          <p class="legend">
+            <span class="sw" style:background={KISS}></span> anschneiden – nur die Stickerfolie
+            <br /><span class="sw" style:background={THROUGH}></span> durchschneiden – samt Trägerpapier
+          </p>
+        {:else}
+          <p class="legend"><span class="sw" style:background={KISS}></span> nur anschneiden – die Sticker bleiben auf dem Bogen</p>
         {/if}
       </div>
     </section>
@@ -241,6 +284,20 @@
   .mono {
     font-family: ui-monospace, monospace;
     color: var(--text-3);
+  }
+  .legend {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .sw {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: -1px;
   }
   .footer {
     position: sticky;
