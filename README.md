@@ -29,7 +29,7 @@ Hardware-Test ohne Oberfläche: `cargo run -p schnittwerk-plotter --example stat
 
 ```bash
 npm run tauri dev      # Entwicklungsmodus mit Hot-Reload
-npm run tauri build    # .deb unter target/release/bundle/deb/
+./scripts/build-deb.sh # .deb mit hochgezählter Version unter target/release/bundle/deb/
 ```
 
 Tests des Kerns: `cargo test -p schnittwerk-core`

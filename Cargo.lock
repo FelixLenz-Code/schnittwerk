@@ -3558,7 +3558,7 @@ dependencies = [
 
 [[package]]
 name = "schnittwerk"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -3576,7 +3576,7 @@ dependencies = [
 
 [[package]]
 name = "schnittwerk-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "dxf",
@@ -3591,7 +3591,7 @@ dependencies = [
 
 [[package]]
 name = "schnittwerk-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -3604,7 +3604,7 @@ dependencies = [
 
 [[package]]
 name = "schnittwerk-plotter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "btleplug",
  "futures",
