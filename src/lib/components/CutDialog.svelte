@@ -885,13 +885,13 @@
   }
   .bar div {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), #c04bff);
+    background: linear-gradient(90deg, var(--accent), #ff7eb9);
     transition: width 0.3s;
   }
   /* Data is sent, the cutter is still busy: moving stripes instead of a
      frozen bar. */
   .bar.working div {
-    background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, #c04bff 8px 16px);
+    background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, #ff7eb9 8px 16px);
     background-size: 22.6px 22.6px;
     animation: stripes 0.8s linear infinite;
   }

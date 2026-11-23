@@ -329,7 +329,7 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #c04bff);
+    background: linear-gradient(135deg, var(--accent), #ff7eb9);
     color: #fff;
   }
   .title {
