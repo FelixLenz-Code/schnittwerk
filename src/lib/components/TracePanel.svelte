@@ -8,6 +8,7 @@
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
   import { brush } from "../brush.svelte";
+  import { PAPERS, perspective } from "../perspective.svelte";
 
   type Kind = TraceMode["kind"];
 
@@ -81,6 +82,12 @@
     editor.tracePreview = null;
     editor.picking = null;
     brush.mode = null;
+    perspective.cancel();
+  });
+
+  // Selecting another object ends the perspective tool.
+  $effect(() => {
+    if (perspective.objId && target?.id !== perspective.objId) perspective.cancel();
   });
 
   const preview = $derived(editor.tracePreview && target && editor.tracePreview.objId === target.id ? editor.tracePreview : null);
@@ -222,6 +229,38 @@
     </section>
 
     <section>
+      <h3 class="section-title">Foto einer Zeichnung</h3>
+      {#if perspective.objId}
+        <p class="muted">
+          {perspective.detected ? "Blatt erkannt – Ecken bei Bedarf nachziehen." : "Kein Blatt erkannt – die vier Punkte auf die Ecken ziehen."}
+        </p>
+        <div class="controls">
+          <label class="select-row">
+            <span>Format</span>
+            <select class="field" bind:value={perspective.paper} title="Mit Papierformat wird das Bild in Originalgröße angelegt">
+              {#each Object.entries(PAPERS) as [id, p]}<option value={id}>{p.label}</option>{/each}
+            </select>
+          </label>
+        </div>
+        <div class="brush-row persp-actions">
+          <button class="btn outline" onclick={() => perspective.cancel()} disabled={perspective.busy}>Abbrechen</button>
+          <button class="btn primary grow" onclick={() => perspective.apply()} disabled={perspective.busy}>
+            <Icon name="check" /> Entzerren
+          </button>
+        </div>
+      {:else}
+        <div class="brush-row">
+          <button class="btn outline" onclick={() => target && perspective.start(target)} disabled={perspective.busy} title="Schräg fotografiertes Blatt gerade ziehen">
+            Perspektive korrigieren
+          </button>
+        </div>
+      {/if}
+      <div class="controls">
+        <Toggle label="Beleuchtung ausgleichen" bind:checked={p.flatten} hint="Schatten und Helligkeitsverläufe auf dem Papier entfernen – vor allem bei Handyfotos" />
+      </div>
+    </section>
+
+    <section>
       <h3 class="section-title">Bild bereinigen</h3>
       <div class="brush-row">
         <button class="btn outline" class:active={brush.mode === "erase"} onclick={() => brush.toggle("erase")} title="Flecken und Störungen wegradieren (wird transparent)">Radierer</button>
@@ -290,6 +329,13 @@
 {/if}
 
 <style>
+  .persp-actions {
+    margin-top: 10px;
+  }
+  .persp-actions .grow {
+    flex: 1;
+    justify-content: center;
+  }
   .panel {
     display: flex;
     flex-direction: column;

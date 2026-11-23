@@ -90,6 +90,38 @@ async fn load_image_data(data_url: String, name: String, store: State<'_, ImageS
     register_image(&store, bytes, name)
 }
 
+/// Corners of a sheet of paper in a photo (image pixels), if one is visible.
+#[tauri::command]
+async fn detect_page(id: String, store: State<'_, ImageStore>) -> Result<Option<schnittwerk_core::photo::Quad>, String> {
+    let img = store.get(&id)?;
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::photo::detect_page(&img))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Straightens the quad of an image into a rectangle (perspective
+/// correction). `aspect` = width / height of the target (e.g. a paper size).
+#[tauri::command]
+async fn warp_image(
+    id: String,
+    quad: schnittwerk_core::photo::Quad,
+    aspect: Option<f64>,
+    name: String,
+    store: State<'_, ImageStore>,
+) -> Result<ImageInfo, String> {
+    let img = store.get(&id)?;
+    let png = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
+        let (w, h) = schnittwerk_core::photo::output_size(&quad, aspect, 6000);
+        let out = schnittwerk_core::photo::warp(&img, &quad, w, h).ok_or("Die Ecken bilden kein gültiges Viereck.")?;
+        let mut buf = std::io::Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(out).write_to(&mut buf, ImageFormat::Png).map_err(|e| e.to_string())?;
+        Ok(buf.into_inner())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    register_image(&store, png, name)
+}
+
 #[tauri::command]
 async fn trace_image(id: String, params: TraceParams, store: State<'_, ImageStore>) -> Result<TraceResult, String> {
     let img = store.get(&id)?;
@@ -308,6 +340,8 @@ pub fn run() {
             load_image,
             load_image_data,
             trace_image,
+            detect_page,
+            warp_image,
             sample_color,
             import_svg,
             import_dxf,

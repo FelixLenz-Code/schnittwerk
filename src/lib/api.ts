@@ -12,6 +12,9 @@ export const api = {
   loadImage: (path: string) => call<ImageInfo>("load_image", { path }),
   loadImageData: (dataUrl: string, name: string) => call<ImageInfo>("load_image_data", { dataUrl, name }),
   traceImage: (id: string, params: TraceParams) => call<TraceResult>("trace_image", { id, params }),
+  detectPage: (id: string) => call<[number, number][] | null>("detect_page", { id }),
+  warpImage: (id: string, quad: [number, number][], aspect: number | null, name: string) =>
+    call<ImageInfo>("warp_image", { id, quad, aspect, name }),
   sampleColor: (id: string, x: number, y: number) =>
     call<[number, number, number]>("sample_color", { id, x: Math.round(x), y: Math.round(y) }),
   importSvg: (path: string) => call<ImportedVector>("import_svg", { path }),

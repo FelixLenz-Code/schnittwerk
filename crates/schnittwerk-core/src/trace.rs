@@ -46,6 +46,9 @@ pub struct TraceParams {
     /// Gaussian blur sigma in source pixels.
     #[serde(default)]
     pub blur: f32,
+    /// Even out lighting first (photos of drawings: shadows, gradients).
+    #[serde(default)]
+    pub flatten: bool,
     /// Regions smaller than this many px² (in source pixels) are dropped.
     #[serde(default = "default_despeckle")]
     pub despeckle: u32,
@@ -78,6 +81,7 @@ impl Default for TraceParams {
             brightness: 0.0,
             contrast: 0.0,
             blur: 0.0,
+            flatten: false,
             despeckle: default_despeckle(),
             smoothness: default_smoothness(),
             grow: 0,
@@ -128,6 +132,7 @@ pub fn trace(img: &DynamicImage, p: &TraceParams) -> TraceResult {
         img.clone()
     };
     let scale = w0 as f64 / work.width() as f64;
+    let work = if p.flatten { DynamicImage::ImageRgba8(crate::photo::flatten_light(&work.to_rgba8())) } else { work };
     let rgba = preprocess::adjust(&work, p.brightness, p.contrast, p.blur / scale as f32);
     let min_area = p.despeckle as f64 / (scale * scale);
     let cp = ContourParams::from_smoothness(p.smoothness, min_area, p.curves, 1.0 / scale);

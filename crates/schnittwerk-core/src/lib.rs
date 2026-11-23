@@ -11,6 +11,7 @@ pub mod geom;
 pub mod gpgl;
 pub mod nest;
 pub mod offset;
+pub mod photo;
 pub mod preprocess;
 pub mod sticker;
 pub mod svg_import;

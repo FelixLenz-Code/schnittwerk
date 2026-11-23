@@ -50,6 +50,7 @@ export const DEFAULT_TRACE: TraceParams = {
   brightness: 0,
   contrast: 0,
   blur: 0,
+  flatten: false,
   despeckle: 6,
   smoothness: 40,
   grow: 0,

@@ -75,6 +75,8 @@ export interface TraceParams {
   brightness: number;
   contrast: number;
   blur: number;
+  /** Even out lighting (photos of drawings). */
+  flatten: boolean;
   despeckle: number;
   smoothness: number;
   grow: number;
