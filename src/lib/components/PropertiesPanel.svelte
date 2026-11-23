@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from "../api";
   import { editor } from "../editor.svelte";
-  import { aabb, fmt, uid } from "../geometry";
+  import { aabb, center, fmt, rotate, uid } from "../geometry";
   import { pathMatrix } from "../plotter.svelte";
   import type { Obj, PathObj } from "../types";
   import Icon from "./Icon.svelte";
@@ -138,10 +138,106 @@
     }
   }
 
-  // ---------- sheet fill ----------
+  // ---------- sheet fill / nesting ----------
   let gap = $state(3);
+  let nestShapes = $state(true);
+  let nesting = $state(false);
 
-  function fillSheet() {
+  /** Usable area and keep-out zones of the current mat / print page. */
+  function sheetArea(): { area: [number, number, number, number]; keepouts: [number, number, number, number][] } {
+    const r = editor.regmarks;
+    return r
+      ? { area: [r.originX + 1, r.originY + 1, r.width - 2, r.length - 2], keepouts: editor.regZones() }
+      : { area: [5, 5, editor.mat.w - 10, editor.mat.h - 10], keepouts: [] };
+  }
+
+  /** Selected objects split into units (a group or a single object). */
+  function selectedUnits(): Obj[][] {
+    const ids = editor.expandGroups(editor.selection);
+    const byKey = new Map<string, Obj[]>();
+    for (const o of editor.objects) {
+      if (!ids.includes(o.id) || o.locked) continue;
+      const k = o.group ?? o.id;
+      byKey.set(k, [...(byKey.get(k) ?? []), o]);
+    }
+    return [...byKey.values()];
+  }
+
+  /** Nesting outline of a unit: its cut paths, else its bounding box. */
+  function unitOutline(objs: Obj[]) {
+    const paths = objs.filter((o): o is PathObj => o.type === "path" && o.cut !== false);
+    if (paths.length) return paths.map((o) => ({ d: o.d, matrix: pathMatrix(o, null) }));
+    const b = aabb(objs)!;
+    return [{ d: `M${b.x0} ${b.y0}H${b.x1}V${b.y1}H${b.x0}Z`, matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number] }];
+  }
+
+  function placeUnit(objs: Obj[], rot: number, c: [number, number], dx: number, dy: number) {
+    for (const o of objs) {
+      const oc = center(o);
+      const r = rotate({ x: oc.x - c[0], y: oc.y - c[1] }, rot);
+      o.rot = (((o.rot + rot) % 360) + 360) % 360;
+      o.x = c[0] + r.x + dx - o.w / 2;
+      o.y = c[1] + r.y + dy - o.h / 2;
+    }
+  }
+
+  async function nestSelection(fill: boolean) {
+    const units = selectedUnits();
+    if (!units.length) return;
+    if (fill && !nestShapes) return gridFill();
+    nesting = true;
+    try {
+      const { area, keepouts } = sheetArea();
+      const items = (fill ? units.slice(0, 1) : units).map((u) => ({ paths: unitOutline(u) }));
+      if (fill && units.length > 1) {
+        // Fill treats the whole selection as one unit.
+        items[0] = { paths: units.flatMap(unitOutline) };
+      }
+      const r = await api.nest({ items, area, keepouts, gap, rotate: true, fill });
+      if (!r.placements.length) {
+        editor.toast("Passt nicht auf den Bogen.", "error");
+        return;
+      }
+      editor.checkpoint();
+      if (fill) {
+        const unit = units.flat();
+        r.placements.forEach((p, i) => {
+          let objs = unit;
+          if (i > 0) {
+            const groupMap = new Map<string, string>();
+            objs = unit.map((o) => {
+              const c = { ...($state.snapshot(o) as Obj), id: uid() };
+              if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
+              return c;
+            });
+            // Copies start from the original pose.
+            editor.objects.push(...objs);
+            objs = editor.objects.slice(-objs.length);
+          }
+          if (i === 0) {
+            // Move the original last so copies can be cloned from its start pose.
+            return;
+          }
+          placeUnit(objs, p.rot, p.center, p.dx, p.dy);
+        });
+        placeUnit(unit, r.placements[0].rot, r.placements[0].center, r.placements[0].dx, r.placements[0].dy);
+        editor.toast(`${r.placements.length} Exemplare platzsparend verteilt`, "ok");
+      } else {
+        for (const p of r.placements) placeUnit(units[p.item], p.rot, p.center, p.dx, p.dy);
+        editor.toast(
+          r.unplaced.length ? `${r.placements.length} angeordnet, ${r.unplaced.length} passen nicht mehr drauf` : `${r.placements.length} Teile platzsparend angeordnet`,
+          r.unplaced.length ? "error" : "ok",
+        );
+      }
+    } catch (e) {
+      editor.error(e);
+    } finally {
+      nesting = false;
+    }
+  }
+
+  /** Simple grid fill by bounding box (no rotation). */
+  function gridFill() {
     const unit = editor.selected.filter((o) => !o.locked);
     const b = aabb(unit);
     if (!b) return;
@@ -171,11 +267,10 @@
     }
     const copies: Obj[] = [];
     for (const [cx, cy] of cells.slice(1)) {
-      const g = uid();
       const groupMap = new Map<string, string>();
       for (const o of unit) {
         const c = { ...($state.snapshot(o) as Obj), id: uid(), x: o.x + cx - fx, y: o.y + cy - fy };
-        if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, g + c.group).get(c.group);
+        if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
         copies.push(c);
       }
     }
@@ -350,7 +445,11 @@
         <input class="field pad-wide" type="number" min="0" step="0.5" bind:value={gap} />
         <em>mm</em>
       </label>
-      <button class="btn outline" onclick={fillSheet}>Füllen</button>
+      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(true)} title="Bogen mit Kopien der Auswahl füllen">Füllen</button>
+      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(false)} title="Ausgewählte Teile platzsparend anordnen (ohne Kopien)">Anordnen</button>
+    </div>
+    <div class="stack">
+      <Toggle label="Formen verschachteln" bind:checked={nestShapes} hint="Echte Umrisse ineinander setzen und drehen statt eines starren Rasters" />
     </div>
     <p class="muted small">Verteilt die Auswahl so oft wie möglich auf {editor.printCut.enabled ? "der Seite (ohne Markenzonen)" : "der Matte"}.</p>
   </section>

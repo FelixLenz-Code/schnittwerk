@@ -189,6 +189,13 @@ async fn text_to_path(spec: TextSpec) -> Result<ImportedVector, String> {
 }
 
 #[tauri::command]
+async fn nest(req: schnittwerk_core::nest::NestRequest) -> Result<schnittwerk_core::nest::NestResult, String> {
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::nest::nest(&req))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn boolean_paths(paths: Vec<PathInput>, op: schnittwerk_core::boolean::BoolOp) -> Result<OffsetResult, String> {
     tauri::async_runtime::spawn_blocking(move || schnittwerk_core::boolean::boolean(&paths, op))
         .await
@@ -317,6 +324,7 @@ pub fn run() {
             sticker_outline,
             offset_paths,
             boolean_paths,
+            nest,
             bleed_image,
             font_families,
             clipboard_read,

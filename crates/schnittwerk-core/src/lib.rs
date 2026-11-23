@@ -9,6 +9,7 @@ pub mod dxf_import;
 pub mod field;
 pub mod geom;
 pub mod gpgl;
+pub mod nest;
 pub mod offset;
 pub mod preprocess;
 pub mod sticker;

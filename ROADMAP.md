@@ -55,7 +55,8 @@
 - ✅ Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen (i_overlay)
 - ⬜ Knotenbearbeitung, Entgitterungshilfen
 - ✅ .deb-Paket mit Menüeintrag, udev-Regel und Abhängigkeiten
-- ⬜ Nesting, Vorlagen, CLI-Modus
+- ✅ Nesting: echte Umrisse verschachteln und drehen (Füllen mit Kopien oder Anordnen)
+- ⬜ Vorlagen, CLI-Modus
 
 ## Etappe 6 – Anbindungen
 - ⬜ Bluetooth: Plotter kabellos ansprechen (Bluetooth Classic/RFCOMM bzw. BLE, je nach Modell);

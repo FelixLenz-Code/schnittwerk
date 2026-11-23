@@ -40,6 +40,15 @@ export const api = {
   clipboardMark: () => call<void>("clipboard_mark", {}),
   fontFamilies: () => call<string[]>("font_families", {}),
   textToPath: (spec: TextSpec) => call<ImportedVector>("text_to_path", { spec }),
+  nest: (req: {
+    items: { paths: PathInput[] }[];
+    area: [number, number, number, number];
+    keepouts: [number, number, number, number][];
+    gap: number;
+    rotate: boolean;
+    fill: boolean;
+  }) =>
+    call<{ placements: { item: number; rot: number; center: [number, number]; dx: number; dy: number }[]; unplaced: number[] }>("nest", { req }),
   booleanPaths: (paths: PathInput[], op: "union" | "difference" | "intersect" | "xor") =>
     call<OffsetResult>("boolean_paths", { paths, op }),
   listPrinters: () => call<Printers>("list_printers", {}),
