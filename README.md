@@ -106,3 +106,13 @@ src/                       Oberfläche
 | Drehgriff (+Shift) | drehen (in 15°-Schritten) |
 
 Siehe [ROADMAP.md](ROADMAP.md) für den Funktionsumfang und den Stand.
+
+## Lizenz
+
+Schnittwerk ist freie Software unter der [GNU GPL v3 oder neuer](LICENSE).
+Fremdbestandteile (Icons, Bibliotheken) und ihre Lizenzen: [THIRD_PARTY.md](THIRD_PARTY.md).
+
+Schnittwerk ist ein unabhängiges Projekt und steht in keiner Verbindung zu
+Silhouette America, Inc. oder Graphtec. „Silhouette“, „Portrait“, „Cameo“,
+„PixScan“ und „AutoBlade“ sind Marken ihrer jeweiligen Inhaber und werden hier
+nur verwendet, um die unterstützte Hardware zu benennen.

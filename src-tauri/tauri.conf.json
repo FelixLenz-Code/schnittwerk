@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build && cargo build --release -p schnittwerk-mcp -p schnittwerk-cli",
+    "beforeBuildCommand": "npm run build && cargo build --release -p schnittwerk-mcp -p schnittwerk-cli && python3 -I scripts/third-party-notices.py",
     "frontendDist": "../dist"
   },
   "app": {
@@ -48,7 +48,9 @@
         "files": {
           "/usr/lib/udev/rules.d/70-silhouette.rules": "../packaging/70-silhouette.rules",
           "/usr/bin/schnittwerk-mcp": "../target/release/schnittwerk-mcp",
-          "/usr/bin/schnittwerk-cli": "../target/release/schnittwerk-cli"
+          "/usr/bin/schnittwerk-cli": "../target/release/schnittwerk-cli",
+          "/usr/share/doc/schnittwerk/THIRD_PARTY_LICENSES.txt": "../target/third-party-licenses.txt",
+          "/usr/share/doc/schnittwerk/copyright": "../LICENSE"
         }
       }
     },

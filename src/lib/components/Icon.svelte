@@ -1,5 +1,6 @@
 <script lang="ts" module>
-  // 24×24 stroke icons (lucide-style, drawn for this app).
+  // 24×24 stroke icons. Many paths are taken from Lucide (ISC) / Feather (MIT),
+  // see THIRD_PARTY.md; the rest are drawn for this app in the same style.
   const ICONS: Record<string, string> = {
     pointer: "M4 4l7 17 2.5-7.5L21 11z",
     hand: "M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15",
