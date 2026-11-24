@@ -1,11 +1,161 @@
 # Schnittwerk
 
-Linux-Software für Silhouette-Schneideplotter (Ziel: **Portrait 3**) – mit Bild-Tracing,
-moderner Oberfläche und Print & Cut für Sticker.
+Linux-Software für Silhouette-Schneideplotter (Ziel: **Portrait 3**). Damit kannst du
+Bilder tracen, Sticker mit Print & Cut erstellen und direkt per USB schneiden. Du
+brauchst dafür weder Silhouette Studio noch Windows.
+
+![Sticker-Bogen mit Print & Cut](docs/screenshots/sticker-bogen.png)
+
+> [!NOTE]
+> **Von einer KI geschrieben.** Der Code und diese Anleitung wurden mit
+> Claude (Anthropic) erstellt, unter Anleitung und mit Tests durch einen Menschen.
+> Der Code wurde nicht unabhängig geprüft. Wer ihn für Wichtiges einsetzt, sollte
+> ihn vorher selbst lesen.
+
+> [!WARNING]
+> Getestet ist bisher nur die **Portrait 3 über USB**. Bluetooth und die anderen
+> Modelle sind eingebaut, aber noch nicht an echter Hardware erprobt. Mach bei
+> neuem Material immer erst einen Testschnitt. Die Nutzung erfolgt auf eigene
+> Verantwortung (siehe [Lizenz](#lizenz)).
+
+| Bilder tracen | Sticker-Assistent | Schneiden |
+|---|---|---|
+| ![Tracen](docs/screenshots/tracen.png) | ![Sticker-Assistent](docs/screenshots/sticker-assistent.png) | ![Schneiden](docs/screenshots/schneiden.png) |
+
+## Installation
+
+Für **Ubuntu 24.04 oder neuer** und darauf aufbauende Systeme (64 Bit, x86).
+
+1. Lade die Datei `Schnittwerk_…_amd64.deb` vom
+   [neuesten Release](https://github.com/FelixLenz-Code/schnittwerk/releases/latest) herunter.
+2. Öffne ein Terminal im Download-Ordner und installiere sie:
+   ```bash
+   sudo apt install ./Schnittwerk_*_amd64.deb
+   ```
+   `apt` installiert dabei die benötigten Pakete mit (libusb, CUPS-Client, poppler-utils).
+3. **Stecke den Plotter einmal aus und wieder ein.** Das Paket bringt eine udev-Regel
+   mit, damit Schnittwerk ohne Administratorrechte auf den Plotter zugreifen darf.
+   Diese Regel greift erst nach dem Neueinstecken.
+4. Starte **Schnittwerk** über das Anwendungsmenü.
+
+Ein Update installierst du genauso: neue `.deb` herunterladen und `sudo apt install` erneut ausführen.
+Zum Entfernen: `sudo apt remove schnittwerk`.
+
+## Funktionen
+
+### Arbeitsfläche
+- Matten für Portrait 3 (8″ × 12″), A4 und Letter mit Raster und Linealen
+- Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
+- Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
+- Ausrichten, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
+- Rückgängig/Wiederholen, helles und dunkles Design (folgt dem System)
+- Rechteck, Ellipse und Text mit Systemschriften (fett/kursiv, Abstand, mehrzeilig, Verschweißen)
+- Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen
+- Knotenbearbeitung: Knoten und Griffe ziehen, einfügen, löschen, Ecke/Glatt, Gerade/Kurve
+- Konturversatz nach innen oder außen
+- Vorlagen: Sticker/Etiketten, Klappkarte, Lesezeichen, Geschenkanhänger
+
+### Import und Export
+- Bilder: PNG, JPG, WebP, BMP, GIF, TIFF
+- Vektoren: SVG, PDF (Vektoren 1:1, Scans als Bild), DXF (Linien, Bögen, Kreise, Splines, Blöcke)
+- Drag & Drop und Einfügen aus der Zwischenablage, auch aus anderen Programmen
+- Projektdateien (`.schnitt`, Bilder eingebettet), SVG-Export der Schnittlinien
+
+### Tracen
+- Live-Vorschau beim Verstellen der Regler
+- Modi: Schwarz/Weiß (automatischer Schwellwert), Farbe per Pipette,
+  Mehrfarbig (eine Ebene je Farbe), Freistellen, Mittellinie (eine Linie durch jeden Strich)
+- Helligkeit, Kontrast, Weichzeichnen, Glättung, Flecken entfernen, Dicker/Dünner, nur Außenkontur
+- Radierer und Pinsel zum Bereinigen vor dem Tracen
+- Fotos von Zeichnungen: Perspektive korrigieren (Blatt wird erkannt) und Beleuchtung ausgleichen
+
+### Schneiden
+- USB (Portrait 3) und Bluetooth LE (noch ungetestet)
+- Materialbibliothek mit Vorlagen und eigenen Profilen: Messertiefe (AutoBlade), Druck,
+  Geschwindigkeit, Durchgänge, Überschnitt
+- Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
+- Vorschau der Schnittreihenfolge, Fortschritt, Pause und Abbrechen
+- Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
+- Testschnitt, Stiftmodus, Spiegeln für Flexfolie
+- Entgitterungshilfen: Rahmen und Linien durch den Abfall
+- Nesting: Formen platzsparend verschachteln und drehen
+
+### Print & Cut und Sticker
+- Sticker-Assistent: Hintergrund entfernen oder Transparenz nutzen, Rand in mm, glatte Kontur
+- Einzelsticker: anschneiden (abziehbar) und mit Trägerrand durchschneiden
+- Print-&-Cut-Seite (A4/Letter) mit Silhouette-Passermarken; der optische Sensor findet sie automatisch
+- Bogen füllen, Rand farbig drucken, Bleed (Motivfarben über die Schnittlinie hinaus)
+- Drucken über CUPS ohne Skalierung oder als PDF speichern
+- Feinjustierung Druck ↔ Schnitt mit Testbogen
+- PixScan-Matte: Foto der Matte wird erkannt, entzerrt und in Originalgröße an die Schneideposition gelegt
+
+### Kommandozeile und KI-Assistenten
+- `schnittwerk-cli`: Bilder tracen, SVG/DXF/Projekte schneiden, ohne Oberfläche
+- `schnittwerk-mcp`: MCP-Server, über den KI-Assistenten wie Claude tracen,
+  Sticker-Bögen anlegen und (nur mit Bestätigung) schneiden können
+
+Stand und Pläne: [ROADMAP.md](ROADMAP.md).
+
+## So geht's: Sticker drucken und schneiden
+
+1. Bild importieren (`Strg+I`) oder hineinziehen.
+2. Unten rechts **Print & Cut** einschalten.
+3. Im Reiter **Sticker** Rand und Freistellen einstellen, **Kontur übernehmen**.
+4. Im Reiter **Objekt** mit **Füllen** den Bogen mit Kopien füllen.
+5. **Drucken** (`Strg+P`), das Blatt auf die Matte legen und einlegen.
+6. **Schneiden** (`Strg+Enter`): Material wählen, Testschnitt, dann schneiden.
+   Die Passermarken werden automatisch gesucht.
+
+## Kommandozeile
+
+```bash
+schnittwerk-cli trace zeichnung.jpg --flatten --width 120   # → zeichnung.svg
+schnittwerk-cli cut logo.svg --material vinyl --dry-run     # nur Vorschau
+schnittwerk-cli cut bogen.schnitt                            # Projekt, Material je Schnittfarbe, Rückfrage
+schnittwerk-cli cut bogen.schnitt --material '#e5484d=sticker-glossy' --yes
+schnittwerk-cli scan && schnittwerk-cli status --ble ID      # Bluetooth
+```
+
+Alle Optionen: `schnittwerk-cli --help`.
+
+## MCP-Schnittstelle (KI-Assistenten)
+
+`schnittwerk-mcp` ist ein MCP-Server (stdio). Damit können KI-Assistenten wie
+Claude Bilder tracen, Sticker-Bögen als `.schnitt`-Projekt anlegen und SVGs
+schneiden. Geschnitten wird nur mit ausdrücklicher Bestätigung (`confirm`).
+
+```bash
+# nach Installation des .deb
+claude mcp add schnittwerk -- /usr/bin/schnittwerk-mcp
+# aus dem Quellcode
+cargo build --release -p schnittwerk-mcp
+claude mcp add schnittwerk -- "$PWD/target/release/schnittwerk-mcp"
+```
+
+Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `cut_svg`.
+
+## Tastenkürzel
+
+| Taste | Funktion |
+|---|---|
+| `V` / `H` / `R` / `E` / `T` | Auswahl / Ansicht verschieben / Rechteck / Ellipse / Text |
+| `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
+| Mausrad | Zoom (Shift = horizontal scrollen) |
+| `Strg+0` | Matte einpassen |
+| `Strg+I` / `Strg+E` | Importieren / SVG exportieren |
+| `Strg+Enter` / `Strg+P` | Schneiden-Dialog / Drucken |
+| `Strg+G` / `Strg+Shift+G` | Gruppieren / Gruppierung lösen |
+| `Strg+S` / `Strg+Shift+S` / `Strg+O` | Speichern / Speichern unter / Öffnen |
+| `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
+| `Strg+D` / `Entf` | Duplizieren / Löschen |
+| `Strg+C` / `Strg+X` / `Strg+V` | Kopieren / Ausschneiden / Einfügen (auch Bilder und SVG aus anderen Programmen) |
+| Pfeiltasten (+Shift / +Alt) | 1 mm (10 mm / 0,1 mm) verschieben |
+| Ecke ziehen (+Shift) | proportional (frei) skalieren |
+| Drehgriff (+Shift) | drehen (in 15°-Schritten) |
+
+## Aus dem Quellcode bauen
 
 Rust (Kern + Backend) · Tauri 2 · Svelte 5 + TypeScript (Oberfläche)
-
-## Einrichtung (Ubuntu/Debian)
 
 ```bash
 # Systempakete für Tauri + USB
@@ -22,49 +172,18 @@ sudo cp packaging/70-silhouette.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-Danach den Plotter einmal aus- und wieder einstecken.
-Hardware-Test ohne Oberfläche: `cargo run -p schnittwerk-plotter --example status`
-
-## Starten
-
 ```bash
 npm run tauri dev      # Entwicklungsmodus mit Hot-Reload
 ./scripts/build-deb.sh # .deb mit hochgezählter Version unter target/release/bundle/deb/
+cargo test -p schnittwerk-core
 ```
 
-Tests des Kerns: `cargo test -p schnittwerk-core`
+Hardware-Test ohne Oberfläche: `cargo run -p schnittwerk-plotter --example status`
 
-## Kommandozeile
+Releases baut GitHub Actions: Ein Tag `vX.Y.Z` (passend zur Version in `Cargo.toml`)
+erzeugt das .deb und hängt es an ein neues Release.
 
-`schnittwerk-cli` (im .deb enthalten) tract Bilder und schneidet ohne Oberfläche:
-
-```bash
-schnittwerk-cli trace zeichnung.jpg --flatten --width 120   # → zeichnung.svg
-schnittwerk-cli cut logo.svg --material vinyl --dry-run     # nur Vorschau
-schnittwerk-cli cut bogen.schnitt                            # Projekt, Material je Schnittfarbe, Rückfrage
-schnittwerk-cli cut bogen.schnitt --material '#e5484d=sticker-glossy' --yes
-schnittwerk-cli scan && schnittwerk-cli status --ble ID      # Bluetooth
-```
-
-Alle Optionen: `schnittwerk-cli --help`.
-
-## MCP-Schnittstelle (KI-Assistenten)
-
-`schnittwerk-mcp` ist ein MCP-Server (stdio). Damit können KI-Assistenten wie
-Claude Bilder tracen, Sticker-Bögen als `.schnitt`-Projekt anlegen und SVGs
-schneiden – geschnitten wird nur mit ausdrücklicher Bestätigung (`confirm`).
-
-```bash
-# nach Installation des .deb
-claude mcp add schnittwerk -- /usr/bin/schnittwerk-mcp
-# aus dem Quellcode
-cargo build --release -p schnittwerk-mcp
-claude mcp add schnittwerk -- "$PWD/target/release/schnittwerk-mcp"
-```
-
-Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `cut_svg`.
-
-## Aufbau
+### Aufbau
 
 ```
 crates/schnittwerk-core/   Rust-Bibliothek ohne GUI
@@ -86,30 +205,10 @@ src/                       Oberfläche
   lib/components/          Canvas, Trace-Panel, Eigenschaften, Ebenen …
 ```
 
-## Tastenkürzel
-
-| Taste | Funktion |
-|---|---|
-| `V` / `H` / `R` / `E` / `T` | Auswahl / Ansicht verschieben / Rechteck / Ellipse / Text |
-| `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
-| Mausrad | Zoom (Shift = horizontal scrollen) |
-| `Strg+0` | Matte einpassen |
-| `Strg+I` / `Strg+E` | Importieren / SVG exportieren |
-| `Strg+Enter` / `Strg+P` | Schneiden-Dialog / Drucken |
-| `Strg+G` / `Strg+Shift+G` | Gruppieren / Gruppierung lösen |
-| `Strg+S` / `Strg+Shift+S` / `Strg+O` | Speichern / Speichern unter / Öffnen |
-| `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
-| `Strg+D` / `Entf` | Duplizieren / Löschen |
-| `Strg+C` / `Strg+X` / `Strg+V` | Kopieren / Ausschneiden / Einfügen (auch Bilder und SVG aus anderen Programmen) |
-| Pfeiltasten (+Shift / +Alt) | 1 mm (10 mm / 0,1 mm) verschieben |
-| Ecke ziehen (+Shift) | proportional (frei) skalieren |
-| Drehgriff (+Shift) | drehen (in 15°-Schritten) |
-
-Siehe [ROADMAP.md](ROADMAP.md) für den Funktionsumfang und den Stand.
-
 ## Lizenz
 
 Schnittwerk ist freie Software unter der [GNU GPL v3 oder neuer](LICENSE).
+Es gibt keine Gewährleistung und keine Haftung (Abschnitte 15 und 16 der GPL).
 Fremdbestandteile (Icons, Bibliotheken) und ihre Lizenzen: [THIRD_PARTY.md](THIRD_PARTY.md).
 
 Schnittwerk ist ein unabhängiges Projekt und steht in keiner Verbindung zu
