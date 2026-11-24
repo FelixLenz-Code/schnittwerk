@@ -13,7 +13,7 @@ brauchst dafür weder Silhouette Studio noch Windows.
 > ihn vorher selbst lesen.
 
 > [!WARNING]
-> Getestet ist bisher nur die **Portrait 3 über USB**. Bluetooth und die anderen
+> Getestet ist bisher nur die **Portrait 3 (USB und Bluetooth)**. Die anderen
 > Modelle sind eingebaut, aber noch nicht an echter Hardware erprobt. Mach bei
 > neuem Material immer erst einen Testschnitt. Die Nutzung erfolgt auf eigene
 > Verantwortung (siehe [Lizenz](#lizenz)).
@@ -70,7 +70,7 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 - Fotos von Zeichnungen: Perspektive korrigieren (Blatt wird erkannt) und Beleuchtung ausgleichen
 
 ### Schneiden
-- USB (Portrait 3) und Bluetooth LE (noch ungetestet)
+- USB und Bluetooth LE (mit automatischem Wiederverbinden)
 - Materialbibliothek mit Vorlagen und eigenen Profilen: Messertiefe (AutoBlade), Druck,
   Geschwindigkeit, Durchgänge, Überschnitt
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
