@@ -61,11 +61,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          v="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<EOF
+          **Installation** (Ubuntu 24.04 oder neuer):
+          \`\`\`
+          sudo apt install ./Schnittwerk_${v}_amd64.deb
+          \`\`\`
+          Danach den Plotter einmal aus- und wieder einstecken (udev-Regel).
+          Ausführliche Anleitung: [README](https://github.com/${GITHUB_REPOSITORY}#installation)
+
+          > [!NOTE]
+          > **Von einer KI geschrieben.** Der Code wurde mit Claude (Anthropic) erstellt,
+          > unter Anleitung und mit Tests durch einen Menschen, aber nicht unabhängig geprüft.
+          EOF
           gh release create "$GITHUB_REF_NAME" target/release/bundle/deb/*.deb \
-            --title "Schnittwerk ${GITHUB_REF_NAME#v}" \
-            --notes "Installation (Ubuntu/Debian):
-          \`\`\`
-          sudo apt install ./Schnittwerk_${GITHUB_REF_NAME#v}_amd64.deb
-          \`\`\`
-          Danach den Plotter einmal aus- und wieder einstecken (udev-Regel)." \
-            --generate-notes
+            --title "Schnittwerk $v" --notes-file notes.md --generate-notes
