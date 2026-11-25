@@ -310,6 +310,22 @@
       {/if}
     </span>
     <span class="spacer"></span>
+    <label class="pc" title="Beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)">
+      <input type="checkbox" bind:checked={editor.gridSnap} />
+      Raster
+    </label>
+    {#if editor.gridSnap}
+      <label class="mat" title="Rasterweite beim Verschieben">
+        <select value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
+          {#each [0.5, 1, 2, 5, 10] as g}<option value={g}>{fmt(g)} mm</option>{/each}
+        </select>
+      </label>
+      <label class="mat" title="Winkelschritt beim Drehen">
+        <select value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
+          {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
+        </select>
+      </label>
+    {/if}
     <label class="pc" title="Seite mit Passermarken für Print & Cut">
       <input type="checkbox" checked={editor.printCut.enabled} onchange={(e) => editor.setPrintCut(e.currentTarget.checked)} />
       Print & Cut

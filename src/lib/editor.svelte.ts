@@ -58,6 +58,21 @@ function loadFlag(key: string, fallback: boolean): boolean {
   }
 }
 
+function loadNum(key: string, fallback: number): number {
+  try {
+    const v = parseFloat(localStorage.getItem("schnittwerk." + key) ?? "");
+    return Number.isFinite(v) && v > 0 ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveNum(key: string, v: number) {
+  try {
+    localStorage.setItem("schnittwerk." + key, String(v));
+  } catch {}
+}
+
 function saveFlag(key: string, v: boolean) {
   try {
     localStorage.setItem("schnittwerk." + key, v ? "1" : "0");
@@ -129,6 +144,33 @@ class Editor {
   set snap(v: boolean) {
     this.#snap = v;
     saveFlag("snap", v);
+  }
+  /** Snap moving to the grid and rotating to angle steps (Alt while dragging = free). */
+  #gridSnap = $state(loadFlag("gridSnap", true));
+  get gridSnap() {
+    return this.#gridSnap;
+  }
+  set gridSnap(v: boolean) {
+    this.#gridSnap = v;
+    saveFlag("gridSnap", v);
+  }
+  /** Grid step for moving (mm). */
+  #gridStep = $state(loadNum("gridStep", 5));
+  get gridStep() {
+    return this.#gridStep;
+  }
+  set gridStep(v: number) {
+    this.#gridStep = v;
+    saveNum("gridStep", v);
+  }
+  /** Angle step for rotating (degrees). */
+  #rotStep = $state(loadNum("rotStep", 15));
+  get rotStep() {
+    return this.#rotStep;
+  }
+  set rotStep(v: number) {
+    this.#rotStep = v;
+    saveNum("rotStep", v);
   }
   /** Size fields and on-canvas dimensions keep the aspect ratio. */
   keepRatio = $state(true);

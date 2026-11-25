@@ -51,6 +51,7 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 - Matten für Portrait 3 (8″ × 12″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen
 - Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
+- Raster beim Verschieben (0,5–10 mm) und Winkelschritte beim Drehen (1–90°), standardmäßig an
 - Maße direkt am Objekt anzeigen und per Klick eingeben
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
@@ -152,7 +153,7 @@ Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `
 |---|---|
 | `V` / `H` / `T` | Auswahl / Ansicht verschieben / Text |
 | `R` / `E` / `P` / `S` / `L` / `F` | Rechteck / Ellipse / Vieleck / Stern / Linie / Freihand (Shift = unverzerrt bzw. 15°) |
-| `Alt` beim Ziehen | Einrasten kurz ausschalten |
+| `Alt` beim Ziehen | Einrasten (Raster, Hilfslinien, Winkel) kurz ausschalten |
 | Lineal ziehen / Rechtsklick auf Hilfslinie | Hilfslinie anlegen / löschen (oder zurück aufs Lineal ziehen) |
 | `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
 | Mausrad | Zoom (Shift = horizontal scrollen) |

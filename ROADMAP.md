@@ -81,3 +81,4 @@
 - ✅ Messerverschleiß-Zähler
 - ✅ Nachfrage beim Schließen mit ungespeicherten Änderungen
 - ✅ Flexfolie: ganze Folie oder jedes Element einzeln spiegeln
+- ✅ Raster beim Verschieben und Winkelschritte beim Drehen (abschaltbar, standardmäßig an)

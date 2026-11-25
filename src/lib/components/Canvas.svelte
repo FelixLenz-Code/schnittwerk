@@ -267,12 +267,17 @@
         }
         if (e.shiftKey) Math.abs(dx) > Math.abs(dy) ? (dy = 0) : (dx = 0);
         snapLine = { x: null, y: null };
-        if (editor.snap && !e.altKey && drag.box0) {
+        if (!e.altKey && drag.box0) {
           const b = drag.box0;
-          const sx = e.shiftKey && dx === 0 ? null : snapAxis([b.x0 + dx, (b.x0 + b.x1) / 2 + dx, b.x1 + dx], drag.targets.xs);
-          const sy = e.shiftKey && dy === 0 ? null : snapAxis([b.y0 + dy, (b.y0 + b.y1) / 2 + dy, b.y1 + dy], drag.targets.ys);
+          const lockX = e.shiftKey && dx === 0, lockY = e.shiftKey && dy === 0;
+          // Guides, mat and other objects first, otherwise the grid.
+          const sx = editor.snap && !lockX ? snapAxis([b.x0 + dx, (b.x0 + b.x1) / 2 + dx, b.x1 + dx], drag.targets.xs) : null;
+          const sy = editor.snap && !lockY ? snapAxis([b.y0 + dy, (b.y0 + b.y1) / 2 + dy, b.y1 + dy], drag.targets.ys) : null;
+          const g = editor.gridStep;
           if (sx) dx += sx.d;
+          else if (editor.gridSnap && !lockX) dx = Math.round((b.x0 + dx) / g) * g - b.x0;
           if (sy) dy += sy.d;
+          else if (editor.gridSnap && !lockY) dy = Math.round((b.y0 + dy) / g) * g - b.y0;
           snapLine = { x: sx?.at ?? null, y: sy?.at ?? null };
         }
         for (const o of editor.selected) {
@@ -323,6 +328,7 @@
         }
         let r = drag.rot0 + ((Math.atan2(p.y - drag.c.y, p.x - drag.c.x) - drag.a0) * 180) / Math.PI;
         if (e.shiftKey) r = Math.round(r / 15) * 15;
+        else if (editor.gridSnap && !e.altKey) r = Math.round(r / editor.rotStep) * editor.rotStep;
         o.rot = ((r % 360) + 360) % 360;
         break;
       }
@@ -621,6 +627,9 @@
   }
   const RULER = 22;
 
+  /** Fine grid lines: the snap step when it is visible at this zoom (and divides 50 mm). */
+  const minor = $derived(editor.gridSnap && editor.gridStep * z >= 6 && 50 % editor.gridStep === 0 ? editor.gridStep : 10);
+
   const brushTarget = $derived.by(() => {
     if (!brush.mode || editor.rightTab !== "trace") return null;
     const imgs = editor.selected.filter((o) => o.type === "image");
@@ -675,8 +684,8 @@
     oncontextmenu={onContextMenu}
   >
     <defs>
-      <pattern id="grid-minor" width="10" height="10" patternUnits="userSpaceOnUse">
-        <path d="M10 0H0V10" fill="none" stroke="var(--grid)" stroke-width={px(1)} />
+      <pattern id="grid-minor" width={minor} height={minor} patternUnits="userSpaceOnUse">
+        <path d="M{minor} 0H0V{minor}" fill="none" stroke="var(--grid)" stroke-width={px(1)} />
       </pattern>
       <pattern id="grid-major" width="50" height="50" patternUnits="userSpaceOnUse">
         <rect width="50" height="50" fill="url(#grid-minor)" />
