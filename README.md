@@ -14,7 +14,8 @@ brauchst dafür weder Silhouette Studio noch Windows.
 
 > [!WARNING]
 > Getestet ist bisher nur die **Portrait 3 (USB und Bluetooth)**. Die anderen
-> Modelle sind eingebaut, aber noch nicht an echter Hardware erprobt. Mach bei
+> Modelle sind eingebaut, aber noch nicht an echter Hardware erprobt
+> (siehe [Unterstützte Geräte](#unterstützte-geräte)). Mach bei
 > neuem Material immer erst einen Testschnitt. Die Nutzung erfolgt auf eigene
 > Verantwortung (siehe [Lizenz](#lizenz)).
 
@@ -25,6 +26,31 @@ brauchst dafür weder Silhouette Studio noch Windows.
 | Formen, Text auf Bogen, Hilfslinien | Schneiden | Große Motive in Kacheln |
 |---|---|---|
 | ![Formen und Text](docs/screenshots/formen.png) | ![Schneiden](docs/screenshots/schneiden.png) | ![Kacheln](docs/screenshots/kacheln.png) |
+
+## Unterstützte Geräte
+
+| Gerät | Eingebaut | USB | Bluetooth | An echter Hardware getestet |
+|---|---|---|---|---|
+| Silhouette Portrait 3 | ✅ | ✅ | ✅ | ✅ USB und Bluetooth |
+| Silhouette Portrait 4 | ✅ | ✅ | ✅ | ⬜ noch nicht |
+| Silhouette Cameo 4 | ✅ | ✅ | ✅ | ⬜ noch nicht |
+| Silhouette Cameo 5 | ✅ | ✅ | ✅ | ⬜ noch nicht |
+| Silhouette Portrait 2 | ⚠️ nur erkannt | – | – | ⬜ |
+| Silhouette Portrait (1. Generation) | ⚠️ nur erkannt | – | – | ⬜ |
+
+- **Eingebaut** heißt: Das Gerät wird erkannt und bekommt dieselben Befehle wie die
+  Portrait 3 (Cameo-4-Gerätefamilie). Es sollte also funktionieren, ist aber nicht
+  erprobt. Bei Bluetooth gilt das nur, wenn das Gerät Bluetooth hat.
+- **Nur erkannt**: Ältere Modelle nutzen andere Befehle. Schnittwerk meldet sie,
+  schneidet aber (noch) nicht mit ihnen.
+- **Cameo 4 und 5**: Bisher gibt es nur die 8″ × 12″-Matte der Portrait. Breitere
+  Flächen gehen über „Rolle ohne Matte“ oder „Eigene Größe“ mit Kacheln. Eine
+  12″-Matte ist noch nicht eingebaut.
+- Andere Hersteller (Cricut, Brother usw.) werden nicht unterstützt.
+
+Wer ein nicht getestetes Gerät hat: Rückmeldung als
+[Issue](https://github.com/FelixLenz-Code/schnittwerk/issues) hilft sehr,
+gerne mit dem Ergebnis eines Testschnitts.
 
 ## Installation
 
