@@ -476,6 +476,62 @@
     }
   }
 
+  // ---------- test series ----------
+  let seriesOpen = $state(false);
+  let seriesParam = $state<"pressure" | "depth">("pressure");
+  let seriesFrom = $state(8);
+  let seriesTo = $state(16);
+  let seriesCount = $state(5);
+  /** Values of the last series cut (left to right) – choose the best one. */
+  let seriesCut = $state<{ param: "pressure" | "depth"; values: number[] } | null>(null);
+
+  const seriesLimits = $derived(seriesParam === "pressure" ? { min: 1, max: 33 } : { min: 1, max: 10 });
+  const seriesValues = $derived.by(() => {
+    const { min, max } = seriesLimits;
+    const a = Math.min(max, Math.max(min, Math.round(seriesFrom))), b = Math.min(max, Math.max(min, Math.round(seriesTo)));
+    const n = Math.max(2, Math.min(8, Math.round(seriesCount)));
+    const vals = Array.from({ length: n }, (_, i) => Math.round(a + ((b - a) * i) / (n - 1)));
+    return [...new Set(vals)];
+  });
+  const seriesFits = $derived(testX + seriesValues.length * 13 - 3 <= area.w);
+
+  /** Starts the series around the current value of the active material. */
+  function openSeries() {
+    seriesOpen = !seriesOpen;
+    if (m.tool !== "blade") seriesParam = "pressure";
+    const cur = seriesParam === "pressure" ? m.pressure : m.depth;
+    const span = seriesParam === "pressure" ? 4 : 2;
+    seriesFrom = Math.max(seriesLimits.min, cur - span);
+    seriesTo = Math.min(seriesLimits.max, cur + span);
+  }
+
+  async function cutSeries() {
+    const base = $state.snapshot(
+      settings ?? { tool: m.tool, pressure: m.pressure, speed: m.speed, depth: m.tool === "blade" ? m.depth : null, mat, bladeOffset: 0.9, liftCorners: false },
+    ) as CutSettings;
+    const values = seriesValues;
+    const list = values.map((v) => (seriesParam === "pressure" ? { ...base, pressure: v } : { ...base, depth: v }));
+    try {
+      plotter.begin();
+      seriesCut = { param: seriesParam, values };
+      await api.cutTestSeries(testX, testY, list);
+    } catch (e) {
+      plotter.phase = "idle";
+      seriesCut = null;
+      editor.error(e);
+    }
+  }
+
+  /** Takes the chosen value into the active material. */
+  function chooseSeries(v: number) {
+    if (!seriesCut) return;
+    if (seriesCut.param === "pressure") m.pressure = v;
+    else m.depth = v;
+    editor.toast(t(seriesCut.param === "pressure" ? "Druck {v} übernommen – zum Behalten das Material speichern." : "Messertiefe {v} übernommen – zum Behalten das Material speichern.", { v }), "ok");
+    seriesCut = null;
+    seriesOpen = false;
+  }
+
   function close() {
     if (!plotter.busy) plotter.dialogOpen = false;
   }
@@ -514,6 +570,93 @@
     const t = n <= 1 ? 0 : i / (n - 1);
     return `hsl(${260 - t * 230} 85% 58%)`;
   }
+
+  // ---------- simulation ----------
+  /** Strokes with their length and where they start on the head's way (mm). */
+  const simStrokes = $derived.by(() => {
+    let pos = 0;
+    let at: [number, number] = [reg ? reg.originX : 0, reg ? reg.originY : 0];
+    return plans.map((plan) =>
+      plan.strokes.map((st) => {
+        const travel = Math.hypot(st[0][0] - at[0], st[0][1] - at[1]);
+        pos += travel;
+        const cum = [0];
+        for (let k = 1; k < st.length; k++) cum.push(cum[k - 1] + Math.hypot(st[k][0] - st[k - 1][0], st[k][1] - st[k - 1][1]));
+        const s = { start: pos, len: cum[cum.length - 1], travel, cum, pts: st, points: st.map((q) => q.join(",")).join(" "), from: at };
+        pos += s.len;
+        at = st[st.length - 1];
+        return s;
+      }),
+    );
+  });
+  const simTotal = $derived.by(() => {
+    const last = simStrokes.flat().at(-1);
+    return last ? last.start + last.len : 0;
+  });
+
+  let sim = $state<{ pos: number } | null>(null);
+  /** Speed factor; 1× follows the estimated cut time roughly. */
+  let simSpeed = $state(5);
+  let simFrame = 0;
+
+  function toggleSim() {
+    if (sim) return stopSim();
+    if (!simTotal) return;
+    sim = { pos: 0 };
+    let last = performance.now();
+    const step = (now: number) => {
+      if (!sim) return;
+      const dt = (now - last) / 1000;
+      last = now;
+      // 1×: the whole way in about the estimated time.
+      const perSec = (simTotal / Math.max(5, estimate)) * simSpeed;
+      sim.pos = Math.min(simTotal, sim.pos + perSec * dt);
+      if (sim.pos >= simTotal) {
+        simFrame = window.setTimeout(() => (sim = null), 1200) as unknown as number;
+        return;
+      }
+      simFrame = requestAnimationFrame(step);
+    };
+    simFrame = requestAnimationFrame(step);
+  }
+
+  function stopSim() {
+    cancelAnimationFrame(simFrame);
+    clearTimeout(simFrame);
+    sim = null;
+  }
+
+  // Another job or changed lines end the simulation.
+  $effect(() => {
+    void plans;
+    if (plotter.busy) untrack(stopSim);
+  });
+  $effect(() => () => stopSim());
+
+  /** Where the head is and whether the blade is down. */
+  const simHead = $derived.by(() => {
+    if (!sim) return null;
+    const flat = simStrokes.flat();
+    for (const s of flat) {
+      if (sim.pos < s.start) {
+        // Travelling towards this stroke.
+        const k = s.travel ? 1 - (s.start - sim.pos) / s.travel : 1;
+        return { x: s.from[0] + (s.pts[0][0] - s.from[0]) * k, y: s.from[1] + (s.pts[0][1] - s.from[1]) * k, down: false };
+      }
+      const d = sim.pos - s.start;
+      if (d <= s.len) {
+        let j = 1;
+        while (j < s.cum.length - 1 && s.cum[j] < d) j++;
+        const seg = s.cum[j] - s.cum[j - 1] || 1;
+        const f = (d - s.cum[j - 1]) / seg;
+        const a = s.pts[j - 1], b = s.pts[j];
+        return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, down: true };
+      }
+    }
+    const last = flat.at(-1)!;
+    const p = last.pts[last.pts.length - 1];
+    return { x: p[0], y: p[1], down: false };
+  });
 
   const fmtLen = (mm: number) => (mm >= 1000 ? `${fmt(mm / 1000, 2)} m` : `${fmt(mm / 10, 1)} cm`);
 
@@ -557,21 +700,61 @@
                   : gi > 0 && plans[gi - 1].strokes.length
                     ? plans[gi - 1].strokes[plans[gi - 1].strokes.length - 1].at(-1)!
                     : [reg ? reg.originX : 0, reg ? reg.originY : 0]}
-              <line x1={prev[0]} y1={prev[1]} x2={st[0][0]} y2={st[0][1]} class="travel" />
-              <polyline
-                points={st.map((q) => q.join(",")).join(" ")}
-                fill="none"
-                stroke={multi ? groups[gi]?.color : strokeColor(i, plan.strokes.length)}
-                opacity={runningColor && groups[gi]?.color !== runningColor ? 0.25 : 1}
-                stroke-width="0.5"
-                stroke-linejoin="round"
-              />
+              {@const sk = simStrokes[gi]?.[i]}
+              {@const drawn = sim && sk ? Math.min(sk.len, Math.max(0, sim.pos - sk.start)) : 0}
+              {#if !sim || (sk && sim.pos >= sk.start - sk.travel)}
+                <line x1={prev[0]} y1={prev[1]} x2={st[0][0]} y2={st[0][1]} class="travel" />
+              {/if}
+              {#if sim && sk}
+                <!-- Simulation: faint outline, the cut part drawn on top -->
+                <polyline points={sk.points} fill="none" stroke="var(--text-3)" opacity="0.18" stroke-width="0.4" stroke-linejoin="round" />
+                {#if drawn > 0}
+                  <polyline
+                    points={sk.points}
+                    fill="none"
+                    stroke={multi ? groups[gi]?.color : strokeColor(i, plan.strokes.length)}
+                    stroke-width="0.6"
+                    stroke-linejoin="round"
+                    stroke-dasharray="{sk.len} {sk.len}"
+                    stroke-dashoffset={sk.len - drawn}
+                  />
+                {/if}
+              {:else}
+                <polyline
+                  points={st.map((q) => q.join(",")).join(" ")}
+                  fill="none"
+                  stroke={multi ? groups[gi]?.color : strokeColor(i, plan.strokes.length)}
+                  opacity={runningColor && groups[gi]?.color !== runningColor ? 0.25 : 1}
+                  stroke-width="0.5"
+                  stroke-linejoin="round"
+                />
+              {/if}
             {/each}
           {/each}
           {#if plans.length}
             <circle cx={reg ? reg.originX : 0} cy={reg ? reg.originY : 0} r="1.5" class="origin" />
           {/if}
+          {#if sim && simHead}
+            <circle cx={simHead.x} cy={simHead.y} r="2.2" class="head" class:up={!simHead.down} />
+          {/if}
         </svg>
+        <div class="simbar">
+          <button class="btn outline" disabled={!plans.length || plotter.busy} onclick={toggleSim}>
+            <Icon name={sim ? "stop" : "play"} /> {sim ? t("Simulation stoppen") : t("Simulation")}
+          </button>
+          {#if sim}
+            <Segmented
+              value={String(simSpeed)}
+              onchange={(v) => (simSpeed = Number(v))}
+              options={[
+                { value: "1", label: "1×", hint: "Ungefähr in Echtzeit" },
+                { value: "5", label: "5×" },
+                { value: "20", label: "20×" },
+              ]}
+            />
+            <div class="simprog"><div style:width="{(sim.pos / simTotal) * 100}%"></div></div>
+          {/if}
+        </div>
         <div class="legend">
           {#if groups.length > 1}
             {t("Reihenfolge:")}
@@ -810,7 +993,44 @@
               <input class="field num" type="number" min="0" max={area.h - 10} bind:value={testY} />
               <span>mm</span>
               <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
+              <button class="btn outline" class:active={seriesOpen} disabled={plotter.busy} onclick={openSeries} title={t("Mehrere Testquadrate mit steigenden Werten nebeneinander")}>{t("Testreihe")}</button>
             </div>
+            {#if seriesOpen}
+              <div class="series">
+                {#if seriesCut && !plotter.busy}
+                  <span class="series-q">{t("Welches Quadrat ist am saubersten? (von links gezählt)")}</span>
+                  <div class="series-pick">
+                    {#each seriesCut.values as v, i}
+                      <button class="btn outline" onclick={() => chooseSeries(v)}>{i + 1}: {seriesCut.param === "pressure" ? t("Druck") : t("Messertiefe")} {v}</button>
+                    {/each}
+                  </div>
+                  <button class="btn small-btn" onclick={() => (seriesCut = null)}>{t("Neue Testreihe")}</button>
+                {:else}
+                  {#if m.tool === "blade"}
+                    <Segmented
+                      value={seriesParam}
+                      onchange={(v) => {
+                        seriesParam = v;
+                        openSeries();
+                        seriesOpen = true;
+                      }}
+                      options={[
+                        { value: "pressure", label: "Druck" },
+                        { value: "depth", label: "Messertiefe" },
+                      ]}
+                    />
+                  {/if}
+                  <div class="calib-row">
+                    <label>{t("von")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesFrom} /></label>
+                    <label>{t("bis")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesTo} /></label>
+                    <label>{t("Anzahl")} <input class="field num" type="number" min="2" max="8" bind:value={seriesCount} /></label>
+                  </div>
+                  <p class="hint">{seriesValues.join(" · ")} – {t("je ein 10-mm-Quadrat, von links nach rechts")}</p>
+                  {#if !seriesFits}<p class="warn-text">{t("Die Reihe passt ab dieser Position nicht auf die Matte.")}</p>{/if}
+                  <button class="btn outline" disabled={!ready || !seriesFits} onclick={cutSeries}><Icon name="scissors" /> {t("Testreihe schneiden")}</button>
+                {/if}
+              </div>
+            {/if}
             {#if resume}
               {@const p = resume.point}
               <div class="resume">
@@ -916,6 +1136,34 @@
   }
   .origin {
     fill: var(--accent);
+  }
+  .head {
+    fill: var(--accent);
+    stroke: #fff;
+    stroke-width: 0.5;
+  }
+  .head.up {
+    fill: var(--panel);
+    stroke: var(--accent);
+  }
+  .simbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    padding-top: 8px;
+  }
+  .simprog {
+    width: 160px;
+    height: 6px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .simprog div {
+    height: 100%;
+    background: var(--accent);
   }
   .legend {
     display: flex;
@@ -1130,6 +1378,30 @@
   .mirror-mode .hint {
     margin-top: 6px;
   }
+  .series {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+  }
+  .series .calib-row {
+    margin-top: 0;
+  }
+  .series .hint {
+    margin: 0;
+  }
+  .series-q {
+    color: var(--text-2);
+    font-size: 12px;
+  }
+  .series-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
   .resume {
     display: flex;
     flex-direction: column;
@@ -1243,6 +1515,7 @@
   }
   .test {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     color: var(--text-2);

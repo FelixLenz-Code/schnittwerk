@@ -8,6 +8,9 @@
   import { wizardUi } from "./lib/wizard.svelte";
   import NewProjectWizard from "./lib/components/NewProjectWizard.svelte";
   import UpdateDialog from "./lib/components/UpdateDialog.svelte";
+  import ContextMenu from "./lib/components/ContextMenu.svelte";
+  import Tour from "./lib/components/Tour.svelte";
+  import { startTour, tour } from "./lib/tour.svelte";
   import { updater } from "./lib/update.svelte";
   import type { Tool } from "./lib/types";
   import Canvas from "./lib/components/Canvas.svelte";
@@ -52,6 +55,11 @@
   // ---------- drag & drop + startup ----------
   let dropping = $state(false);
   let recovery = $state<Recovery | null>(null);
+  // The tour starts once at the very first start, after the assistant is closed.
+  let startupChecked = $state(false);
+  $effect(() => {
+    if (startupChecked && !tour.done && tour.step < 0 && !wizardUi.open) setTimeout(startTour, 400);
+  });
   onMount(() => {
     requestAnimationFrame(() => editor.fitMat());
     plotter.start();
@@ -62,6 +70,7 @@
     // start unless switched off.
     findRecovery().then((r) => {
       if (r || wizardUi.atStart) wizardUi.open = true;
+      startupChecked = true;
     });
     if (!inApp) {
       editor.toast(t("Browser-Vorschau: Dateizugriff und Tracen nur in der Desktop-App."), "info");
@@ -158,6 +167,7 @@
         p: () => (plotter.printOpen = true),
         g: () => (e.shiftKey ? editor.ungroupSelected() : editor.groupSelected()),
         "0": () => editor.fitMat(),
+        "2": () => editor.fitSelection(),
         "+": () => editor.zoomBy(1.25),
         "=": () => editor.zoomBy(1.25),
         "-": () => editor.zoomBy(0.8),
@@ -259,16 +269,16 @@
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn outline" title={t("Bild oder SVG importieren (Strg+I)")} onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">{t("Importieren")}</span></button>
+      <button class="btn outline" data-tour="import" title={t("Bild oder SVG importieren (Strg+I)")} onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">{t("Importieren")}</span></button>
       <button class="btn" title={t("Schnittlinien als SVG exportieren (Strg+E)")} onclick={exportSvg}><Icon name="download" /> <span class="lbl">SVG</span></button>
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn icon" title={t("Rückgängig (Strg+Z)")} disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
-      <button class="btn icon" title={t("Wiederholen (Strg+Y)")} disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
+      <button class="btn icon" title={editor.canUndo ? t("Rückgängig: {x} (Strg+Z)", { x: t(editor.undoLabel) }) : t("Rückgängig (Strg+Z)")} disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
+      <button class="btn icon" title={editor.canRedo ? t("Wiederholen: {x} (Strg+Y)", { x: t(editor.redoLabel) }) : t("Wiederholen (Strg+Y)")} disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
     </div>
     <span class="divider"></span>
-    <div class="group">
+    <div class="group" data-tour="modes">
       <button class="btn" class:active={editor.gridSnap} title={t("Raster: beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)")} onclick={() => (editor.gridSnap = !editor.gridSnap)}>
         <Icon name="grid" /> {t("Raster")}
       </button>
@@ -282,7 +292,7 @@
       {/if}
     </div>
     <span class="divider"></span>
-    <div class="group">
+    <div class="group" data-tour="modes">
       <button class="btn" class:active={editor.printCut.enabled} title={t("Print & Cut: Seite mit Passermarken zum Drucken und Ausschneiden")} onclick={() => editor.setPrintCut(!editor.printCut.enabled)}>
         <Icon name="sticker" /> Print & Cut
       </button>
@@ -297,7 +307,7 @@
 
     <div class="group">
       <button class="btn icon lbl" title={t("Verkleinern")} onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
-      <button class="btn zoom" title={t("Matte einpassen (Strg+0)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
+      <button class="btn zoom" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
       <button class="btn icon lbl" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
       <button class="btn icon" class:active={editor.showGrid} title={t("Raster anzeigen")} onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
       <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
@@ -309,11 +319,11 @@
     {/if}
     <DeviceMenu />
     <button class="btn outline" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">{t("Drucken")}</span></button>
-    <button class="btn primary" title={t("Schneiden-Dialog öffnen (Strg+Enter)")} onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
+    <button class="btn primary" data-tour="cut" title={t("Schneiden-Dialog öffnen (Strg+Enter)")} onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
   </header>
 
   <main>
-    <div class="rail">
+    <div class="rail" data-tour="tools">
       {#each TOOLS as tool}
         <button class="btn icon tool" class:active={editor.tool === tool.id} title={tool.key ? `${t(tool.label)} (${tool.key})` : t(tool.label)} onclick={() => (editor.tool = tool.id)}>
           <Icon name={tool.icon} size={18} />
@@ -376,6 +386,8 @@
   {#if templatesUi.open}
     <TemplatesDialog />
   {/if}
+  <ContextMenu />
+  <Tour />
   {#if updater.dialogOpen}
     <UpdateDialog />
   {/if}

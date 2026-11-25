@@ -99,7 +99,7 @@ class PerspectiveStore {
       editor.images[info.id] = { src: info.src, name: a.name, pxW: info.width, pxH: info.height };
       const live = editor.byId(img.id);
       if (live?.type === "image") {
-        editor.checkpoint();
+        editor.checkpoint("Perspektive korrigieren");
         const c = center(live);
         const size = PAPERS[this.paper]?.size;
         let w: number, h: number;

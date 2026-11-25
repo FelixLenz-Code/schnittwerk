@@ -25,4 +25,5 @@ kurbo = "0.11"
 flate2 = "1"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 sha2 = "0.10"
+notify-rust = "4"
 arboard = { version = "3", default-features = false, features = ["wayland-data-control", "image-data"] }

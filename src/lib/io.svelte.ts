@@ -41,7 +41,7 @@ function addImage(info: ImageInfo) {
       id: uid(), type: "image", name: info.name, imageId: info.id, opacity: 1,
       ...box, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
     },
-  ]);
+  ], true, "Importieren");
 }
 
 function addVector(v: ImportedVector) {
@@ -53,7 +53,7 @@ function addVector(v: ImportedVector) {
     id: uid(), type: "path", name: v.name, d: v.d, bbox: v.bbox, color: "#e5484d", fill: false,
     ...box, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
   };
-  editor.add([obj]);
+  editor.add([obj], true, "Importieren");
   editor.rightTab = "object";
 }
 
@@ -109,7 +109,7 @@ export async function paste() {
     if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
     return c;
   });
-  editor.add(objs);
+  editor.add(objs, true, "Einfügen");
 }
 
 export async function importPaths(paths: string[]) {

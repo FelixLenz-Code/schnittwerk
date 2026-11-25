@@ -73,7 +73,7 @@ class PixScanStore {
     if (live?.type !== "image") return;
     const a = editor.images[src.imageId];
     if (!a) return;
-    editor.checkpoint();
+    editor.checkpoint("PixScan");
     live.imageId = src.imageId;
     live.h = (live.w * a.pxH) / a.pxW;
     await perspective.start(live, (pts) => this.place(img.id, src.imageId, pts, src.name), src.frame);
@@ -85,7 +85,7 @@ class PixScanStore {
     editor.images[r.info.id] = { src: r.info.src, name, pxW: r.info.width, pxH: r.info.height };
     const live = editor.byId(objId);
     if (live?.type !== "image") return;
-    editor.checkpoint();
+    editor.checkpoint("PixScan");
     if (editor.printCut.enabled) editor.setPrintCut(false);
     const x = this.offset.x - r.margin;
     const y = this.offset.y - r.margin;
@@ -144,7 +144,7 @@ class PixScanStore {
   nudge(img: ImageObj, dx: number, dy: number) {
     const live = editor.byId(img.id);
     if (live?.type !== "image") return;
-    editor.checkpoint();
+    editor.checkpoint("PixScan");
     live.x += dx;
     live.y += dy;
   }

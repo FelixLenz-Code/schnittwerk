@@ -151,6 +151,10 @@
           {t("Erinnern nach")}
           <span><input class="limit" type="number" min="10" max="2000" step="10" value={plotter.blade.limitM} onchange={(e) => { plotter.blade.limitM = Math.max(10, +e.currentTarget.value || 150); plotter.saveBlade(); }} /> m</span>
         </label>
+        <label class="known small">
+          {t("Ton bei Schnittende")}
+          <input type="checkbox" checked={plotter.sound} onchange={(e) => plotter.setSound(e.currentTarget.checked)} />
+        </label>
         {#if plotter.bladeWorn}
           <p class="small worn-text">{t("Das Messer hat sein Ziel erreicht – Schnittbild prüfen, bei ausgefransten Kanten wechseln.")}</p>
         {/if}

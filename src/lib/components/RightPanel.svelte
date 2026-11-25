@@ -6,6 +6,7 @@
   import PropertiesPanel from "./PropertiesPanel.svelte";
   import TracePanel from "./TracePanel.svelte";
   import StickerPanel from "./StickerPanel.svelte";
+  import HelpPanel from "./HelpPanel.svelte";
 
   const tabs = [
     { id: "object", label: "Objekt", icon: "sliders" },
@@ -16,7 +17,7 @@
 </script>
 
 <aside>
-  <nav>
+  <nav data-tour="tabs">
     {#each tabs as tab}
       <button class:on={editor.rightTab === tab.id} onclick={() => (editor.rightTab = tab.id)}>
         <Icon name={tab.icon} size={14} />
@@ -26,6 +27,9 @@
         {/if}
       </button>
     {/each}
+    <button class="help" class:on={editor.rightTab === "help"} title={t("Hilfe")} data-tour="help" onclick={() => (editor.rightTab = "help")}>
+      <Icon name="help" size={15} />
+    </button>
   </nav>
   <div class="body">
     {#if editor.rightTab === "object"}
@@ -34,6 +38,8 @@
       <TracePanel />
     {:else if editor.rightTab === "sticker"}
       <StickerPanel />
+    {:else if editor.rightTab === "help"}
+      <HelpPanel />
     {:else}
       <LayersPanel />
     {/if}
@@ -52,16 +58,18 @@
   }
   nav {
     display: flex;
-    gap: 2px;
-    padding: 8px 8px 0;
+    gap: 0;
+    padding: 8px 4px 0;
     border-bottom: 1px solid var(--border);
   }
   nav button {
     flex: 1;
+    min-width: 0;
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
     height: 34px;
     font-size: 12.5px;
     border: 0;
@@ -73,6 +81,10 @@
   }
   nav button:hover {
     color: var(--text);
+  }
+  nav button.help {
+    flex: none;
+    width: 30px;
   }
   nav button.on {
     color: var(--accent);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from "../api";
   import { editor } from "../editor.svelte";
-  import { aabb, center, fmt, rotate, uid } from "../geometry";
+  import { aabb, fmt, uid } from "../geometry";
   import { pathMatrix } from "../plotter.svelte";
   import type { Obj, PathObj } from "../types";
   import Icon from "./Icon.svelte";
@@ -11,9 +11,10 @@
   import { pathBbox, parsePath } from "../pathdata";
   import { polysBox, weedLines, worldPolys } from "../weed";
   import { refreshShape, rememberSpec, SHAPE_NAMES } from "../shapes";
-  import { regenerate, worldPathD } from "../text.svelte";
   import Slider from "./Slider.svelte";
   import { t } from "../i18n.svelte";
+  import { BOOL_OPS, combine, CUT_TYPES, flip, placeUnit, putTextOnPath, setCutColor, sheetArea, textOnPathPair, unitOutline } from "../actions";
+  import Section from "./Section.svelte";
 
   const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
   const box = $derived(aabb(editor.selected));
@@ -23,7 +24,7 @@
     const v = parseFloat(raw.replace(",", "."));
     if (!Number.isFinite(v)) return;
     if (key === "w" || key === "h") return editor.setSize(o, key, v);
-    editor.checkpoint();
+    editor.checkpoint("Position ändern");
     if (key === "rot") {
       o.rot = ((v % 360) + 360) % 360;
     } else if (key === "x" || key === "y") {
@@ -31,17 +32,9 @@
     }
   }
 
-  function flip(axis: "x" | "y") {
-    editor.checkpoint();
-    for (const o of editor.selected) {
-      if (axis === "x") o.flipX = !o.flipX;
-      else o.flipY = !o.flipY;
-    }
-  }
-
   function setColor(o: Obj, color: string) {
     if (o.type !== "path") return;
-    editor.checkpoint();
+    editor.checkpoint("Farbe ändern");
     o.color = color;
   }
 
@@ -68,19 +61,6 @@
     } finally {
       offsetBusy = false;
     }
-  }
-
-  // ---------- cut type by colour ----------
-  const CUT_TYPES = [
-    { color: "#e5484d", label: "Anschneiden", hint: "Kiss-Cut: nur die obere Schicht (Sticker bleiben auf dem Trägerpapier)" },
-    { color: "#3e63dd", label: "Durchschneiden", hint: "Komplett durch – z. B. Bogenrahmen oder einzelne Sticker" },
-    { color: "#30a46c", label: "Zeichnen", hint: "Mit dem Stift zeichnen" },
-  ];
-
-  function setCutColor(color: string) {
-    if (!selPaths.length) return;
-    editor.checkpoint();
-    for (const o of selPaths) o.color = color;
   }
 
   function frameSelection() {
@@ -134,54 +114,13 @@
     editor.toast(lines ? "Entgitterungsrahmen und -linien angelegt" : "Entgitterungsrahmen angelegt", "ok");
   }
 
-  // ---------- boolean operations ----------
   let boolBusy = $state(false);
-  const BOOL_OPS = [
-    { op: "union", label: "Vereinen", hint: "Alles zu einer Kontur verschmelzen (Verschweißen)" },
-    { op: "difference", label: "Abziehen", hint: "Obere Pfade aus dem untersten ausschneiden" },
-    { op: "intersect", label: "Schnittmenge", hint: "Nur die gemeinsame Fläche behalten" },
-    { op: "xor", label: "Ausschließen", hint: "Überlappungen entfernen" },
-  ] as const;
-
-  async function combine(op: (typeof BOOL_OPS)[number]["op"]) {
-    // Stacking order: the bottom-most path is the base (difference).
-    const ordered = editor.objects.filter((o): o is PathObj => o.type === "path" && editor.selection.includes(o.id));
-    if (ordered.length < 2) return;
+  async function runCombine(op: (typeof BOOL_OPS)[number]["op"]) {
     boolBusy = true;
-    try {
-      const r = await api.booleanPaths(ordered.map((o) => ({ d: o.d, matrix: pathMatrix(o, null) })), op);
-      const base = ordered[0];
-      const [x, y, w, h] = r.bbox;
-      const obj: PathObj = {
-        id: uid(), type: "path", name: `${base.name} · ${BOOL_OPS.find((b) => b.op === op)!.label}`,
-        d: r.d, bbox: r.bbox, color: base.color, fill: base.fill, printFill: base.printFill, cut: base.cut,
-        x, y, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
-      };
-      editor.checkpoint();
-      const ids = new Set(ordered.map((o) => o.id));
-      const at = editor.objects.findIndex((o) => ids.has(o.id));
-      editor.objects = editor.objects.filter((o) => !ids.has(o.id));
-      editor.objects.splice(Math.min(at, editor.objects.length), 0, obj);
-      editor.selection = [obj.id];
-    } catch (e) {
-      editor.error(e);
-    } finally {
-      boolBusy = false;
-    }
+    await combine(op);
+    boolBusy = false;
   }
-
-  // ---------- sheet fill / nesting ----------
-  let gap = $state(3);
-  let nestShapes = $state(true);
-  let nesting = $state(false);
-
-  /** Usable area and keep-out zones of the current mat / print page. */
-  function sheetArea(): { area: [number, number, number, number]; keepouts: [number, number, number, number][] } {
-    const r = editor.regmarks;
-    return r
-      ? { area: [r.originX + 1, r.originY + 1, r.width - 2, r.length - 2], keepouts: editor.regZones() }
-      : { area: [5, 5, editor.mat.w - 10, editor.mat.h - 10], keepouts: [] };
-  }
+  const textOnPath = $derived(textOnPathPair());
 
   /** Selected objects split into units (a group or a single object). */
   function selectedUnits(): Obj[][] {
@@ -195,23 +134,10 @@
     return [...byKey.values()];
   }
 
-  /** Nesting outline of a unit: its cut paths, else its bounding box. */
-  function unitOutline(objs: Obj[]) {
-    const paths = objs.filter((o): o is PathObj => o.type === "path" && o.cut !== false);
-    if (paths.length) return paths.map((o) => ({ d: o.d, matrix: pathMatrix(o, null) }));
-    const b = aabb(objs)!;
-    return [{ d: `M${b.x0} ${b.y0}H${b.x1}V${b.y1}H${b.x0}Z`, matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number] }];
-  }
-
-  function placeUnit(objs: Obj[], rot: number, c: [number, number], dx: number, dy: number) {
-    for (const o of objs) {
-      const oc = center(o);
-      const r = rotate({ x: oc.x - c[0], y: oc.y - c[1] }, rot);
-      o.rot = (((o.rot + rot) % 360) + 360) % 360;
-      o.x = c[0] + r.x + dx - o.w / 2;
-      o.y = c[1] + r.y + dy - o.h / 2;
-    }
-  }
+  // ---------- sheet fill / nesting ----------
+  let gap = $state(3);
+  let nestShapes = $state(true);
+  let nesting = $state(false);
 
   async function nestSelection(fill: boolean) {
     const units = selectedUnits();
@@ -230,7 +156,7 @@
         editor.toast("Passt nicht auf den Bogen.", "error");
         return;
       }
-      editor.checkpoint();
+      editor.checkpoint("Bogen füllen");
       if (fill) {
         const unit = units.flat();
         r.placements.forEach((p, i) => {
@@ -293,7 +219,7 @@
       editor.toast("Motiv ist zu groß für den Bogen.", "error");
       return;
     }
-    editor.checkpoint();
+    editor.checkpoint("Bogen füllen");
     const [fx, fy] = cells[0];
     for (const o of unit) {
       o.x += fx - b.x0;
@@ -316,7 +242,7 @@
   let shapeTouched = false;
   function setShape(o: PathObj, spec: NonNullable<PathObj["shape"]>) {
     if (!shapeTouched) {
-      editor.checkpoint();
+      editor.checkpoint("Form ändern");
       shapeTouched = true;
       setTimeout(() => (shapeTouched = false), 800);
     }
@@ -339,9 +265,9 @@
         editor.toast("Weniger Knoten geht bei dieser Abweichung nicht.");
         return;
       }
-      editor.checkpoint();
+      editor.checkpoint("Knoten reduzieren");
       o.d = r.d;
-      editor.toast(`${r.nodesBefore} → ${r.nodesAfter} Knoten`, "ok");
+      editor.toast(t("{a} → {b} Knoten", { a: r.nodesBefore, b: r.nodesAfter }), "ok");
     } catch (e) {
       editor.error(e);
     } finally {
@@ -349,27 +275,48 @@
     }
   }
 
-  // ---------- text on a path ----------
-  /** Exactly one text and one other path selected. */
-  const textOnPath = $derived.by(() => {
-    if (editor.selected.length !== 2) return null;
-    const t = editor.selected.find((o): o is PathObj => o.type === "path" && !!o.text);
-    const g = editor.selected.find((o): o is PathObj => o.type === "path" && !o.text);
-    return t && g ? { t, g } : null;
-  });
+  // ---------- several objects ----------
+  /** Moves the whole selection so its box starts at the value. */
+  function moveSelection(axis: "x" | "y", raw: string) {
+    const v = parseFloat(raw.replace(",", "."));
+    const b = aabb(editor.selected);
+    if (!Number.isFinite(v) || !b) return;
+    const d = v - (axis === "x" ? b.x0 : b.y0);
+    editor.checkpoint("Verschieben");
+    for (const o of editor.selected) if (!o.locked) o[axis] += d;
+  }
 
-  function putTextOnPath() {
-    const p = textOnPath;
-    if (!p || !p.t.text) return;
-    editor.checkpoint();
-    p.t.text.path = worldPathD(p.g);
-    p.t.text.curve = { kind: "custom" };
-    p.t.text.pathOffset = 0;
-    p.t.rot = 0;
-    p.t.flipX = p.t.flipY = false;
-    regenerate(p.t.id, "exact");
-    editor.selection = [p.t.id];
-    editor.toast("Text liegt auf dem Pfad – im Text-Bereich verschieben oder Ausrichtung ändern.", "ok");
+  /** Common value of all selected objects (shown as placeholder), else "–". */
+  function sameValue(key: "w" | "h" | "rot"): string {
+    const vals = editor.selected.map((o) => Math.round(o[key] * 10) / 10);
+    return vals.every((v) => v === vals[0]) ? fmt(vals[0], 1) : "–";
+  }
+
+  /** Sets width, height or rotation of every selected object. */
+  function setEach(key: "w" | "h" | "rot", raw: string, input: HTMLInputElement) {
+    const v = parseFloat(raw.replace(",", "."));
+    input.value = "";
+    if (!Number.isFinite(v) || (key !== "rot" && v <= 0)) return;
+    editor.checkpoint(key === "rot" ? "Drehen" : "Größe ändern");
+    for (const o of editor.selected) {
+      if (o.locked) continue;
+      if (key === "rot") {
+        o.rot = ((v % 360) + 360) % 360;
+        continue;
+      }
+      const ratio = o.h / o.w;
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      if (key === "w") {
+        o.w = v;
+        if (editor.keepRatio) o.h = v * ratio;
+      } else {
+        o.h = v;
+        if (editor.keepRatio) o.w = v / ratio;
+      }
+      o.x = cx - o.w / 2;
+      o.y = cy - o.h / 2;
+      if (o.type === "path") refreshShape(o);
+    }
   }
 
   const CUT_COLORS = ["#e5484d", "#3e63dd", "#30a46c", "#f5a524", "#8e4ec6", "#1b1d22"];
@@ -397,15 +344,14 @@
           class="name"
           value={single.name}
           onchange={(e) => {
-            editor.checkpoint();
+            editor.checkpoint("Umbenennen");
             single.name = e.currentTarget.value;
           }}
         />
       </div>
     </section>
 
-    <section>
-      <h3 class="section-title">{t("Position & Größe")}</h3>
+    <Section id="pos" title={t("Position & Größe")}>
       <div class="grid">
         {#each [["x", "X"], ["y", "Y"], ["w", "B"], ["h", "H"]] as [key, label]}
           <label class="num">
@@ -428,12 +374,11 @@
           <Icon name={editor.keepRatio ? "lock" : "unlock"} />
         </button>
       </div>
-    </section>
+    </Section>
 
     {#if single.type === "path" && single.shape && single.shape.kind !== "ellipse" && single.shape.kind !== "heart"}
       {@const sh = single.shape}
-      <section>
-        <h3 class="section-title">{t(SHAPE_NAMES[sh.kind])}</h3>
+      <Section id="shape" title={t(SHAPE_NAMES[sh.kind])}>
         <div class="stack">
           {#if sh.kind === "rect"}
             <Slider label="Eckenradius" value={sh.radius} min={0} max={Math.round(Math.min(single.w, single.h) / 2)} step={0.5} unit=" mm" oninput={(v) => setShape(single as PathObj, { ...sh, radius: v })} />
@@ -444,12 +389,11 @@
             <Slider label="Innenradius" value={Math.round(sh.inner * 100)} min={10} max={90} unit=" %" oninput={(v) => setShape(single as PathObj, { ...sh, inner: v / 100 })} />
           {/if}
         </div>
-      </section>
+      </Section>
     {/if}
 
     {#if single.type === "path"}
-      <section>
-        <h3 class="section-title">{t("Knoten")}</h3>
+      <Section id="nodes" title={t("Knoten")}>
         {#if nodes.objId === single.id}
           <p class="muted small">{t("{n} Knoten · {s} ausgewählt", { n: nodes.count, s: nodes.sel.length })}</p>
           <div class="cut-types">
@@ -472,7 +416,7 @@
             </div>
           {/if}
         {/if}
-      </section>
+      </Section>
     {/if}
 
     {#if single.type === "path" && single.text}
@@ -480,8 +424,7 @@
     {/if}
 
     {#if single.type === "path"}
-      <section>
-        <h3 class="section-title">{t("Schnittlinie")}</h3>
+      <Section id="line" title={t("Schnittlinie")}>
         <div class="colors">
           {#each CUT_COLORS as c}
             <button class="color" class:on={single.color === c} style:background={c} aria-label={t("Farbe {c}", { c })} onclick={() => setColor(single, c)}></button>
@@ -496,22 +439,21 @@
           />
           <label class="toggle-row">
             <span>{t("Schneiden")}</span>
-            <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint(); single.cut = e.currentTarget.checked; }} />
+            <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint("Schneiden an/aus"); single.cut = e.currentTarget.checked; }} />
           </label>
           <label class="toggle-row">
             <span>{t("Fläche drucken")}</span>
             <span class="row">
               {#if single.printFill}
-                <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint(); single.printFill = e.currentTarget.value; }} />
+                <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.value; }} />
               {/if}
-              <input type="checkbox" checked={!!single.printFill} onchange={(e) => { editor.checkpoint(); single.printFill = e.currentTarget.checked ? "#ffffff" : null; }} />
+              <input type="checkbox" checked={!!single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.checked ? "#ffffff" : null; }} />
             </span>
           </label>
         </div>
-      </section>
+      </Section>
     {:else}
-      <section>
-        <h3 class="section-title">{t("Bild")}</h3>
+      <Section id="image" title={t("Bild")}>
         <div class="stack">
           <label class="range-row">
             <span>{t("Deckkraft")}</span>
@@ -519,12 +461,42 @@
           </label>
           <button class="btn primary" onclick={() => (editor.rightTab = "trace")}><Icon name="wand" /> {t("Bild tracen …")}</button>
         </div>
-      </section>
+      </Section>
     {/if}
   {:else if box}
     <section>
       <h3 class="section-title">{t("{n} Objekte", { n: editor.selected.length })}</h3>
       <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
+      <div class="grid multi">
+        <label class="num" title={t("Verschiebt die ganze Auswahl")}>
+          <span>X</span>
+          <input class="field" value={fmt(box.x0, 2)} onchange={(e) => moveSelection("x", e.currentTarget.value)} />
+          <em>mm</em>
+        </label>
+        <label class="num" title={t("Verschiebt die ganze Auswahl")}>
+          <span>Y</span>
+          <input class="field" value={fmt(box.y0, 2)} onchange={(e) => moveSelection("y", e.currentTarget.value)} />
+          <em>mm</em>
+        </label>
+        <label class="num" title={t("Breite jedes Objekts")}>
+          <span>{t("B")}</span>
+          <input class="field" placeholder={sameValue("w")} onchange={(e) => setEach("w", e.currentTarget.value, e.currentTarget)} />
+          <em>mm</em>
+        </label>
+        <label class="num" title={t("Höhe jedes Objekts")}>
+          <span>{t("H")}</span>
+          <input class="field" placeholder={sameValue("h")} onchange={(e) => setEach("h", e.currentTarget.value, e.currentTarget)} />
+          <em>mm</em>
+        </label>
+        <label class="num" title={t("Drehung jedes Objekts")}>
+          <span>∠</span>
+          <input class="field" placeholder={sameValue("rot")} onchange={(e) => setEach("rot", e.currentTarget.value, e.currentTarget)} />
+          <em>°</em>
+        </label>
+        <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
+          <Icon name={editor.keepRatio ? "lock" : "unlock"} />
+        </button>
+      </div>
       {#if textOnPath}
         <button class="btn primary top-gap" onclick={putTextOnPath} title={t("Der Text folgt der Linie des anderen Pfads")}>{t("Text auf Pfad")}</button>
       {/if}
@@ -532,8 +504,7 @@
   {/if}
 
   {#if selPaths.length}
-    <section>
-      <h3 class="section-title">{t("Schnittart")}</h3>
+    <Section id="cuttype" title={t("Schnittart")}>
       <div class="cut-types">
         {#each CUT_TYPES as ct}
           <button
@@ -547,28 +518,25 @@
         {/each}
       </div>
       <p class="muted small">{t("Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.")}</p>
-    </section>
+    </Section>
   {/if}
 
   {#if selPaths.length >= 2}
-    <section>
-      <h3 class="section-title">{t("Pfade kombinieren")}</h3>
+    <Section id="bool" title={t("Pfade kombinieren")} open={false}>
       <div class="cut-types">
         {#each BOOL_OPS as b}
-          <button class="btn outline" disabled={boolBusy} title={t(b.hint)} onclick={() => combine(b.op)}>{t(b.label)}</button>
+          <button class="btn outline" disabled={boolBusy} title={t(b.hint)} onclick={() => runCombine(b.op)}>{t(b.label)}</button>
         {/each}
       </div>
-    </section>
+    </Section>
   {/if}
 
-  <section>
-    <h3 class="section-title">{t("Rahmen")}</h3>
+  <Section id="frame" title={t("Rahmen")} open={false}>
     <button class="btn outline" onclick={frameSelection} title={t("Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten")}>{t("Schnittrahmen um Auswahl")}</button>
-  </section>
+  </Section>
 
   {#if selPaths.length}
-    <section>
-      <h3 class="section-title">{t("Entgittern (Folie)")}</h3>
+    <Section id="weed" title={t("Entgittern (Folie)")} open={false}>
       <div class="stack">
         <label class="toggle-row" title={t("Abstand des Rahmens zum Motiv")}>
           <span>{t("Rand")}</span>
@@ -592,10 +560,9 @@
         <button class="btn outline" onclick={addWeeding} title={t("Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen")}>{t("Entgitterungshilfe anlegen")}</button>
       </div>
       <p class="muted small">{t("Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).")}</p>
-    </section>
+    </Section>
 
-    <section>
-      <h3 class="section-title">{t("Kontur versetzen")}</h3>
+    <Section id="offset" title={t("Kontur versetzen")} open={false}>
       <div class="row">
         <label class="num grow-field">
           <span>±</span>
@@ -605,11 +572,10 @@
         <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? t("Berechne …") : t("Neue Kontur")}</button>
       </div>
       <p class="muted small">{t("Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.")}</p>
-    </section>
+    </Section>
   {/if}
 
-  <section>
-    <h3 class="section-title">{t("Bogen füllen")}</h3>
+  <Section id="fill" title={t("Bogen füllen")} open={false}>
     <div class="row">
       <label class="num grow-field">
         <span>{t("Abstand")}</span>
@@ -623,10 +589,9 @@
       <Toggle label="Formen verschachteln" bind:checked={nestShapes} hint="Echte Umrisse ineinander setzen und drehen statt eines starren Rasters" />
     </div>
     <p class="muted small">{editor.printCut.enabled ? t("Verteilt die Auswahl so oft wie möglich auf der Seite (ohne Markenzonen).") : t("Verteilt die Auswahl so oft wie möglich auf der Matte.")}</p>
-  </section>
+  </Section>
 
-  <section>
-    <h3 class="section-title">{editor.selected.length === 1 ? t("Ausrichten auf Matte") : t("Ausrichten")}</h3>
+  <Section id="align" title={editor.selected.length === 1 ? t("Ausrichten auf Matte") : t("Ausrichten")}>
     <div class="row">
       <button class="btn icon" title={t("Links")} onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
       <button class="btn icon" title={t("Horizontal zentrieren")} onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
@@ -636,10 +601,15 @@
       <button class="btn icon" title={t("Vertikal zentrieren")} onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
       <button class="btn icon" title={t("Unten")} onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
     </div>
-  </section>
+    {#if editor.selectedUnits().length >= 3}
+      <div class="row wrap top-gap">
+        <button class="btn outline" title={t("Gleiche Abstände von links nach rechts")} onclick={() => editor.distribute("x")}><Icon name="distributeH" /> {t("Waagrecht verteilen")}</button>
+        <button class="btn outline" title={t("Gleiche Abstände von oben nach unten")} onclick={() => editor.distribute("y")}><Icon name="distributeV" /> {t("Senkrecht verteilen")}</button>
+      </div>
+    {/if}
+  </Section>
 
-  <section>
-    <h3 class="section-title">{t("Anordnen")}</h3>
+  <Section id="arrange" title={t("Anordnen")}>
     <div class="row wrap">
       <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> {t("Spiegeln")}</button>
       <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> {t("Kippen")}</button>
@@ -655,7 +625,7 @@
       <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> {t("Duplizieren")}</button>
       <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> {t("Löschen")}</button>
     </div>
-  </section>
+  </Section>
 {/if}
 
 <style>
@@ -795,6 +765,9 @@
   .muted.small {
     margin-top: 8px;
     font-size: 12px;
+  }
+  .grid.multi {
+    margin-top: 10px;
   }
   .grow-field {
     flex: 1;

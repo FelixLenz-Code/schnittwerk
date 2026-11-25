@@ -49,6 +49,7 @@ export const api = {
   updateInstall: (asset: UpdateAsset) => call<void>("update_install", { asset }),
   updateRestart: () => call<void>("update_restart", {}),
   openUrl: (url: string) => call<void>("open_url", { url }),
+  notify: (title: string, body: string) => call<void>("notify", { title, body }),
   autosaveWrite: (contents: string) => call<void>("autosave_write", { contents }),
   autosaveInfo: () => call<{ savedAt: number; filePath: string | null; objects: number } | null>("autosave_info", {}),
   /** Writes a project; the backend embeds the pictures. */
@@ -72,6 +73,7 @@ export const api = {
   ) => call<{ clamped: number }>("cut_start", { req: { groups, regmarks, feed, resume } }),
   cutRegtest: (regmarks: RegMarks, settings: CutSettings) => call<{ clamped: number }>("cut_regtest", { regmarks, settings }),
   cutTest: (x: number, y: number, settings: CutSettings) => call<{ clamped: number }>("cut_test", { x, y, settings }),
+  cutTestSeries: (x: number, y: number, settings: CutSettings[]) => call<{ clamped: number }>("cut_test_series", { x, y, settings }),
   cutPause: (paused: boolean) => call<void>("cut_pause", { paused }),
   cutCancel: () => call<void>("cut_cancel", {}),
 

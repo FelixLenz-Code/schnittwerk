@@ -49,13 +49,13 @@ class NodeEditor {
     for (const s of subs) for (const p of s.nodes) p.smooth = isSmooth(p);
     if (o.text) {
       // Edited outlines can no longer be regenerated from the text.
-      editor.checkpoint();
+      editor.checkpoint("Knoten bearbeiten");
       delete o.text;
       editor.toast("Text wird beim Bearbeiten der Knoten zur Form.");
     }
     if (o.shape) {
       // Same for shapes: the nodes are edited directly from now on.
-      editor.checkpoint();
+      editor.checkpoint("Knoten bearbeiten");
       delete o.shape;
     }
     editor.selection = [o.id];
@@ -152,7 +152,7 @@ class NodeEditor {
   nudge(dx: number, dy: number) {
     const o = this.obj;
     if (!o || !this.sel.length) return;
-    editor.checkpoint();
+    editor.checkpoint("Knoten bearbeiten");
     const a = this.fromWorld({ x: 0, y: 0 }, o), b = this.fromWorld({ x: dx, y: dy }, o);
     const orig = new Map(this.sel.map((k) => [k, $state.snapshot(this.node(k)!) as PNode]));
     this.moveSelected(orig, b.x - a.x, b.y - a.y);
@@ -181,7 +181,7 @@ class NodeEditor {
   insertAt(si: number, i: number, t: number) {
     const s = this.subs[si];
     if (!s) return;
-    editor.checkpoint();
+    editor.checkpoint("Knoten bearbeiten");
     const ni = splitSegment(s, i, t);
     // Indices behind the new node shift by one.
     this.sel = [key(si, ni)];
@@ -190,7 +190,7 @@ class NodeEditor {
 
   deleteSelected() {
     if (!this.sel.length) return;
-    editor.checkpoint();
+    editor.checkpoint("Knoten bearbeiten");
     const bySub = new Map<number, number[]>();
     for (const k of this.sel) {
       const [si, ni] = unkey(k);
@@ -216,7 +216,7 @@ class NodeEditor {
   /** Corner ↔ smooth for the selected nodes. Smooth nodes get handles. */
   setSmooth(smooth: boolean) {
     if (!this.sel.length) return;
-    editor.checkpoint();
+    editor.checkpoint("Knoten bearbeiten");
     for (const k of this.sel) {
       const [si, ni] = unkey(k);
       const s = this.subs[si];
@@ -247,7 +247,7 @@ class NodeEditor {
   /** Segments after the selected nodes become straight lines (true) or curves. */
   setStraight(straight: boolean) {
     if (!this.sel.length) return;
-    editor.checkpoint();
+    editor.checkpoint("Knoten bearbeiten");
     for (const k of this.sel) {
       const [si, ni] = unkey(k);
       const s = this.subs[si];

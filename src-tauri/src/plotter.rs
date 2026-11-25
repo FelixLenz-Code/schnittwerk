@@ -380,6 +380,17 @@ pub async fn cut_test(app: AppHandle, x: f64, y: f64, settings: CutSettings, mgr
     start_job(app, &mgr, vec![(gpgl::test_pattern(x, y), settings)], None, None, (0, 0))
 }
 
+/// Test series: one test pattern per settings entry, side by side from
+/// (x, y) with 13 mm spacing, cut in this order (e.g. increasing force).
+#[tauri::command]
+pub async fn cut_test_series(app: AppHandle, x: f64, y: f64, settings: Vec<CutSettings>, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
+    if settings.is_empty() {
+        return Err("Keine Schnittlinien vorhanden.".into());
+    }
+    let groups = settings.into_iter().enumerate().map(|(i, s)| (gpgl::test_pattern(x + i as f64 * 13.0, y), s)).collect();
+    start_job(app, &mgr, groups, None, None, (0, 0))
+}
+
 /// Only searches the registration marks (no cutting) – for diagnosis.
 #[tauri::command]
 pub async fn cut_regtest(app: AppHandle, regmarks: RegMarks, settings: CutSettings, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {

@@ -34,7 +34,7 @@
           class="btn icon"
           title={o.visible ? t("Ausblenden") : t("Einblenden")}
           onclick={() => {
-            editor.checkpoint();
+            editor.checkpoint("Ein-/Ausblenden");
             o.visible = !o.visible;
             if (!o.visible) editor.selection = editor.selection.filter((s) => s !== o.id);
           }}><Icon name={o.visible ? "eye" : "eyeOff"} size={14} /></button
@@ -44,7 +44,7 @@
           class:active={o.locked}
           title={o.locked ? t("Entsperren") : t("Sperren")}
           onclick={() => {
-            editor.checkpoint();
+            editor.checkpoint("Sperren");
             o.locked = !o.locked;
           }}><Icon name={o.locked ? "lock" : "unlock"} size={14} /></button
         >

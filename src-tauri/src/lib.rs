@@ -357,6 +357,23 @@ async fn simplify_path(d: String, tolerance: f64, corner_deg: f64) -> Result<sch
         .map_err(|e| e.to_string())?
 }
 
+/// Desktop notification (cut finished while the window is in the background).
+#[tauri::command]
+async fn notify(title: String, body: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        notify_rust::Notification::new()
+            .summary(&title)
+            .body(&body)
+            .appname("Schnittwerk")
+            .icon(if in_flatpak() { "de.schnittwerk.Schnittwerk" } else { "schnittwerk" })
+            .show()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Whether a file still exists (recent files list).
 #[tauri::command]
 async fn file_exists(path: String) -> bool {
@@ -395,6 +412,7 @@ pub fn run() {
             images::project_save,
             images::project_open,
             file_exists,
+            notify,
             update::update_check,
             update::update_install,
             update::update_restart,
@@ -403,6 +421,7 @@ pub fn run() {
             plotter::cut_preview,
             plotter::cut_start,
             plotter::cut_test,
+            plotter::cut_test_series,
             plotter::cut_regtest,
             plotter::ble_scan,
             plotter::ble_connect,

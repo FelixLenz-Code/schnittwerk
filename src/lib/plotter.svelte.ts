@@ -33,6 +33,40 @@ export function matKindFor(m: Mat): MatKind {
 }
 
 const BLADE_KEY = "schnittwerk.blade";
+const SOUND_KEY = "schnittwerk.cutSound";
+
+function loadFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+/** Two short tones (rising = done, falling = error) via Web Audio. */
+function beep(ok: boolean) {
+  try {
+    const ctx = new AudioContext();
+    const notes = ok ? [660, 880] : [440, 330];
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = f;
+      const t0 = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+      o.connect(g).connect(ctx.destination);
+      o.start(t0);
+      o.stop(t0 + 0.17);
+    });
+    setTimeout(() => ctx.close(), 800);
+  } catch {
+    /* no audio */
+  }
+}
 const TIME_KEY = "schnittwerk.timeFactor";
 
 function loadTimeFactor(): number {
@@ -215,6 +249,7 @@ class PlotterStore {
       this.phase = "idle";
       this.registering = false;
       this.lastResult = e.payload;
+      this.#announce(e.payload.status, e.payload.message);
       if (e.payload.status === "done") editor.toast(this.regtest ? "Passermarken gefunden ✓" : "Schnitt fertig", "ok");
       else if (e.payload.status === "cancelled") editor.toast("Schnitt abgebrochen");
       else editor.toast(e.payload.message ?? "Fehler beim Schneiden", "error");
@@ -268,6 +303,27 @@ class PlotterStore {
         t.pausedAt = null;
       }
     }
+  }
+
+  /** Sound when a cut is over (switchable in the device menu). */
+  sound = $state(loadFlag(SOUND_KEY, true));
+
+  setSound(v: boolean) {
+    this.sound = v;
+    try {
+      localStorage.setItem(SOUND_KEY, v ? "1" : "0");
+    } catch {}
+  }
+
+  /** Real jobs only (no test cuts): tone, and a desktop notification when
+   *  the window is in the background. */
+  #announce(status: string, message: string | null) {
+    if (!this.job.length || status === "cancelled") return;
+    if (this.sound) beep(status === "done");
+    if (document.hasFocus()) return;
+    const title = status === "done" ? t("Schnitt fertig") : t("Fehler beim Schneiden");
+    const body = status === "done" ? t("Material entnehmen oder die nächste Matte einlegen.") : (message ?? "");
+    api.notify(title, body).catch(() => {});
   }
 
   /** Corrects the time factor with a finished job (paused jobs too, minus the pause). */

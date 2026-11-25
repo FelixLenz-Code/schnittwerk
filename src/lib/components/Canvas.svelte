@@ -3,6 +3,7 @@
   import { aabb, boxTransform, center, corners, fmt, fromLocal, rotate, toLocal, type AABB } from "../geometry";
   import type { PathObj, ShapeTool, Vec2 } from "../types";
   import { t } from "../i18n.svelte";
+  import { contextMenu } from "./ContextMenu.svelte";
   import { defaultSpec, makeFreehand, makeLine, makeShape, naturalAspect, refreshShape, shapePath } from "../shapes";
   import { createText } from "../text.svelte";
   import { brush } from "../brush.svelte";
@@ -263,7 +264,7 @@
         let dx = p.x - drag.start.x, dy = p.y - drag.start.y;
         if (!drag.moved) {
           if (Math.hypot(dx, dy) * z < 3) return;
-          editor.checkpoint();
+          editor.checkpoint("Verschieben");
           drag.moved = true;
         }
         if (e.shiftKey) Math.abs(dx) > Math.abs(dy) ? (dy = 0) : (dx = 0);
@@ -295,7 +296,7 @@
         const o = editor.byId(drag.id);
         if (!o) return;
         if (!drag.moved) {
-          editor.checkpoint();
+          editor.checkpoint("Größe ändern");
           drag.moved = true;
         }
         const v = rotate({ x: p.x - drag.anchor.x, y: p.y - drag.anchor.y }, -drag.rot);
@@ -324,7 +325,7 @@
         const o = editor.byId(drag.id);
         if (!o) return;
         if (!drag.moved) {
-          editor.checkpoint();
+          editor.checkpoint("Drehen");
           drag.moved = true;
         }
         let r = drag.rot0 + ((Math.atan2(p.y - drag.c.y, p.x - drag.c.x) - drag.a0) * 180) / Math.PI;
@@ -377,7 +378,7 @@
         let dx = q.x - drag.start.x, dy = q.y - drag.start.y;
         if (!drag.moved) {
           if (Math.hypot(p.x - nodes.toWorld(drag.start).x, p.y - nodes.toWorld(drag.start).y) * z < 3) return;
-          editor.checkpoint();
+          editor.checkpoint("Knoten bearbeiten");
           drag.moved = true;
         }
         if (e.shiftKey) Math.abs(dx) > Math.abs(dy) ? (dy = 0) : (dx = 0);
@@ -387,7 +388,7 @@
 
       case "nodeh": {
         if (!drag.moved) {
-          editor.checkpoint();
+          editor.checkpoint("Knoten bearbeiten");
           drag.moved = true;
           // Alt: move this handle on its own (makes a corner).
           const n = nodes.node(drag.k);
@@ -441,7 +442,7 @@
       if (o?.type === "path") refreshShape(o);
     } else if (drag?.kind === "line") {
       if (Math.hypot(drag.cur.x - drag.start.x, drag.cur.y - drag.start.y) * z > 3) {
-        editor.add([makeLine(drag.start, drag.cur)]);
+        editor.add([makeLine(drag.start, drag.cur)], true, "Zeichnen");
         editor.tool = "select";
       }
     } else if (drag?.kind === "pen") {
@@ -450,7 +451,7 @@
         const first = pts[0], last = pts[pts.length - 1];
         const close = pts.length > 8 && Math.hypot(first.x - last.x, first.y - last.y) < px(12);
         const o = makeFreehand(pts, close, Math.max(0.1, px(1.2)));
-        if (o) editor.add([o]);
+        if (o) editor.add([o], true, "Zeichnen");
       }
     } else if (drag?.kind === "nodeMarquee") {
       const x0 = Math.min(drag.start.x, drag.cur.x), x1 = Math.max(drag.start.x, drag.cur.x);
@@ -487,7 +488,7 @@
     } else if (drag?.kind === "draw") {
       const b = drawBox(drag, e.shiftKey);
       if (b.w > 1 && b.h > 1) {
-        editor.add([makeShape(defaultSpec(drag.shape), b.x, b.y, b.w, b.h)]);
+        editor.add([makeShape(defaultSpec(drag.shape), b.x, b.y, b.w, b.h)], true, "Zeichnen");
         editor.tool = "select";
       }
     }
@@ -509,14 +510,26 @@
   let shiftDown = $state(false);
 
   /** Right-click on a guide removes it. */
+  /** Right-click: removes a guide, otherwise opens the context menu
+   *  (an object under the pointer is selected first). */
   function onContextMenu(e: MouseEvent) {
     e.preventDefault();
-    const t = document.elementFromPoint(e.clientX, e.clientY);
-    const g = t?.closest("[data-guide]")?.getAttribute("data-guide");
-    if (!g) return;
-    const [axis, i] = g.split(":");
-    editor.guides[axis as "v" | "h"].splice(Number(i), 1);
-    guidesChanged();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const g = el?.closest("[data-guide]")?.getAttribute("data-guide");
+    if (g) {
+      const [axis, i] = g.split(":");
+      editor.guides[axis as "v" | "h"].splice(Number(i), 1);
+      guidesChanged();
+      return;
+    }
+    if (nodes.objId || perspective.objId || drag) return;
+    const id = el?.closest("[data-obj]")?.getAttribute("data-obj");
+    const obj = id ? editor.byId(id) : undefined;
+    if (obj && !obj.locked && !editor.selection.includes(obj.id)) editor.selection = editor.expandGroups([obj.id]);
+    contextMenu.x = e.clientX;
+    contextMenu.y = e.clientY;
+    contextMenu.onObject = !!obj && !obj.locked;
+    contextMenu.open = true;
   }
 
   // ---------- dimensions on the canvas ----------

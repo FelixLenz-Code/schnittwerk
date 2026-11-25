@@ -3,7 +3,8 @@
   import { editor } from "../editor.svelte";
   import { uid } from "../geometry";
   import { layerToPath } from "../place";
-  import type { ImageObj, StickerParams } from "../types";
+  import type { ImageObj, Obj, StickerParams, TraceResult } from "../types";
+  import { arrangeUnits } from "../actions";
   import Icon from "./Icon.svelte";
   import { t } from "../i18n.svelte";
   import Segmented from "./Segmented.svelte";
@@ -105,8 +106,22 @@
         applying = false;
       }
     }
+    editor.checkpoint("Sticker-Kontur");
+    const ids = insertSticker(img, asset, preview.result, bled);
+    editor.selection = ids;
+    editor.toast(preview.result.layers[1] ? "Sticker angelegt: rot wird angeschnitten, blau durchgeschnitten" : "Sticker-Kontur erstellt", "ok");
+    editor.rightTab = "object";
+  }
+
+  type Bled = { id: string; src: string; name: string; pxW: number; pxH: number; pad: number };
+
+  /**
+   * Puts the contour (layer 0, kiss cut) and the backing (layer 1, through
+   * cut) of a sticker under its picture and groups them. No undo step –
+   * the caller makes one. Returns the ids of the sticker's objects.
+   */
+  function insertSticker(img: ImageObj, asset: { pxW: number; pxH: number }, r: TraceResult, bled: Bled | null): string[] {
     const group = img.group ?? uid();
-    const r = preview.result;
     const contour = layerToPath(img, r.width, r.height, r.layers[0], {
       name: `${img.name} · ${t("Anschneiden")}`,
       color: KISS,
@@ -116,7 +131,6 @@
     const backing = r.layers[1]
       ? layerToPath(img, r.width, r.height, r.layers[1], { name: `${img.name} · ${t("Durchschneiden")}`, color: THROUGH, group })
       : null;
-    editor.checkpoint();
     const idx = editor.objects.findIndex((o) => o.id === img.id);
     const live = editor.objects[idx];
     live.group = group;
@@ -132,13 +146,89 @@
     }
     // Contours go below the image so a coloured border is printed underneath.
     editor.objects.splice(idx, 0, ...(backing ? [backing, contour] : [contour]));
-    editor.selection = [...(backing ? [backing.id] : []), contour.id, img.id];
-    editor.toast(backing ? "Sticker angelegt: rot wird angeschnitten, blau durchgeschnitten" : "Sticker-Kontur erstellt", "ok");
-    editor.rightTab = "object";
+    return [...(backing ? [backing.id] : []), contour.id, img.id];
+  }
+
+  // ---------- sticker sheet from several pictures ----------
+  /** Selected pictures without a sticker contour yet (several = sheet mode). */
+  const batch = $derived(
+    editor.selected.filter(
+      (o): o is ImageObj => o.type === "image" && !(o.group && editor.objects.some((p) => p.type === "path" && p.group === o.group)),
+    ),
+  );
+  let copies = $state(1);
+  let arrange = $state(true);
+  let batchBusy = $state(false);
+  let batchDone = $state(0);
+
+  /** Contours for all selected pictures, copies, then arranged on the sheet. */
+  async function makeSheet() {
+    const imgs = $state.snapshot(batch) as ImageObj[];
+    if (!imgs.length) return;
+    batchBusy = true;
+    batchDone = 0;
+    try {
+      const results: { img: ImageObj; asset: { pxW: number; pxH: number; name: string }; r: TraceResult; bled: Bled | null }[] = [];
+      for (const img of imgs) {
+        const asset = editor.images[img.imageId];
+        if (!asset) continue;
+        const p: StickerParams = {
+          mask: maskKind === "alpha" ? { kind: "alpha" } : { kind: "background", tolerance },
+          offsetPx: (marginMm * asset.pxW) / img.w,
+          smoothness,
+          fillHoles,
+          despeckle: 30,
+        };
+        const extraPx = (backingMm * asset.pxW) / img.w;
+        const [kiss, through] = await Promise.all([
+          api.stickerOutline(img.imageId, p),
+          dieCut ? api.stickerOutline(img.imageId, { ...p, offsetPx: p.offsetPx + extraPx }) : Promise.resolve(null),
+        ]);
+        if (!kiss.layers.length) continue;
+        let bled: Bled | null = null;
+        if (bleedOn) {
+          const b = await api.bleedImage(img.imageId, p.mask, ((marginMm + bleedMm) * asset.pxW) / img.w);
+          bled = { id: b.info.id, src: b.info.src, name: asset.name, pxW: b.info.width, pxH: b.info.height, pad: b.pad };
+        }
+        const layers = [kiss.layers[0], ...(through?.layers.slice(0, 1) ?? [])];
+        results.push({ img, asset, r: { ...kiss, layers }, bled });
+        batchDone++;
+      }
+      if (!results.length) {
+        editor.toast("Keine Kontur gefunden – Einstellungen prüfen.", "error");
+        return;
+      }
+      editor.checkpoint("Sticker-Bogen");
+      const units: Obj[][] = [];
+      for (const { img, asset, r, bled } of results) {
+        const ids = insertSticker(img, asset, r, bled);
+        const unit = editor.objects.filter((o) => ids.includes(o.id));
+        units.push(unit);
+        // Copies of the whole sticker (picture + contours), each its own group.
+        for (let k = 1; k < copies; k++) {
+          const g = uid();
+          const dup = unit.map((o) => ({ ...($state.snapshot(o) as Obj), id: uid(), group: g }));
+          editor.objects.push(...dup);
+          units.push(editor.objects.slice(-dup.length));
+        }
+      }
+      let msg = t("{n} Sticker angelegt", { n: units.length });
+      if (arrange) {
+        const r = await arrangeUnits(units, 3);
+        if (r.unplaced) msg = t("{n} Sticker angelegt, {m} passen nicht mehr auf den Bogen und liegen rechts daneben", { n: units.length, m: r.unplaced });
+      }
+      editor.selection = units.flat().map((o) => o.id);
+      editor.toast(msg, "ok");
+      editor.rightTab = "object";
+    } catch (e) {
+      editor.error(e);
+    } finally {
+      batchBusy = false;
+    }
   }
 </script>
 
-{#if !target || !asset}
+{#if !target && batch.length < 2}
   <div class="empty">
     <div class="empty-icon"><Icon name="sparkle" size={28} stroke={1.5} /></div>
     <p><strong>{t("Motiv auswählen")}</strong></p>
@@ -214,6 +304,17 @@
       </div>
     </section>
 
+    {#if !target}
+      <div class="footer">
+        <h3 class="section-title">{t("Sticker-Bogen aus {n} Bildern", { n: batch.length })}</h3>
+        <Slider label="Exemplare je Motiv" bind:value={copies} min={1} max={20} unit="×" />
+        <Toggle label="Platzsparend auf dem Bogen anordnen" bind:checked={arrange} />
+        <button class="btn primary grow" disabled={batchBusy} onclick={makeSheet}>
+          <Icon name="sparkle" /> {batchBusy ? t("Erzeuge Konturen … {a}/{b}", { a: batchDone, b: batch.length }) : t("Sticker-Bogen erstellen")}
+        </button>
+        <p class="hint">{t("Alle ausgewählten Bilder bekommen mit den Einstellungen oben eine Kontur.")}</p>
+      </div>
+    {:else}
     <div class="footer">
       <div class="stats">
         {#if editor.tracing}
@@ -230,6 +331,7 @@
       {/if}
       <button class="btn primary grow" disabled={!preview?.result.layers.length || applying} onclick={apply}><Icon name="check" /> {applying ? t("Erzeuge Bleed …") : t("Kontur übernehmen")}</button>
     </div>
+    {/if}
   </div>
 {/if}
 

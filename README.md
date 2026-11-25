@@ -126,6 +126,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
 - Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar auf der Startseite)
+- Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (Deutsch/Englisch)
+- Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche im Objekt-Tab
 - Matten für Portrait 3 (8″ × 12″) und Cameo (12″ × 12″, 12″ × 24″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen
 - Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
@@ -133,8 +135,9 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Maße direkt am Objekt anzeigen und per Klick eingeben
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
-- Ausrichten, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
-- Rückgängig/Wiederholen, helles und dunkles Design (folgt dem System)
+- Ausrichten, gleichmäßig verteilen, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
+- Mehrere Objekte gemeinsam bearbeiten: Position der Auswahl, Größe und Drehung jedes Objekts
+- Rückgängig/Wiederholen mit Namen des Schritts, helles und dunkles Design (folgt dem System)
 - Formen: Rechteck (mit Eckenradius), Ellipse, Vieleck, Stern, Herz, Linie, Freihand
 - Text mit Systemschriften (fett/kursiv, Abstand, mehrzeilig, Verschweißen), auf einem Bogen oder entlang eines Pfads
 - Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen
@@ -162,11 +165,12 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Materialbibliothek mit Vorlagen und eigenen Profilen: Messertiefe (AutoBlade), Druck,
   Geschwindigkeit, Durchgänge, Überschnitt
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
-- Vorschau der Schnittreihenfolge, Fortschritt, Pause und Abbrechen
+- Vorschau der Schnittreihenfolge mit animierter Simulation, Fortschritt, Pause und Abbrechen
+- Benachrichtigung und Ton, wenn ein Schnitt fertig ist
 - Geschätzte Schnittzeit vorher und Restzeit während des Schnitts (lernt mit jedem fertigen Schnitt dazu)
 - Nach einem Abbruch oder Verbindungsfehler an der unterbrochenen Stelle weiterschneiden
 - Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
-- Testschnitt, Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
+- Testschnitt und Testreihe (steigender Druck oder steigende Messertiefe, bestes Quadrat anklicken), Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
 - Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)
 - Schneiden ohne Matte von der Rolle; Folie wird am Ende hinter das Motiv geschoben
 - Messerverschleiß-Zähler mit Erinnerung nach einstellbarer Schnittstrecke
@@ -176,6 +180,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 ### Print & Cut und Sticker
 - Sticker-Assistent: Hintergrund entfernen oder Transparenz nutzen, Rand in mm, glatte Kontur
 - Einzelsticker: anschneiden (abziehbar) und mit Trägerrand durchschneiden
+- Sticker-Bogen in einem Rutsch: mehrere Bilder auswählen – Konturen, Exemplare und platzsparende Anordnung auf einmal
 - Print-&-Cut-Seite (A4/Letter) mit Silhouette-Passermarken; der optische Sensor findet sie automatisch
 - Bogen füllen, Rand farbig drucken, Bleed (Motivfarben über die Schnittlinie hinaus)
 - Drucken über CUPS ohne Skalierung oder als PDF speichern
@@ -237,7 +242,8 @@ Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `
 | Lineal ziehen / Rechtsklick auf Hilfslinie | Hilfslinie anlegen / löschen (oder zurück aufs Lineal ziehen) |
 | `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
 | Mausrad | Zoom (Shift = horizontal scrollen) |
-| `Strg+0` | Matte einpassen |
+| `Strg+0` / `Strg+2` | Matte einpassen / Auswahl einpassen |
+| Rechtsklick | Menü mit den häufigsten Aktionen |
 | `Strg+I` / `Strg+E` | Importieren / SVG exportieren |
 | `Strg+Enter` / `Strg+P` | Schneiden-Dialog / Drucken |
 | `Strg+G` / `Strg+Shift+G` | Gruppieren / Gruppierung lösen |

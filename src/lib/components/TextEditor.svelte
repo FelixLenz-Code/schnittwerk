@@ -21,7 +21,7 @@
   /** Straight / arc: the box keeps its centre. */
   function setCurve(v: "none" | "arcTop" | "arcBottom" | "custom") {
     if (v === curveKind || v === "custom") return;
-    editor.checkpoint();
+    editor.checkpoint("Text ändern");
     const radius = obj.text.curve && obj.text.curve.kind !== "custom" ? obj.text.curve.radius : Math.max(15, obj.text.size * 2.5);
     obj.text.curve = v === "none" ? null : { kind: v, radius };
     if (v === "none") obj.text.path = null;
@@ -31,7 +31,7 @@
 
   function flipSide() {
     if (!obj.text.path) return;
-    editor.checkpoint();
+    editor.checkpoint("Text ändern");
     obj.text.path = serializePath(reversePath(parsePath(obj.text.path)));
     regenerate(obj.id, "exact");
   }
@@ -40,7 +40,7 @@
   /** One undo step per editing burst. */
   function change<K extends keyof TextSpec>(key: K, value: TextSpec[K]) {
     if (!touched) {
-      editor.checkpoint();
+      editor.checkpoint("Text ändern");
       touched = true;
       setTimeout(() => (touched = false), 800);
     }

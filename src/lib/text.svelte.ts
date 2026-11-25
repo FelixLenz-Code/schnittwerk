@@ -74,7 +74,7 @@ export async function createText(at: Vec2) {
       x: at.x, y: at.y, w: o.bbox[2], h: o.bbox[3], rot: 0, flipX: false, flipY: false, visible: true, locked: false,
       text: spec,
     };
-    editor.add([obj]);
+    editor.add([obj], true, "Text");
     editor.rightTab = "object";
   } catch (e) {
     editor.error(e);

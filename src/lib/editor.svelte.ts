@@ -140,7 +140,7 @@ class Editor {
   mat = $state<Mat>(MATS[0]);
   showGrid = $state(true);
   cursor = $state<{ x: number; y: number } | null>(null);
-  rightTab = $state<"object" | "trace" | "sticker" | "layers">("object");
+  rightTab = $state<"object" | "trace" | "sticker" | "layers" | "help">("object");
 
   /** Guide lines (dragged out of the rulers). */
   guides = $state<Guides>({ v: [], h: [] });
@@ -212,18 +212,22 @@ class Editor {
   dirty = $state(false);
   toasts = $state<Toast[]>([]);
 
-  #undo: Obj[][] = [];
-  #redo: Obj[][] = [];
+  #undo: { objects: Obj[]; label: string }[] = [];
+  #redo: { objects: Obj[]; label: string }[] = [];
   canUndo = $state(false);
   canRedo = $state(false);
+  /** Name of the step Undo / Redo would revert or repeat. */
+  undoLabel = $state("");
+  redoLabel = $state("");
 
   selected = $derived(this.objects.filter((o) => this.selection.includes(o.id)));
 
   // ---------- history ----------
 
-  /** Call once before a change; the current state becomes an undo step. */
-  checkpoint() {
-    this.#undo.push($state.snapshot(this.objects) as Obj[]);
+  /** Call once before a change; the current state becomes an undo step.
+   *  `label` names the change (German, translated for display). */
+  checkpoint(label = "Änderung") {
+    this.#undo.push({ objects: $state.snapshot(this.objects) as Obj[], label });
     if (this.#undo.length > HISTORY_LIMIT) this.#undo.shift();
     this.#redo = [];
     this.#syncHistory();
@@ -234,16 +238,16 @@ class Editor {
   undo() {
     const prev = this.#undo.pop();
     if (!prev) return;
-    this.#redo.push($state.snapshot(this.objects) as Obj[]);
-    this.objects = prev;
+    this.#redo.push({ objects: $state.snapshot(this.objects) as Obj[], label: prev.label });
+    this.objects = prev.objects;
     this.#afterHistory();
   }
 
   redo() {
     const next = this.#redo.pop();
     if (!next) return;
-    this.#undo.push($state.snapshot(this.objects) as Obj[]);
-    this.objects = next;
+    this.#undo.push({ objects: $state.snapshot(this.objects) as Obj[], label: next.label });
+    this.objects = next.objects;
     this.#afterHistory();
   }
 
@@ -258,6 +262,8 @@ class Editor {
   #syncHistory() {
     this.canUndo = this.#undo.length > 0;
     this.canRedo = this.#redo.length > 0;
+    this.undoLabel = this.#undo.at(-1)?.label ?? "";
+    this.redoLabel = this.#redo.at(-1)?.label ?? "";
   }
 
   resetHistory() {
@@ -285,7 +291,7 @@ class Editor {
   /** Sets width or height (mm), around the centre; honours `keepRatio`. */
   setSize(o: Obj, key: "w" | "h", v: number) {
     if (!(v > 0) || o.locked) return;
-    this.checkpoint();
+    this.checkpoint("Größe ändern");
     const ratio = o.h / o.w;
     const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
     if (key === "w") {
@@ -304,15 +310,15 @@ class Editor {
     return this.objects.find((o) => o.id === id);
   }
 
-  add(objs: Obj[], select = true) {
-    this.checkpoint();
+  add(objs: Obj[], select = true, label = "Hinzufügen") {
+    this.checkpoint(label);
     this.objects.push(...objs);
     if (select) this.selection = objs.map((o) => o.id);
   }
 
   removeSelected() {
     if (!this.selection.length) return;
-    this.checkpoint();
+    this.checkpoint("Löschen");
     const sel = new Set(this.selection);
     this.objects = this.objects.filter((o) => !sel.has(o.id) || o.locked);
     this.selection = [];
@@ -331,7 +337,7 @@ class Editor {
     }));
     const remap = new Map<string, string>();
     for (const c of copies) if (c.group) c.group = remap.get(c.group) ?? remap.set(c.group, uid()).get(c.group);
-    this.add(copies);
+    this.add(copies, true, "Duplizieren");
   }
 
   selectAll() {
@@ -341,7 +347,7 @@ class Editor {
   nudge(dx: number, dy: number) {
     const movable = this.selected.filter((o) => !o.locked);
     if (!movable.length) return;
-    this.checkpoint();
+    this.checkpoint("Verschieben");
     for (const o of movable) {
       o.x += dx;
       o.y += dy;
@@ -351,7 +357,7 @@ class Editor {
   /** Moves selected objects up (+1) or down (-1) in the stacking order. */
   restack(dir: 1 | -1) {
     if (!this.selection.length) return;
-    this.checkpoint();
+    this.checkpoint("Anordnen");
     const arr = [...this.objects];
     const sel = new Set(this.selection);
     const idx = arr.map((o, i) => (sel.has(o.id) ? i : -1)).filter((i) => i >= 0);
@@ -370,7 +376,7 @@ class Editor {
     const ref = toMat || objs.length === 1
       ? { x0: 0, y0: 0, x1: this.mat.w, y1: this.mat.h }
       : aabb(objs)!;
-    this.checkpoint();
+    this.checkpoint("Ausrichten");
     for (const o of objs) {
       const b = aabb([o])!;
       let dx = 0, dy = 0;
@@ -418,14 +424,14 @@ class Editor {
 
   groupSelected() {
     if (this.selection.length < 2) return;
-    this.checkpoint();
+    this.checkpoint("Gruppieren");
     const g = uid();
     for (const o of this.selected) o.group = g;
   }
 
   ungroupSelected() {
     if (!this.selected.some((o) => o.group)) return;
-    this.checkpoint();
+    this.checkpoint("Gruppierung lösen");
     for (const o of this.selected) delete o.group;
   }
 
@@ -437,6 +443,53 @@ class Editor {
     this.view.panX = sx - (sx - this.view.panX) * f;
     this.view.panY = sy - (sy - this.view.panY) * f;
     this.view.zoom = z;
+  }
+
+  /** Zooms so the selection (or everything) fills the view. */
+  fitSelection() {
+    const objs = this.selected.length ? this.selected : this.objects.filter((o) => o.visible);
+    const b = aabb(objs);
+    if (!b) return this.fitMat();
+    const pad = 80;
+    const w = Math.max(b.x1 - b.x0, 1), h = Math.max(b.y1 - b.y0, 1);
+    const z = Math.min(60, Math.max(0.2, Math.min((this.viewport.w - pad * 2) / w, (this.viewport.h - pad * 2) / h)));
+    this.view.zoom = z;
+    this.view.panX = this.viewport.w / 2 - ((b.x0 + b.x1) / 2) * z;
+    this.view.panY = this.viewport.h / 2 - ((b.y0 + b.y1) / 2) * z;
+  }
+
+  /** Units of the selection: a group counts as one. */
+  selectedUnits(): Obj[][] {
+    const map = new Map<string, Obj[]>();
+    for (const o of this.selected) {
+      if (o.locked) continue;
+      const k = o.group ?? o.id;
+      map.set(k, [...(map.get(k) ?? []), o]);
+    }
+    return [...map.values()];
+  }
+
+  /** Equal gaps between the selected units (at least three). */
+  distribute(axis: "x" | "y") {
+    const units = this.selectedUnits().map((objs) => ({ objs, b: aabb(objs)! }));
+    if (units.length < 3) return;
+    const lo = (u: (typeof units)[number]) => (axis === "x" ? u.b.x0 : u.b.y0);
+    const hi = (u: (typeof units)[number]) => (axis === "x" ? u.b.x1 : u.b.y1);
+    units.sort((a, b) => lo(a) - lo(b));
+    const start = lo(units[0]);
+    const end = Math.max(...units.map(hi));
+    const total = units.reduce((s, u) => s + hi(u) - lo(u), 0);
+    const gap = (end - start - total) / (units.length - 1);
+    this.checkpoint("Verteilen");
+    let pos = start;
+    for (const u of units) {
+      const d = pos - lo(u);
+      for (const o of u.objs) {
+        if (axis === "x") o.x += d;
+        else o.y += d;
+      }
+      pos += hi(u) - lo(u) + gap;
+    }
   }
 
   zoomBy(factor: number) {

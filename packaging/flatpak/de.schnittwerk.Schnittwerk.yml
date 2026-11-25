@@ -17,6 +17,8 @@ finish-args:
   - --system-talk-name=org.bluez
   # Open and save projects, import pictures, drag & drop.
   - --filesystem=home
+  # Notification when a cut is finished.
+  - --talk-name=org.freedesktop.Notifications
   # Update check and download from GitHub.
   - --share=network
   # pdftocairo (PDF import) and lp/lpstat (printing) run on the host.

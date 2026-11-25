@@ -89,3 +89,12 @@
 - ✅ Matten 12″ × 12″ und 12″ × 24″ für die Cameo
 - ✅ Englische Oberfläche (Sprache folgt dem System, umschaltbar)
 - ✅ Bilder über eigenes Protokoll mit verkleinerter Vorschau; Speichern, Öffnen und Autosave mit Bildern im Backend (kein Stocken mehr)
+
+## Etappe 9 – Bedienung
+- ✅ Sticker-Bogen aus mehreren Bildern in einem Schritt (Konturen, Exemplare, Anordnung)
+- ✅ Testreihe mit steigendem Druck oder steigender Messertiefe, bester Wert wird übernommen
+- ✅ Benachrichtigung und Ton bei Schnittende
+- ✅ Rechtsklick-Menü, einklappbare Bereiche im Objekt-Tab
+- ✅ Verteilen und Mehrfachbearbeitung, Rückgängig mit Namen, Auswahl einpassen (Strg+2)
+- ✅ Einführung beim ersten Start, Hilfe-Tab mit Anleitung (Deutsch/Englisch)
+- ✅ Simulation des Schnittablaufs im Schneiden-Dialog

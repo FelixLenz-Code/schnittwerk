@@ -59,7 +59,7 @@ class BrushStore {
       editor.images[info.id] = { src: info.src, name: a.name, pxW: info.width, pxH: info.height };
       const live = editor.byId(img.id);
       if (live?.type === "image") {
-        editor.checkpoint();
+        editor.checkpoint("Bild bearbeiten");
         live.imageId = info.id;
       }
     } catch (e) {
