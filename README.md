@@ -126,6 +126,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
 - Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar auf der Startseite)
+- Menüleiste (Datei, Bearbeiten, Objekt, Ansicht, Plotter, Hilfe) mit Tastaturbedienung und Einstellungen-Dialog
 - Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (Deutsch/Englisch)
 - Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche im Objekt-Tab
 - Matten für Portrait 3 (8″ × 12″) und Cameo (12″ × 12″, 12″ × 24″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
@@ -244,6 +245,7 @@ Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `
 | Mausrad | Zoom (Shift = horizontal scrollen) |
 | `Strg+0` / `Strg+2` | Matte einpassen / Auswahl einpassen |
 | Rechtsklick | Menü mit den häufigsten Aktionen |
+| `Alt`+Buchstabe / `F1` / `Strg+Q` | Menü öffnen / Hilfe / Beenden |
 | `Strg+I` / `Strg+E` | Importieren / SVG exportieren |
 | `Strg+Enter` / `Strg+P` | Schneiden-Dialog / Drucken |
 | `Strg+G` / `Strg+Shift+G` | Gruppieren / Gruppierung lösen |

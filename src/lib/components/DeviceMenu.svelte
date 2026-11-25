@@ -7,7 +7,7 @@
   import { fmt } from "../geometry";
   import { locale, t, tMsg } from "../i18n.svelte";
 
-  let open = $state(false);
+  import { ui } from "../ui.svelte";
   let confirmBlade = $state(false);
   let scanning = $state(false);
   let connecting = $state<string | null>(null);
@@ -35,7 +35,7 @@
       const name = await api.bleConnect(d.id);
       plotter.rememberBle({ id: d.id, name: d.name || name });
       editor.toast(t("{name} per Bluetooth verbunden – verbindet sich künftig automatisch", { name }), "ok");
-      open = false;
+      ui.deviceMenuOpen = false;
       plotter.poll();
     } catch (e) {
       editor.error(e);
@@ -56,9 +56,9 @@
   }
 </script>
 
-<svelte:window onpointerdown={(e) => open && !(e.target as Element).closest(".device-menu") && (open = false)} />
+<svelte:window onpointerdown={(e) => ui.deviceMenuOpen && !(e.target as Element).closest(".device-menu") && (ui.deviceMenuOpen = false)} />
 
-<div class="device-menu">
+<div class="device-menu" data-tour="device">
   <button
     class="device"
     class:ok={plotter.status.connected && plotter.status.state !== "unloaded"}
@@ -66,7 +66,7 @@
     class:busy={plotter.status.state === "cutting" || plotter.status.state === "moving"}
     class:err={plotter.status.state === "error"}
     title={tMsg(plotter.status.message ?? "Plotter-Verbindung")}
-    onclick={() => (open = !open)}
+    onclick={() => (ui.deviceMenuOpen = !ui.deviceMenuOpen)}
   >
     <span class="dot"></span>
     {#if plotter.status.connected}
@@ -81,7 +81,7 @@
     {/if}
   </button>
 
-  {#if open}
+  {#if ui.deviceMenuOpen}
     <div class="pop">
       <div class="head">
         {#if plotter.status.connected}

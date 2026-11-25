@@ -13,6 +13,7 @@
   import Segmented from "./Segmented.svelte";
   import { i18n, locale, setLang, t } from "../i18n.svelte";
   import { updater } from "../update.svelte";
+  import { tour } from "../tour.svelte";
   import { getVersion } from "@tauri-apps/api/app";
 
   let { recovery = $bindable() }: { recovery: Recovery | null } = $props();
@@ -255,6 +256,12 @@
         <button class="btn icon close" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
       </header>
 
+      {#if step === 1 && !tour.done}
+        <p class="welcome">
+          <Icon name="sparkle" size={14} />
+          {t("Willkommen bei Schnittwerk! Das ist die Startseite – hierher kommst du jederzeit über das Logo oben links zurück. Wähle, was du machen möchtest; danach zeigt dir eine kurze Einführung die wichtigsten Stellen.")}
+        </p>
+      {/if}
       {#if step === 1}
         <div class="kinds">
           {#each KINDS as k}
@@ -583,6 +590,22 @@
   }
   .close {
     margin-left: auto;
+  }
+  .welcome {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 16px 16px 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .welcome :global(svg) {
+    flex: none;
+    margin-top: 2px;
+    color: var(--accent);
   }
   .kinds {
     flex: 1;

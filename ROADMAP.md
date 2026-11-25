@@ -98,3 +98,4 @@
 - ✅ Verteilen und Mehrfachbearbeitung, Rückgängig mit Namen, Auswahl einpassen (Strg+2)
 - ✅ Einführung beim ersten Start, Hilfe-Tab mit Anleitung (Deutsch/Englisch)
 - ✅ Simulation des Schnittablaufs im Schneiden-Dialog
+- ✅ Menüleiste mit Einstellungen-Dialog, Kopfzeile entschlackt, Einführung mit 13 Schritten, Meldungen über allen Fenstern

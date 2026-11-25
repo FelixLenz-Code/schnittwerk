@@ -3,11 +3,23 @@
   import { DOCS_DE, DOCS_EN, renderDoc } from "../docs";
   import { i18n, t } from "../i18n.svelte";
   import { startTour } from "../tour.svelte";
+  import { ui } from "../ui.svelte";
+  import { tick } from "svelte";
   import { api } from "../api";
   import Icon from "./Icon.svelte";
 
   let query = $state("");
   let openId = $state<string | null>("start");
+
+  // The menu bar can ask for a chapter (e.g. keyboard shortcuts).
+  $effect(() => {
+    const id = ui.helpSection;
+    if (!id) return;
+    query = "";
+    openId = id;
+    ui.helpSection = null;
+    tick().then(() => document.getElementById(`help-${id}`)?.scrollIntoView({ block: "start" }));
+  });
 
   const docs = $derived(i18n.lang === "en" ? DOCS_EN : DOCS_DE);
   const hits = $derived.by(() => {
@@ -30,7 +42,7 @@
   </div>
   {#each hits as d (d.id)}
     {@const open = !!query.trim() || openId === d.id}
-    <section>
+    <section id="help-{d.id}">
       <button class="head" onclick={() => (openId = openId === d.id ? null : d.id)} aria-expanded={open}>
         <span class="chev" class:open><Icon name="chevronLeft" size={12} /></span>
         {d.heading}

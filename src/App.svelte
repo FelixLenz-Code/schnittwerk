@@ -24,27 +24,11 @@
   import { nodes } from "./lib/nodes.svelte";
   import { templatesUi } from "./lib/templates.svelte";
   import TemplatesDialog from "./lib/components/TemplatesDialog.svelte";
+  import MenuBar from "./lib/components/MenuBar.svelte";
+  import SettingsDialog from "./lib/components/SettingsDialog.svelte";
+  import AboutDialog from "./lib/components/AboutDialog.svelte";
+  import { ui } from "./lib/ui.svelte";
 
-  // ---------- theme ----------
-  type Theme = "system" | "light" | "dark";
-  let theme = $state<Theme>(load("theme", "system") as Theme);
-  function load(key: string, fallback: string) {
-    try {
-      return localStorage.getItem("schnittwerk." + key) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
-  $effect(() => {
-    if (theme === "system") document.documentElement.removeAttribute("data-theme");
-    else document.documentElement.setAttribute("data-theme", theme);
-    try {
-      localStorage.setItem("schnittwerk.theme", theme);
-    } catch {}
-  });
-  const isDark = $derived(
-    theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches),
-  );
 
   // ---------- window title ----------
   $effect(() => {
@@ -120,7 +104,7 @@
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -168,6 +152,7 @@
         g: () => (e.shiftKey ? editor.ungroupSelected() : editor.groupSelected()),
         "0": () => editor.fitMat(),
         "2": () => editor.fitSelection(),
+        q: () => import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().close()),
         "+": () => editor.zoomBy(1.25),
         "=": () => editor.zoomBy(1.25),
         "-": () => editor.zoomBy(0.8),
@@ -255,25 +240,19 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="app">
+  <MenuBar />
   <header>
-    <button class="brand" title={t("Startseite: neues Projekt, zuletzt geöffnet")} onclick={newProject}>
+    <button class="brand" data-tour="home" title={t("Startseite: neues Projekt, zuletzt geöffnet")} onclick={newProject}>
       <span class="logo"><Icon name="scissors" size={16} stroke={2.2} /></span>
       <span class="title">Schnittwerk</span>
     </button>
 
     <div class="group">
-      <button class="btn icon" title={t("Neu (Strg+N)")} onclick={newProject}><Icon name="filePlus" /></button>
-      <button class="btn icon" title={t("Neu aus Vorlage (Strg+Umschalt+N)")} onclick={() => (templatesUi.open = true)}><Icon name="layers" /></button>
-      <button class="btn icon" title={t("Öffnen (Strg+O)")} onclick={openDialog}><Icon name="folder" /></button>
-      <button class="btn icon" title={t("Speichern (Strg+S)")} onclick={() => saveProject()}><Icon name="save" /></button>
-    </div>
-    <span class="divider"></span>
-    <div class="group">
+      <button class="btn icon save" data-tour="save" class:dirty={editor.dirty} title={editor.dirty ? t("Speichern (Strg+S) – ungespeicherte Änderungen") : t("Speichern (Strg+S)")} onclick={() => saveProject()}><Icon name="save" /></button>
       <button class="btn outline" data-tour="import" title={t("Bild oder SVG importieren (Strg+I)")} onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">{t("Importieren")}</span></button>
-      <button class="btn" title={t("Schnittlinien als SVG exportieren (Strg+E)")} onclick={exportSvg}><Icon name="download" /> <span class="lbl">SVG</span></button>
     </div>
     <span class="divider"></span>
-    <div class="group">
+    <div class="group" data-tour="undo">
       <button class="btn icon" title={editor.canUndo ? t("Rückgängig: {x} (Strg+Z)", { x: t(editor.undoLabel) }) : t("Rückgängig (Strg+Z)")} disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
       <button class="btn icon" title={editor.canRedo ? t("Wiederholen: {x} (Strg+Y)", { x: t(editor.redoLabel) }) : t("Wiederholen (Strg+Y)")} disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
     </div>
@@ -306,19 +285,15 @@
     <div class="spacer"></div>
 
     <div class="group">
-      <button class="btn icon lbl" title={t("Verkleinern")} onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
       <button class="btn zoom" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
-      <button class="btn icon lbl" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
-      <button class="btn icon" class:active={editor.showGrid} title={t("Raster anzeigen")} onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
       <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
-      <button class="btn icon" title={t("Design wechseln")} onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
     {#if updater.available}
       <button class="btn update" title={t("Schnittwerk {v} ist verfügbar", { v: updater.info?.latest ?? "" })} onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
     {/if}
     <DeviceMenu />
-    <button class="btn outline" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">{t("Drucken")}</span></button>
+    <button class="btn outline" data-tour="print" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">{t("Drucken")}</span></button>
     <button class="btn primary" data-tour="cut" title={t("Schneiden-Dialog öffnen (Strg+Enter)")} onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
   </header>
 
@@ -354,7 +329,7 @@
     </span>
     <span class="spacer"></span>
     {#if !editor.printCut.enabled}
-      <label class="mat">
+      <label class="mat" data-tour="area">
         {t("Fläche")}
         <select value={matKind === "roll" ? "roll" : matKind === "custom" ? "custom" : editor.mat.name} onchange={(e) => pickMat(e.currentTarget.value)}>
           {#each MATS as m}<option value={m.name}>{t(m.name)}</option>{/each}
@@ -387,6 +362,12 @@
     <TemplatesDialog />
   {/if}
   <ContextMenu />
+  {#if ui.settingsOpen}
+    <SettingsDialog />
+  {/if}
+  {#if ui.aboutOpen}
+    <AboutDialog />
+  {/if}
   <Tour />
   {#if updater.dialogOpen}
     <UpdateDialog />
@@ -483,6 +464,19 @@
   .spacer {
     flex: 1;
   }
+  .save {
+    position: relative;
+  }
+  .save.dirty::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
   .zoom {
     min-width: 58px;
     justify-content: center;
@@ -568,6 +562,8 @@
     bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
+    /* Above every dialog and the start page, so messages stay readable. */
+    z-index: 300;
     display: flex;
     flex-direction: column;
     gap: 8px;

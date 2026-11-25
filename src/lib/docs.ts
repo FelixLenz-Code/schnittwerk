@@ -17,6 +17,7 @@ export const DOCS_DE: DocSection[] = [
 - Bilder und Vektoren über **Importieren** (\`Strg+I\`) laden oder einfach auf die Arbeitsfläche ziehen.
 - Rechts im Tab **Tracen** wird aus einem Bild eine Schnittlinie, im Tab **Sticker** eine Sticker-Kontur.
 - Mit **Schneiden** (\`Strg+Enter\`) geht es zum Plotter.
+- Die **Menüleiste** ganz oben enthält alle Funktionen – auch per Tastatur mit \`Alt\` und dem unterstrichenen Buchstaben. Unter **Datei → Einstellungen** stehen Sprache, Design, Raster und mehr.
 
 Gespeichert wird als \`.schnitt\`-Datei, Bilder sind darin enthalten. Ungespeicherte Arbeit wird alle 20 Sekunden gesichert und nach einem Absturz auf der Startseite angeboten.`,
   },
@@ -112,7 +113,8 @@ Im selben Menü steht der **Messer-Zähler**: geschnittene Strecke seit dem letz
 - \`Strg+D\` Duplizieren, \`Entf\` Löschen, \`Strg+G\` Gruppieren
 - \`Strg+0\` Matte einpassen, \`Strg+2\` Auswahl einpassen, Mausrad = Zoom
 - \`Strg+S\` Speichern, \`Strg+O\` Öffnen, \`Strg+N\` Startseite, \`Strg+I\` Importieren
-- \`Strg+Enter\` Schneiden, \`Strg+P\` Drucken
+- \`Strg+Enter\` Schneiden, \`Strg+P\` Drucken, \`Strg+Q\` Beenden
+- \`F1\` Hilfe, \`Alt\`+Buchstabe öffnet ein Menü
 - Pfeiltasten verschieben (mit \`Umschalt\` 10 mm, mit \`Alt\` 0,1 mm)`,
   },
   {
@@ -137,6 +139,7 @@ export const DOCS_EN: DocSection[] = [
 - Load pictures and vectors with **Import** (\`Ctrl+I\`) or drop them onto the work area.
 - On the right, the **Trace** tab turns a picture into cut lines, the **Sticker** tab into a sticker outline.
 - **Cut** (\`Ctrl+Enter\`) takes you to the cutter.
+- The **menu bar** at the very top holds every function – also by keyboard with \`Alt\` and the underlined letter. **File → Settings** has language, theme, grid and more.
 
 Projects are saved as \`.schnitt\` files with the pictures inside. Unsaved work is backed up every 20 seconds and offered on the start page after a crash.`,
   },
@@ -232,7 +235,8 @@ The same menu shows the **blade counter**: distance cut since the last blade cha
 - \`Ctrl+D\` duplicate, \`Del\` delete, \`Ctrl+G\` group
 - \`Ctrl+0\` fit mat, \`Ctrl+2\` fit selection, mouse wheel = zoom
 - \`Ctrl+S\` save, \`Ctrl+O\` open, \`Ctrl+N\` start page, \`Ctrl+I\` import
-- \`Ctrl+Enter\` cut, \`Ctrl+P\` print
+- \`Ctrl+Enter\` cut, \`Ctrl+P\` print, \`Ctrl+Q\` quit
+- \`F1\` help, \`Alt\`+letter opens a menu
 - Arrow keys move (with \`Shift\` 10 mm, with \`Alt\` 0.1 mm)`,
   },
   {
