@@ -1,12 +1,12 @@
 //! Tauri backend: exposes the core library to the web UI as commands.
 
+mod images;
 mod plotter;
 mod print;
 mod update;
 
-use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use image::{DynamicImage, GenericImageView, ImageFormat};
@@ -18,60 +18,7 @@ use schnittwerk_core::{ImportedVector, TraceParams, TraceResult};
 use serde::Serialize;
 use tauri::State;
 
-/// Decoded images kept in memory so live tracing does not re-decode files.
-#[derive(Default)]
-struct ImageStore {
-    images: Mutex<HashMap<String, Arc<DynamicImage>>>,
-    next_id: Mutex<u64>,
-}
-
-impl ImageStore {
-    fn insert(&self, img: DynamicImage) -> String {
-        let mut n = self.next_id.lock().unwrap();
-        *n += 1;
-        let id = format!("img{}", *n);
-        self.images.lock().unwrap().insert(id.clone(), Arc::new(img));
-        id
-    }
-    fn get(&self, id: &str) -> Result<Arc<DynamicImage>, String> {
-        self.images
-            .lock()
-            .unwrap()
-            .get(id)
-            .cloned()
-            .ok_or_else(|| "Bild nicht mehr im Speicher – bitte neu laden.".to_string())
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ImageInfo {
-    id: String,
-    name: String,
-    width: u32,
-    height: u32,
-    /// Data URL the web view can display directly.
-    src: String,
-}
-
-fn register_image(store: &ImageStore, bytes: Vec<u8>, name: String) -> Result<ImageInfo, String> {
-    let format = image::guess_format(&bytes).map_err(|e| format!("Unbekanntes Bildformat: {e}"))?;
-    let img = image::load_from_memory_with_format(&bytes, format).map_err(|e| e.to_string())?;
-    // WebKitGTK cannot show every format (e.g. TIFF) – re-encode those as PNG.
-    let (mime, display_bytes) = match format {
-        ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP | ImageFormat::Gif => {
-            (format.to_mime_type(), bytes)
-        }
-        _ => {
-            let mut buf = std::io::Cursor::new(Vec::new());
-            img.write_to(&mut buf, ImageFormat::Png).map_err(|e| e.to_string())?;
-            ("image/png", buf.into_inner())
-        }
-    };
-    let (width, height) = (img.width(), img.height());
-    let id = store.insert(img);
-    Ok(ImageInfo { id, name, width, height, src: format!("data:{mime};base64,{}", B64.encode(display_bytes)) })
-}
+use images::{register_image, ImageInfo, ImageStore};
 
 /// Running inside a Flatpak sandbox?
 pub(crate) fn in_flatpak() -> bool {
@@ -410,45 +357,6 @@ async fn simplify_path(d: String, tolerance: f64, corner_deg: f64) -> Result<sch
         .map_err(|e| e.to_string())?
 }
 
-// ---------- autosave ----------
-
-/// `~/.local/share/<app>/autosave.schnitt`
-fn autosave_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    use tauri::Manager;
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("autosave.schnitt"))
-}
-
-/// Writes the recovery copy atomically (temp file + rename), so a crash
-/// while saving never leaves a broken file behind.
-#[tauri::command]
-async fn autosave_write(app: tauri::AppHandle, contents: String) -> Result<(), String> {
-    let path = autosave_path(&app)?;
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, contents).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn autosave_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let path = autosave_path(&app)?;
-    match std::fs::read_to_string(&path) {
-        Ok(s) => Ok(Some(s)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-#[tauri::command]
-async fn autosave_clear(app: tauri::AppHandle) -> Result<(), String> {
-    let path = autosave_path(&app)?;
-    match std::fs::remove_file(&path) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
-        _ => Ok(()),
-    }
-}
-
 /// Whether a file still exists (recent files list).
 #[tauri::command]
 async fn file_exists(path: String) -> bool {
@@ -460,6 +368,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(ImageStore::default())
+        // Pictures for the web view (see images.rs); answered off the main thread.
+        .register_asynchronous_uri_scheme_protocol("schnittwerk", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            std::thread::spawn(move || responder.respond(images::handle_protocol(&app, &request)));
+        })
         .manage(plotter::PlotterManager::default())
         .invoke_handler(tauri::generate_handler![
             load_image,
@@ -476,9 +389,11 @@ pub fn run() {
             read_text,
             write_text,
             simplify_path,
-            autosave_write,
-            autosave_read,
-            autosave_clear,
+            images::autosave_write,
+            images::autosave_info,
+            images::autosave_clear,
+            images::project_save,
+            images::project_open,
             file_exists,
             update::update_check,
             update::update_install,

@@ -3,7 +3,14 @@ import type { Obj } from "./types";
 
 const imageCache = new Map<string, HTMLImageElement>();
 
+/** Original resolution of a picture (the work area shows a smaller preview). */
+export function fullSrc(src: string): string {
+  return src.startsWith("schnittwerk://") && !src.includes("?") ? src + "?full" : src;
+}
+
+/** Loads a picture in full resolution for drawing into a canvas. */
 export function loadImage(src: string): Promise<HTMLImageElement> {
+  src = fullSrc(src);
   const hit = imageCache.get(src);
   if (hit?.complete) return Promise.resolve(hit);
   return new Promise((resolve, reject) => {
@@ -11,6 +18,8 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("Bild konnte nicht geladen werden"));
     if (!hit) {
+      // Served by the backend protocol: CORS keeps the canvas readable.
+      img.crossOrigin = "anonymous";
       img.src = src;
       imageCache.set(src, img);
     }

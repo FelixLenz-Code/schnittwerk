@@ -696,14 +696,15 @@
         <rect width="4" height="4" fill="var(--danger)" opacity="0.06" />
         <line x1="0" y1="0" x2="0" y2="4" stroke="var(--danger)" stroke-width="0.6" opacity="0.35" />
       </pattern>
-      <filter id="mat-shadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy={px(2)} stdDeviation={px(8)} flood-opacity="0.12" />
-      </filter>
     </defs>
 
     <g transform="translate({editor.view.panX} {editor.view.panY}) scale({z})">
       <!-- Mat -->
-      <rect x="0" y="0" width={editor.mat.w} height={editor.mat.h} fill={editor.printCut.enabled ? "#ffffff" : "var(--mat)"} filter="url(#mat-shadow)" />
+      <!-- Shadow as plain offset rectangles: an SVG blur filter is
+           recomputed at every zoom step and slows everything down. -->
+      <rect x={px(1)} y={px(3)} width={editor.mat.w} height={editor.mat.h} fill="#000" opacity="0.10" />
+      <rect x={-px(1)} y={px(1)} width={editor.mat.w + px(2)} height={editor.mat.h + px(1)} fill="#000" opacity="0.06" />
+      <rect x="0" y="0" width={editor.mat.w} height={editor.mat.h} fill={editor.printCut.enabled ? "#ffffff" : "var(--mat)"} />
       {#if editor.showGrid}
         <rect x="0" y="0" width={editor.mat.w} height={editor.mat.h} fill="url(#grid-major)" />
       {/if}

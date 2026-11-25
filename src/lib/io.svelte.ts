@@ -165,7 +165,9 @@ interface ProjectFile {
   material?: string | null;
   kind?: ProjectKind | null;
   objects: Obj[];
-  images: Record<string, { src: string; name: string }>;
+  /** Saved: name (the backend adds the picture data as `src`).
+   *  Opened: the picture as registered by the backend. */
+  images: Record<string, { name: string; id?: string; width?: number; height?: number; src?: string }>;
   /** Only in the recovery copy. */
   autosave?: { savedAt: number; filePath: string | null };
 }
@@ -194,7 +196,7 @@ function projectData(): ProjectFile {
   const images: ProjectFile["images"] = {};
   for (const id of used) {
     const a = editor.images[id];
-    if (a) images[id] = { src: a.src, name: a.name };
+    if (a) images[id] = { name: a.name };
   }
   return {
     app: "schnittwerk",
@@ -218,7 +220,7 @@ export async function saveProject(saveAs = false): Promise<boolean> {
     if (!path.endsWith("." + PROJECT_EXT)) path += "." + PROJECT_EXT;
   }
   try {
-    await api.writeText(path, JSON.stringify(projectData()));
+    await api.projectSave(path, JSON.stringify(projectData()));
     editor.filePath = path;
     editor.dirty = false;
     editor.toast("Projekt gespeichert", "ok");
@@ -261,12 +263,13 @@ export async function openDialog() {
 
 async function applyProject(file: ProjectFile, path: string | null) {
   if (file.app !== "schnittwerk") throw new Error("Keine Schnittwerk-Projektdatei.");
+  // The backend has registered the pictures already (new ids).
   const remap: Record<string, string> = {};
   const images: typeof editor.images = {};
   for (const [oldId, img] of Object.entries(file.images)) {
-    const info = await api.loadImageData(img.src, img.name);
-    remap[oldId] = info.id;
-    images[info.id] = { src: info.src, name: info.name, pxW: info.width, pxH: info.height };
+    if (!img.id || !img.src) continue;
+    remap[oldId] = img.id;
+    images[img.id] = { src: img.src, name: img.name, pxW: img.width ?? 0, pxH: img.height ?? 0 };
   }
   editor.resetDocument();
   editor.images = images;
@@ -286,7 +289,7 @@ async function applyProject(file: ProjectFile, path: string | null) {
 /** Opens a project file (no confirmation – callers ask first). */
 export async function openProject(path: string) {
   try {
-    const file = JSON.parse(await api.readText(path)) as ProjectFile;
+    const file = (await api.projectOpen(path)) as ProjectFile;
     await applyProject(file, path);
     wizardUi.open = false;
     clearAutosave();
@@ -330,26 +333,25 @@ export interface Recovery {
   savedAt: number;
   name: string;
   objects: number;
-  file: ProjectFile;
+  filePath: string | null;
 }
 
-/** A recovery copy left over from a crash or an unsaved session. */
+/** A recovery copy left over from a crash or an unsaved session
+ *  (only its summary – the pictures are loaded when restoring). */
 export async function findRecovery(): Promise<Recovery | null> {
   if (!inApp) return null;
   try {
-    const raw = await api.autosaveRead();
-    if (!raw) return null;
-    const file = JSON.parse(raw) as ProjectFile;
-    if (file.app !== "schnittwerk" || !file.objects?.length) return null;
-    const fp = file.autosave?.filePath;
-    return { savedAt: file.autosave?.savedAt ?? 0, name: fp?.split("/").pop() ?? "Unbenannt", objects: file.objects.length, file };
+    const info = await api.autosaveInfo();
+    if (!info) return null;
+    return { savedAt: info.savedAt, name: info.filePath?.split("/").pop() ?? "Unbenannt", objects: info.objects, filePath: info.filePath };
   } catch {
     return null;
   }
 }
 
 export async function restoreRecovery(r: Recovery) {
-  await applyProject(r.file, r.file.autosave?.filePath ?? null);
+  const file = (await api.projectOpen(null)) as ProjectFile;
+  await applyProject(file, r.filePath);
   // Still unsaved: keep the copy until the user saves.
   editor.dirty = true;
   savedRev = editor.rev;

@@ -88,3 +88,4 @@
 - ✅ Weiterschneiden nach Abbruch oder Verbindungsfehler (ab dem ersten nicht sicher geschnittenen Pfad, verstellbar)
 - ✅ Matten 12″ × 12″ und 12″ × 24″ für die Cameo
 - ✅ Englische Oberfläche (Sprache folgt dem System, umschaltbar)
+- ✅ Bilder über eigenes Protokoll mit verkleinerter Vorschau; Speichern, Öffnen und Autosave mit Bildern im Backend (kein Stocken mehr)

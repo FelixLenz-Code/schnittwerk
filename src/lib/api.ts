@@ -50,7 +50,11 @@ export const api = {
   updateRestart: () => call<void>("update_restart", {}),
   openUrl: (url: string) => call<void>("open_url", { url }),
   autosaveWrite: (contents: string) => call<void>("autosave_write", { contents }),
-  autosaveRead: () => call<string | null>("autosave_read", {}),
+  autosaveInfo: () => call<{ savedAt: number; filePath: string | null; objects: number } | null>("autosave_info", {}),
+  /** Writes a project; the backend embeds the pictures. */
+  projectSave: (path: string, contents: string) => call<void>("project_save", { path, contents }),
+  /** Opens a project (`null` = recovery copy); pictures come back registered. */
+  projectOpen: (path: string | null) => call<unknown>("project_open", { path }),
   autosaveClear: () => call<void>("autosave_clear", {}),
   simplifyPath: (d: string, tolerance: number, cornerDeg: number) =>
     call<{ d: string; nodesBefore: number; nodesAfter: number }>("simplify_path", { d, tolerance, cornerDeg }),
