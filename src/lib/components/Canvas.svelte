@@ -528,7 +528,9 @@
     if (obj && !obj.locked && !editor.selection.includes(obj.id)) editor.selection = editor.expandGroups([obj.id]);
     contextMenu.x = e.clientX;
     contextMenu.y = e.clientY;
-    contextMenu.onObject = !!obj && !obj.locked;
+    // A handle of the selection counts as the selected objects.
+    const onHandle = !!el?.closest("[data-handle]") && editor.selected.length > 0;
+    contextMenu.onObject = (!!obj && !obj.locked) || onHandle;
     contextMenu.open = true;
   }
 

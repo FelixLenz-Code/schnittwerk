@@ -125,7 +125,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
-- Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar auf der Startseite)
+- Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar unter Datei → Einstellungen)
 - Menüleiste (Datei, Bearbeiten, Objekt, Ansicht, Plotter, Hilfe) mit Tastaturbedienung und Einstellungen-Dialog
 - Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (Deutsch/Englisch)
 - Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche im Objekt-Tab

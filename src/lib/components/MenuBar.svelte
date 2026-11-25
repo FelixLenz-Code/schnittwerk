@@ -3,7 +3,7 @@
   import { BOOL_OPS, combine, flip, putTextOnPath, selectedPaths, textOnPathPair } from "../actions";
   import { api } from "../api";
   import { customMat, editor, matKindOf, MATS, rollMat } from "../editor.svelte";
-  import { i18n, setLang, t } from "../i18n.svelte";
+  import { t } from "../i18n.svelte";
   import { copySelection, exportSvg, importDialog, newProject, openDialog, openProject, paste, recent, saveProject } from "../io.svelte";
   import { nodes } from "../nodes.svelte";
   import { plotter } from "../plotter.svelte";
@@ -222,13 +222,6 @@
               { label: "Wie das System", checked: ui.theme === "system", action: () => setTheme("system") },
               { label: "Hell", checked: ui.theme === "light", action: () => setTheme("light") },
               { label: "Dunkel", checked: ui.theme === "dark", action: () => setTheme("dark") },
-            ],
-          },
-          {
-            label: "Sprache",
-            sub: [
-              { label: "Deutsch", raw: true, checked: i18n.lang === "de", action: () => setLang("de") },
-              { label: "English", raw: true, checked: i18n.lang === "en", action: () => setLang("en") },
             ],
           },
         ];

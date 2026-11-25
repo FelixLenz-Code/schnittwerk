@@ -8,10 +8,10 @@
   import { clearAutosave, confirmDiscard, forgetRecent, leaveDocument, openProject, recent, restoreRecovery, type Recovery, type RecentFile } from "../io.svelte";
   import { loadCustom, PRESETS, rememberMaterial, type Material } from "../materials";
   import { applyTemplate, TEMPLATES } from "../templates.svelte";
-  import { setWizardAtStart, wizardUi } from "../wizard.svelte";
+  import { wizardUi } from "../wizard.svelte";
   import Icon from "./Icon.svelte";
   import Segmented from "./Segmented.svelte";
-  import { i18n, locale, setLang, t } from "../i18n.svelte";
+  import { locale, t } from "../i18n.svelte";
   import { updater } from "../update.svelte";
   import { tour } from "../tour.svelte";
   import { getVersion } from "@tauri-apps/api/app";
@@ -222,10 +222,6 @@
       {/if}
       <button class="btn outline open" onclick={openOther}><Icon name="folder" /> {t("Projekt öffnen …")}</button>
       <div class="bottom">
-        <label class="atstart">
-          <input type="checkbox" checked={wizardUi.atStart} onchange={(e) => setWizardAtStart(e.currentTarget.checked)} />
-          {t("Beim Start anzeigen")}
-        </label>
         <div class="version">
           <span>Schnittwerk {version}</span>
           {#if updater.available}
@@ -235,10 +231,6 @@
               {updater.phase === "checking" ? t("Prüfe …") : t("Nach Updates suchen")}
             </button>
           {/if}
-        </div>
-        <div class="version">
-          <span>Sprache · Language</span>
-          <span class="langs"><button class="link" class:cur={i18n.lang === "de"} onclick={() => setLang("de")}>Deutsch</button> · <button class="link" class:cur={i18n.lang === "en"} onclick={() => setLang("en")}>English</button></span>
         </div>
         <label class="atstart">
           <input type="checkbox" checked={updater.auto} onchange={(e) => updater.setAuto(e.currentTarget.checked)} />
@@ -542,15 +534,6 @@
     color: var(--accent);
     font-size: 12px;
     cursor: pointer;
-  }
-  .langs {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-  .link.cur {
-    color: var(--text);
-    font-weight: 600;
   }
   .link.strong {
     font-weight: 600;
