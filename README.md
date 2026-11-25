@@ -47,6 +47,7 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 - Assistent für neue Projekte: Sticker, Vinyl, Flexfolie, Papier & Karton, Stift oder großes Motiv –
   wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
+- Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
 - Matten für Portrait 3 (8″ × 12″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen
 - Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
@@ -84,7 +85,7 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
 - Vorschau der Schnittreihenfolge, Fortschritt, Pause und Abbrechen
 - Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
-- Testschnitt, Stiftmodus, Spiegeln für Flexfolie
+- Testschnitt, Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
 - Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)
 - Schneiden ohne Matte von der Rolle; Folie wird am Ende hinter das Motiv geschoben
 - Messerverschleiß-Zähler mit Erinnerung nach einstellbarer Schnittstrecke

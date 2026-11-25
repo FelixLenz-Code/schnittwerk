@@ -79,3 +79,5 @@
 - ✅ Pfad vereinfachen
 - ✅ Große Motive in Kacheln schneiden, Schneiden ohne Matte von der Rolle (mit Vorschub am Ende)
 - ✅ Messerverschleiß-Zähler
+- ✅ Nachfrage beim Schließen mit ungespeicherten Änderungen
+- ✅ Flexfolie: ganze Folie oder jedes Element einzeln spiegeln

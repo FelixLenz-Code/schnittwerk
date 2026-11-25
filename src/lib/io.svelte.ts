@@ -1,4 +1,4 @@
-import { open, save, ask } from "@tauri-apps/plugin-dialog";
+import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { api, inApp } from "./api";
 import { editor, MATS, type Mat } from "./editor.svelte";
 import { wizardUi } from "./wizard.svelte";
@@ -189,11 +189,12 @@ function projectData(): ProjectFile {
   };
 }
 
-export async function saveProject(saveAs = false) {
+/** Returns whether the project was written (false: cancelled or failed). */
+export async function saveProject(saveAs = false): Promise<boolean> {
   let path = editor.filePath;
   if (!path || saveAs) {
     path = await save({ defaultPath: "Projekt.schnitt", filters: [{ name: "Schnittwerk-Projekt", extensions: [PROJECT_EXT] }] });
-    if (!path) return;
+    if (!path) return false;
     if (!path.endsWith("." + PROJECT_EXT)) path += "." + PROJECT_EXT;
   }
   try {
@@ -203,9 +204,33 @@ export async function saveProject(saveAs = false) {
     editor.toast("Projekt gespeichert", "ok");
     clearAutosave();
     rememberRecent(path);
+    return true;
   } catch (e) {
     editor.error(e);
+    return false;
   }
+}
+
+/**
+ * Window close: unsaved changes → ask to save. Returns whether the window
+ * may close.
+ */
+export async function confirmClose(): Promise<boolean> {
+  if (!editor.dirty || !editor.objects.length) return true;
+  const name = editor.filePath?.split("/").pop() ?? "Unbenannt";
+  const SAVE = "Speichern", DISCARD = "Nicht speichern", CANCEL = "Abbrechen";
+  const r = await message(`Die Änderungen an „${name}“ sind nicht gespeichert. Vor dem Schließen speichern?`, {
+    title: "Schnittwerk",
+    kind: "warning",
+    buttons: { yes: SAVE, no: DISCARD, cancel: CANCEL },
+  });
+  if (r === SAVE || r === "Yes") return saveProject();
+  if (r === DISCARD || r === "No") {
+    // Thrown away on purpose: no recovery offer next time.
+    await clearAutosave();
+    return true;
+  }
+  return false;
 }
 
 export async function openDialog() {

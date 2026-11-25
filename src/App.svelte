@@ -3,7 +3,7 @@
   import { inApp } from "./lib/api";
   import { customMat, editor, matKindOf, MATS, PAGES, rollMat, ROLL_MAX, type PageName } from "./lib/editor.svelte";
   import { fmt } from "./lib/geometry";
-  import { copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
+  import { confirmClose, copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
   import { wizardUi } from "./lib/wizard.svelte";
   import NewProjectWizard from "./lib/components/NewProjectWizard.svelte";
   import type { Tool } from "./lib/types";
@@ -63,6 +63,19 @@
       return;
     }
     let unlisten: (() => void) | undefined;
+    let unlistenClose: (() => void) | undefined;
+    import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+      let asking = false;
+      unlistenClose = await getCurrentWindow().onCloseRequested(async (ev) => {
+        if (asking) return ev.preventDefault();
+        asking = true;
+        try {
+          if (!(await confirmClose())) ev.preventDefault();
+        } finally {
+          asking = false;
+        }
+      });
+    });
     import("@tauri-apps/api/webview").then(async ({ getCurrentWebview }) => {
       unlisten = await getCurrentWebview().onDragDropEvent((ev) => {
         const t = ev.payload.type;
@@ -74,7 +87,10 @@
         }
       });
     });
-    return () => unlisten?.();
+    return () => {
+      unlisten?.();
+      unlistenClose?.();
+    };
   });
 
   // The recovery copy may have changed (saved, discarded): look again

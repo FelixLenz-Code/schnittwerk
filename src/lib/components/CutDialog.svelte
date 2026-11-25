@@ -9,6 +9,7 @@
   import Icon from "./Icon.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
+  import Segmented from "./Segmented.svelte";
 
   let custom = $state<Material[]>(loadCustom());
   const all = $derived([...PRESETS, ...custom]);
@@ -23,6 +24,21 @@
   let materialId = $state(preferred());
   let m = $state<Material>(structuredClone(findMat(preferred()) ?? PRESETS[0]));
   let mirror = $state(!!findMat(preferred())?.mirror);
+  /** Mirror the whole sheet, or every element around its own centre line. */
+  let mirrorMode = $state<"sheet" | "each">(loadMirrorMode());
+  function loadMirrorMode(): "sheet" | "each" {
+    try {
+      return localStorage.getItem("schnittwerk.mirrorMode") === "each" ? "each" : "sheet";
+    } catch {
+      return "sheet";
+    }
+  }
+  function setMirrorMode(v: "sheet" | "each") {
+    mirrorMode = v;
+    try {
+      localStorage.setItem("schnittwerk.mirrorMode", v);
+    } catch {}
+  }
   let mat = $state<MatKind>(matKindFor(editor.mat));
   /** Roll media: push the media out behind the design at the end. */
   let feedOut = $state(true);
@@ -91,6 +107,24 @@
   });
 
   const colors = $derived([...new Set(cutObjects.map((o) => o.color.toLowerCase()))]);
+
+  /** Centre line (x) of each object's unit: its group, or the object itself. */
+  const unitCenter = $derived.by(() => {
+    const units = new Map<string, PathObj[]>();
+    for (const o of cutObjects) units.set(o.group ?? o.id, [...(units.get(o.group ?? o.id) ?? []), o]);
+    const out = new Map<string, number>();
+    for (const objs of units.values()) {
+      const b = aabb(objs)!;
+      for (const o of objs) out.set(o.id, (b.x0 + b.x1) / 2);
+    }
+    return out;
+  });
+
+  /** `mirrorWidth` for pathMatrix: x → w − x mirrors around w / 2. */
+  function mirrorAxis(o: PathObj): number | null {
+    if (!mirror) return null;
+    return mirrorMode === "sheet" ? editor.mat.w : 2 * (unitCenter.get(o.id) ?? o.x + o.w / 2);
+  }
 
   /** Blue = through-cut, green = pen, otherwise the remembered material. */
   function defaultMaterialFor(color: string, index: number): string {
@@ -173,7 +207,8 @@
   const designBox = $derived.by(() => {
     const b = aabb(cutObjects);
     if (!b) return null;
-    return mirror ? { x0: editor.mat.w - b.x1, y0: b.y0, x1: editor.mat.w - b.x0, y1: b.y1 } : b;
+    // Mirrored in place, every element keeps its box.
+    return mirror && mirrorMode === "sheet" ? { x0: editor.mat.w - b.x1, y0: b.y0, x1: editor.mat.w - b.x0, y1: b.y1 } : b;
   });
 
   /** Does the design need tiling at all (bigger than / outside the area)? */
@@ -235,7 +270,7 @@
       return {
         color: c,
         name: mm.name,
-        paths: objs.map((o) => ({ d: o.d, matrix: pathMatrix(o, mirror ? editor.mat.w : null, shift) })) as PathInput[],
+        paths: objs.map((o) => ({ d: o.d, matrix: pathMatrix(o, mirrorAxis(o), shift) })) as PathInput[],
         options: { overcut: mm.tool === "pen" ? 0 : mm.overcut, passes: mm.passes, optimize, clip: tile ? [0, 0, tile.w, tile.h] : null } as PathOptions,
         settings: {
           tool: mm.tool,
@@ -416,7 +451,7 @@
 
   /** Path of a cut object in the tile map (world coordinates, mirrored like the cut). */
   function mapTransform(o: PathObj) {
-    const [a, b, c, d, e, f] = pathMatrix(o, mirror ? editor.mat.w : null);
+    const [a, b, c, d, e, f] = pathMatrix(o, mirrorAxis(o));
     return `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
   }
 </script>
@@ -576,6 +611,23 @@
               </select>
             </label>
             <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
+            {#if mirror}
+              <div class="mirror-mode">
+                <Segmented
+                  value={mirrorMode}
+                  onchange={setMirrorMode}
+                  options={[
+                    { value: "sheet", label: "Ganze Folie", hint: "Alles an der Mittelachse der Folie spiegeln – die Anordnung wird seitenverkehrt" },
+                    { value: "each", label: "Jedes Element", hint: "Jedes Element an seiner eigenen Mittelachse spiegeln – alles bleibt an seinem Platz" },
+                  ]}
+                />
+                <p class="hint">
+                  {mirrorMode === "sheet"
+                    ? "Die ganze Folie wird seitenverkehrt – Elemente tauschen links und rechts."
+                    : "Jedes Element wird an Ort und Stelle gespiegelt. Gruppen werden als Ganzes gespiegelt."}
+                </p>
+              </div>
+            {/if}
             <Toggle disabled={plotter.busy} label="Nur Auswahl schneiden" bind:checked={onlySelection} />
             <Toggle disabled={plotter.busy} label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
             {#if mat === "none" && !reg}
@@ -977,6 +1029,12 @@
     flex: none;
     margin-top: 2px;
     color: var(--accent);
+  }
+  .mirror-mode {
+    margin-top: -4px;
+  }
+  .mirror-mode .hint {
+    margin-top: 6px;
   }
   .blade {
     display: flex;
