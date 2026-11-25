@@ -3,6 +3,24 @@ import type { CutPlan, CutSettings, ImageInfo, ImportedVector, OffsetResult, Pat
 
 export const inApp = isTauri();
 
+export interface UpdateAsset {
+  name: string;
+  url: string;
+  size: number;
+  digest: string | null;
+}
+
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  newer: boolean;
+  /** How this copy was installed. */
+  kind: "deb" | "flatpak" | "manual";
+  notes: string;
+  url: string;
+  asset: UpdateAsset | null;
+}
+
 function call<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   if (!inApp) return Promise.reject(new Error("Diese Funktion gibt es nur in der Desktop-App."));
   return invoke<T>(cmd, args);
@@ -27,6 +45,10 @@ export const api = {
   readText: (path: string) => call<string>("read_text", { path }),
   writeText: (path: string, contents: string) => call<void>("write_text", { path, contents }),
   fileExists: (path: string) => call<boolean>("file_exists", { path }),
+  updateCheck: () => call<UpdateInfo>("update_check", {}),
+  updateInstall: (asset: UpdateAsset) => call<void>("update_install", { asset }),
+  updateRestart: () => call<void>("update_restart", {}),
+  openUrl: (url: string) => call<void>("open_url", { url }),
   autosaveWrite: (contents: string) => call<void>("autosave_write", { contents }),
   autosaveRead: () => call<string | null>("autosave_read", {}),
   autosaveClear: () => call<void>("autosave_clear", {}),

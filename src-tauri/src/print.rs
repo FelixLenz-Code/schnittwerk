@@ -3,7 +3,6 @@
 //! goes to CUPS with scaling disabled (scaling would break registration).
 
 use std::io::Write;
-use std::process::Command;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use flate2::{write::ZlibEncoder, Compression};
@@ -61,7 +60,7 @@ pub struct Printers {
 
 #[tauri::command]
 pub async fn list_printers() -> Printers {
-    let run = |args: &[&str]| Command::new("lpstat").args(args).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
+    let run = |args: &[&str]| crate::host_command("lpstat").args(args).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
     let names = run(&["-e"]).map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect()).unwrap_or_default();
     let default = run(&["-d"]).and_then(|s| s.split(':').nth(1).map(|n| n.trim().to_string())).filter(|n| !n.is_empty() && !n.contains(' '));
     Printers { names, default }
@@ -86,9 +85,9 @@ pub async fn print_page(
         if let Some(path) = save_path {
             return std::fs::write(&path, pdf).map_err(|e| format!("{path}: {e}"));
         }
-        let file = std::env::temp_dir().join(format!("schnittwerk-{}.pdf", std::process::id()));
+        let file = crate::shared_temp_dir().join(format!("schnittwerk-{}.pdf", std::process::id()));
         std::fs::write(&file, pdf).map_err(|e| e.to_string())?;
-        let mut cmd = Command::new("lp");
+        let mut cmd = crate::host_command("lp");
         if let Some(p) = printer.filter(|p| !p.is_empty()) {
             cmd.args(["-d", &p]);
         }

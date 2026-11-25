@@ -6,6 +6,8 @@
   import { confirmClose, copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
   import { wizardUi } from "./lib/wizard.svelte";
   import NewProjectWizard from "./lib/components/NewProjectWizard.svelte";
+  import UpdateDialog from "./lib/components/UpdateDialog.svelte";
+  import { updater } from "./lib/update.svelte";
   import type { Tool } from "./lib/types";
   import Canvas from "./lib/components/Canvas.svelte";
   import Icon from "./lib/components/Icon.svelte";
@@ -53,6 +55,8 @@
     requestAnimationFrame(() => editor.fitMat());
     plotter.start();
     startAutosave();
+    // Look for a new version a little after start (quietly, see update.svelte.ts).
+    setTimeout(() => updater.autoCheck(), 4000);
     // Leftover unsaved work is offered in the assistant, which opens at
     // start unless switched off.
     findRecovery().then((r) => {
@@ -106,7 +110,7 @@
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -299,6 +303,9 @@
       <button class="btn icon" title="Design wechseln" onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
+    {#if updater.available}
+      <button class="btn update" title="Schnittwerk {updater.info?.latest} ist verfügbar" onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
+    {/if}
     <DeviceMenu />
     <button class="btn outline" title="Für Print & Cut drucken (Strg+P)" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">Drucken</span></button>
     <button class="btn primary" title="Schneiden-Dialog öffnen (Strg+Enter)" onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> Schneiden</button>
@@ -368,6 +375,9 @@
   {#if templatesUi.open}
     <TemplatesDialog />
   {/if}
+  {#if updater.dialogOpen}
+    <UpdateDialog />
+  {/if}
   {#if wizardUi.open}
     <NewProjectWizard bind:recovery />
   {/if}
@@ -416,6 +426,11 @@
     .lbl {
       display: none;
     }
+  }
+  .update {
+    background: color-mix(in srgb, var(--ok) 15%, transparent);
+    color: var(--ok);
+    font-weight: 600;
   }
   .hsel {
     height: 28px;

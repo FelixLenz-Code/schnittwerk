@@ -2,6 +2,7 @@
 
 mod plotter;
 mod print;
+mod update;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -70,6 +71,35 @@ fn register_image(store: &ImageStore, bytes: Vec<u8>, name: String) -> Result<Im
     let (width, height) = (img.width(), img.height());
     let id = store.insert(img);
     Ok(ImageInfo { id, name, width, height, src: format!("data:{mime};base64,{}", B64.encode(display_bytes)) })
+}
+
+/// Running inside a Flatpak sandbox?
+pub(crate) fn in_flatpak() -> bool {
+    Path::new("/.flatpak-info").exists()
+}
+
+/// A program of the host system (pdftocairo, lp, lpstat). In the Flatpak
+/// sandbox they are not available and run on the host via flatpak-spawn.
+pub(crate) fn host_command(program: &str) -> std::process::Command {
+    if in_flatpak() {
+        let mut c = std::process::Command::new("flatpak-spawn");
+        c.args(["--host", program]);
+        c
+    } else {
+        std::process::Command::new(program)
+    }
+}
+
+/// Directory for temporary files that host programs must read or write.
+/// The sandbox's /tmp is private, its cache directory has the same path
+/// on the host.
+pub(crate) fn shared_temp_dir() -> std::path::PathBuf {
+    if in_flatpak() {
+        if let Some(cache) = std::env::var_os("XDG_CACHE_HOME") {
+            return std::path::PathBuf::from(cache);
+        }
+    }
+    std::env::temp_dir()
 }
 
 fn file_stem(path: &str) -> String {
@@ -330,10 +360,10 @@ enum PdfContent {
 #[tauri::command]
 async fn import_pdf(path: String, page: Option<u32>, store: State<'_, ImageStore>) -> Result<PdfContent, String> {
     let page = page.unwrap_or(1).max(1).to_string();
-    let dir = std::env::temp_dir().join(format!("schnittwerk-pdf-{}", std::process::id()));
+    let dir = shared_temp_dir().join(format!("schnittwerk-pdf-{}", std::process::id()));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let run = |args: &[&str]| -> Result<(), String> {
-        let out = std::process::Command::new("pdftocairo")
+        let out = host_command("pdftocairo")
             .args(args)
             .output()
             .map_err(|e| format!("pdftocairo nicht gefunden (Paket poppler-utils): {e}"))?;
@@ -450,6 +480,10 @@ pub fn run() {
             autosave_read,
             autosave_clear,
             file_exists,
+            update::update_check,
+            update::update_install,
+            update::update_restart,
+            update::open_url,
             plotter::plotter_status,
             plotter::cut_preview,
             plotter::cut_start,

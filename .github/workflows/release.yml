@@ -1,7 +1,8 @@
-# Baut das .deb und legt ein GitHub-Release an, sobald ein Tag v* gepusht wird.
-#   git tag v0.3.3 && git push origin v0.3.3
-# Ohne Tag (manuell über "Run workflow") wird nur gebaut und das .deb als
-# Artefakt hochgeladen.
+# Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
+# gepusht wird.
+#   git tag v0.3.4 && git push origin v0.3.4
+# Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
+# werden als Artefakte hochgeladen.
 name: Release
 
 on:
@@ -56,23 +57,88 @@ jobs:
           name: schnittwerk-deb
           path: target/release/bundle/deb/*.deb
 
+  # Das Flatpak verpackt die Programme aus dem .deb (gebaut auf Ubuntu 24.04,
+  # läuft mit der GNOME-Runtime).
+  flatpak:
+    needs: deb
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: schnittwerk-deb
+          path: deb
+
+      - name: flatpak-builder und GNOME-Runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Flatpak bauen
+        run: |
+          cp deb/*.deb packaging/flatpak/schnittwerk.deb
+          cd packaging/flatpak
+          flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse \
+            --repo=repo --force-clean build de.schnittwerk.desktop.yml
+          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            repo ../../Schnittwerk.flatpak de.schnittwerk.desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: schnittwerk-flatpak
+          path: Schnittwerk.flatpak
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [deb, flatpak]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Release anlegen
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="${GITHUB_REF_NAME#v}"
-          cat > notes.md <<EOF
-          **Installation** (Ubuntu 24.04 oder neuer):
+          # Änderungen = Text der Commit-Nachricht des Tags (ohne Signaturzeilen).
+          # Das Update-Fenster der App zeigt genau diesen Abschnitt.
+          changes=$(git log -1 --format=%b "$GITHUB_SHA" | grep -v -i '^co-authored-by:' | sed -e '/./,$!d')
+          cd dist
+          # Feste Namen für die Ein-Befehl-Installation (…/releases/latest/download/…).
+          cp "Schnittwerk_${v}_amd64.deb" Schnittwerk_amd64.deb
+          cp Schnittwerk.flatpak "Schnittwerk_${v}_x86_64.flatpak"
+          repo="https://github.com/${GITHUB_REPOSITORY}"
+          {
+            echo "## Änderungen"
+            echo
+            echo "${changes:-Siehe Commits.}"
+            echo
+          } > notes.md
+          cat >> notes.md <<EOF
+          **Installation mit einem Befehl** (Ubuntu 24.04 oder neuer):
           \`\`\`
-          sudo apt install ./Schnittwerk_${v}_amd64.deb
+          wget -O /tmp/schnittwerk.deb ${repo}/releases/latest/download/Schnittwerk_amd64.deb && sudo apt install -y /tmp/schnittwerk.deb
           \`\`\`
           Danach den Plotter einmal aus- und wieder einstecken (udev-Regel).
-          Ausführliche Anleitung: [README](https://github.com/${GITHUB_REPOSITORY}#installation)
+
+          **Flatpak** (andere Distributionen): \`Schnittwerk.flatpak\` herunterladen und
+          \`flatpak install --user Schnittwerk.flatpak\`. Für USB einmalig die udev-Regel
+          installieren, siehe [README](${repo}#flatpak).
+
+          Ausführliche Anleitung: [README](${repo}#installation)
 
           > [!NOTE]
           > **Von einer KI geschrieben.** Der Code wurde mit Claude (Anthropic) erstellt,
           > unter Anleitung und mit Tests durch einen Menschen, aber nicht unabhängig geprüft.
           EOF
-          gh release create "$GITHUB_REF_NAME" target/release/bundle/deb/*.deb \
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            "Schnittwerk_${v}_amd64.deb" Schnittwerk_amd64.deb \
+            "Schnittwerk_${v}_x86_64.flatpak" Schnittwerk.flatpak \
             --title "Schnittwerk $v" --notes-file notes.md --generate-notes

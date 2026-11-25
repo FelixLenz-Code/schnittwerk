@@ -9,8 +9,13 @@
   import { setWizardAtStart, wizardUi } from "../wizard.svelte";
   import Icon from "./Icon.svelte";
   import Segmented from "./Segmented.svelte";
+  import { updater } from "../update.svelte";
+  import { getVersion } from "@tauri-apps/api/app";
 
   let { recovery = $bindable() }: { recovery: Recovery | null } = $props();
+
+  let version = $state("");
+  if (inApp) getVersion().then((v) => (version = v)).catch(() => {});
 
   type Kind = ProjectKind;
 
@@ -207,10 +212,26 @@
         <p class="muted small">Noch keine Projekte gespeichert.</p>
       {/if}
       <button class="btn outline open" onclick={openOther}><Icon name="folder" /> Projekt öffnen …</button>
-      <label class="atstart">
-        <input type="checkbox" checked={wizardUi.atStart} onchange={(e) => setWizardAtStart(e.currentTarget.checked)} />
-        Beim Start anzeigen
-      </label>
+      <div class="bottom">
+        <label class="atstart">
+          <input type="checkbox" checked={wizardUi.atStart} onchange={(e) => setWizardAtStart(e.currentTarget.checked)} />
+          Beim Start anzeigen
+        </label>
+        <div class="version">
+          <span>Schnittwerk {version}</span>
+          {#if updater.available}
+            <button class="link strong" onclick={() => (updater.dialogOpen = true)}>Update auf {updater.info?.latest}</button>
+          {:else}
+            <button class="link" onclick={() => updater.check()} disabled={updater.phase === "checking"}>
+              {updater.phase === "checking" ? "Prüfe …" : "Nach Updates suchen"}
+            </button>
+          {/if}
+        </div>
+        <label class="atstart">
+          <input type="checkbox" checked={updater.auto} onchange={(e) => updater.setAuto(e.currentTarget.checked)} />
+          Automatisch nach Updates suchen
+        </label>
+      </div>
     </aside>
 
     <div class="main">
@@ -473,11 +494,42 @@
     justify-content: center;
     margin-top: 4px;
   }
+  .bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .version {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+  .link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .link.strong {
+    font-weight: 600;
+    color: var(--ok);
+  }
+  .link:disabled {
+    color: var(--text-3);
+    cursor: default;
+  }
   .atstart {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: auto;
     color: var(--text-2);
     font-size: 12px;
     cursor: pointer;

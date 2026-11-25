@@ -1,0 +1,42 @@
+# Flatpak of Schnittwerk, built from the .deb of the same release
+# (GitHub Actions copies it here as schnittwerk.deb).
+#   flatpak-builder --user --install-deps-from=flathub --repo=repo build de.schnittwerk.desktop.yml
+id: de.schnittwerk.desktop
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: schnittwerk
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # USB plotter (libusb). The udev rule must be installed on the host once.
+  - --device=all
+  # Bluetooth LE via BlueZ.
+  - --system-talk-name=org.bluez
+  # Open and save projects, import pictures, drag & drop.
+  - --filesystem=home
+  # pdftocairo (PDF import) and lp/lpstat (printing) run on the host.
+  - --talk-name=org.freedesktop.Flatpak
+modules:
+  - name: schnittwerk
+    buildsystem: simple
+    sources:
+      - type: file
+        path: schnittwerk.deb
+      - type: file
+        path: de.schnittwerk.desktop.metainfo.xml
+    build-commands:
+      - ar -x schnittwerk.deb
+      - tar -xf data.tar.gz
+      - install -Dm755 -t /app/bin usr/bin/schnittwerk usr/bin/schnittwerk-cli usr/bin/schnittwerk-mcp
+      - |
+        for s in 32x32 128x128 512x512; do
+          install -Dm644 usr/share/icons/hicolor/$s/apps/schnittwerk.png /app/share/icons/hicolor/$s/apps/de.schnittwerk.desktop.png
+        done
+      - install -Dm644 usr/share/applications/Schnittwerk.desktop /app/share/applications/de.schnittwerk.desktop.desktop
+      - sed -i 's/^Icon=.*/Icon=de.schnittwerk.desktop/' /app/share/applications/de.schnittwerk.desktop.desktop
+      - install -Dm644 -t /app/share/metainfo de.schnittwerk.desktop.metainfo.xml
+      - install -Dm644 usr/share/doc/schnittwerk/copyright /app/share/licenses/de.schnittwerk.desktop/LICENSE
+      - install -Dm644 usr/share/doc/schnittwerk/THIRD_PARTY_LICENSES.txt /app/share/licenses/de.schnittwerk.desktop/THIRD_PARTY_LICENSES.txt

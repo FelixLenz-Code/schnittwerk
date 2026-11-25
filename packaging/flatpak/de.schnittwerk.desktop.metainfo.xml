@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>de.schnittwerk.desktop</id>
+  <name>Schnittwerk</name>
+  <summary>Software für Silhouette-Schneideplotter</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <launchable type="desktop-id">de.schnittwerk.desktop.desktop</launchable>
+  <description>
+    <p>
+      Linux-Software für Silhouette-Schneideplotter (getestet mit der Portrait 3):
+      Bilder tracen, Sticker mit Print &amp; Cut erstellen und per USB oder Bluetooth schneiden.
+    </p>
+    <p>Von einer KI (Claude) geschrieben, unter Anleitung und mit Tests durch einen Menschen.</p>
+  </description>
+  <url type="homepage">https://github.com/FelixLenz-Code/schnittwerk</url>
+  <url type="bugtracker">https://github.com/FelixLenz-Code/schnittwerk/issues</url>
+  <categories>
+    <category>Graphics</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+</component>

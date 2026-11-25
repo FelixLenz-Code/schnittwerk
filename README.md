@@ -54,22 +54,68 @@ gerne mit dem Ergebnis eines Testschnitts.
 
 ## Installation
 
-Für **Ubuntu 24.04 oder neuer** und darauf aufbauende Systeme (64 Bit, x86).
+### Ubuntu (ein Befehl)
 
-1. Lade die Datei `Schnittwerk_…_amd64.deb` vom
-   [neuesten Release](https://github.com/FelixLenz-Code/schnittwerk/releases/latest) herunter.
-2. Öffne ein Terminal im Download-Ordner und installiere sie:
-   ```bash
-   sudo apt install ./Schnittwerk_*_amd64.deb
-   ```
-   `apt` installiert dabei die benötigten Pakete mit (libusb, CUPS-Client, poppler-utils).
-3. **Stecke den Plotter einmal aus und wieder ein.** Das Paket bringt eine udev-Regel
+Für **Ubuntu 24.04 oder neuer** und darauf aufbauende Systeme (64 Bit, x86):
+
+```bash
+wget -O /tmp/schnittwerk.deb https://github.com/FelixLenz-Code/schnittwerk/releases/latest/download/Schnittwerk_amd64.deb && sudo apt install -y /tmp/schnittwerk.deb
+```
+
+Der Befehl lädt das neueste `.deb` aus den
+[Releases](https://github.com/FelixLenz-Code/schnittwerk/releases/latest) und installiert es.
+`apt` installiert dabei die benötigten Pakete mit (libusb, CUPS-Client, poppler-utils).
+Ein Hinweis von apt wie „Download is performed unsandboxed as root“ ist harmlos.
+
+Danach:
+1. **Stecke den Plotter einmal aus und wieder ein.** Das Paket bringt eine udev-Regel
    mit, damit Schnittwerk ohne Administratorrechte auf den Plotter zugreifen darf.
    Diese Regel greift erst nach dem Neueinstecken.
-4. Starte **Schnittwerk** über das Anwendungsmenü.
+2. Starte **Schnittwerk** über das Anwendungsmenü.
 
-Ein Update installierst du genauso: neue `.deb` herunterladen und `sudo apt install` erneut ausführen.
-Zum Entfernen: `sudo apt remove schnittwerk`.
+Updates bietet Schnittwerk selbst an (siehe [Updates](#updates)), alternativ denselben Befehl
+noch einmal ausführen. Zum Entfernen: `sudo apt remove schnittwerk`.
+
+Lieber von Hand: `Schnittwerk_…_amd64.deb` aus dem neuesten Release herunterladen und im
+Download-Ordner `sudo apt install ./Schnittwerk_*_amd64.deb` ausführen.
+
+### Flatpak
+
+Für andere Distributionen (Fedora, Arch, openSUSE …) gibt es ein Flatpak. Voraussetzung ist
+Flatpak mit [Flathub](https://flathub.org/setup) – die benötigte GNOME-Laufzeit wird von dort
+automatisch nachgeladen.
+
+```bash
+wget -O /tmp/Schnittwerk.flatpak https://github.com/FelixLenz-Code/schnittwerk/releases/latest/download/Schnittwerk.flatpak && flatpak install --user -y /tmp/Schnittwerk.flatpak
+```
+
+Ein Flatpak darf keine udev-Regel installieren. Damit der Plotter **per USB** erkannt wird,
+einmalig die Regel auf dem System einrichten und den Plotter neu einstecken:
+
+```bash
+sudo wget -O /etc/udev/rules.d/70-silhouette.rules https://raw.githubusercontent.com/FelixLenz-Code/schnittwerk/main/packaging/70-silhouette.rules && sudo udevadm control --reload-rules
+```
+
+Gut zu wissen:
+- Das Flatpak darf auf USB-Geräte, Bluetooth und den Home-Ordner zugreifen.
+  PDF-Import (`pdftocairo`) und Drucken (`lp`) laufen über die Programme des Systems
+  (Pakete `poppler-utils` und `cups-client` bzw. `poppler` und `cups`).
+- Updates bietet Schnittwerk selbst an (siehe [Updates](#updates)).
+  Entfernen: `flatpak uninstall --user de.schnittwerk.desktop`.
+- Kommandozeile und MCP-Server sind enthalten:
+  `flatpak run --command=schnittwerk-cli de.schnittwerk.desktop --help`.
+
+### Updates
+
+Schnittwerk fragt beim Start (höchstens alle 6 Stunden) bei GitHub nach, ob es eine neue
+Version gibt. Wenn ja, erscheint oben der Knopf **Update** mit den Änderungen. Ein Klick auf
+„Jetzt aktualisieren“ lädt das passende Paket, prüft die Prüfsumme und installiert es –
+beim `.deb` mit der normalen Passwortabfrage des Systems, beim Flatpak ohne. Danach startet
+Schnittwerk neu (ungespeicherte Änderungen werden vorher abgefragt).
+
+Auf der Startseite (Klick auf „Schnittwerk“ oben links) steht die installierte Version,
+dort lässt sich von Hand suchen oder die automatische Suche abschalten. Bei der Suche
+wird nur die öffentliche Release-Liste von GitHub abgerufen.
 
 ## Funktionen
 
