@@ -101,9 +101,9 @@ Gut zu wissen:
   PDF-Import (`pdftocairo`) und Drucken (`lp`) laufen über die Programme des Systems
   (Pakete `poppler-utils` und `cups-client` bzw. `poppler` und `cups`).
 - Updates bietet Schnittwerk selbst an (siehe [Updates](#updates)).
-  Entfernen: `flatpak uninstall --user de.schnittwerk.desktop`.
+  Entfernen: `flatpak uninstall --user de.schnittwerk.Schnittwerk`.
 - Kommandozeile und MCP-Server sind enthalten:
-  `flatpak run --command=schnittwerk-cli de.schnittwerk.desktop --help`.
+  `flatpak run --command=schnittwerk-cli de.schnittwerk.Schnittwerk --help`.
 
 ### Updates
 

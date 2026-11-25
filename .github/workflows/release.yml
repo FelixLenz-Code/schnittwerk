@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.3.5 && git push origin v0.3.5
+#   git tag v0.3.6 && git push origin v0.3.6
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release
@@ -81,9 +81,9 @@ jobs:
           cp deb/*.deb packaging/flatpak/schnittwerk.deb
           cd packaging/flatpak
           flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse \
-            --repo=repo --force-clean build de.schnittwerk.desktop.yml
+            --repo=repo --force-clean build de.schnittwerk.Schnittwerk.yml
           flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            repo ../../Schnittwerk.flatpak de.schnittwerk.desktop
+            repo ../../Schnittwerk.flatpak de.schnittwerk.Schnittwerk
 
       - uses: actions/upload-artifact@v4
         with:

@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter};
 
 const REPO: &str = "FelixLenz-Code/schnittwerk";
-const APP_ID: &str = "de.schnittwerk.desktop";
+const APP_ID: &str = "de.schnittwerk.Schnittwerk";
 
 /// How this copy was installed – decides how it can update itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
