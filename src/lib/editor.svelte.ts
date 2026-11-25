@@ -1,4 +1,5 @@
 import { aabb, uid } from "./geometry";
+import { refreshShape } from "./shapes";
 import type { ImageAsset, Obj, RegMarks, TraceParams, TraceResult, Tool } from "./types";
 
 export interface TracePreview {
@@ -11,14 +12,57 @@ export interface Mat {
   name: string;
   w: number;
   h: number;
+  /** mat = cutting mat, page = paper size, roll = media without mat,
+   *  custom = free size (large designs, cut in tiles). Missing = by name. */
+  kind?: "mat" | "page" | "roll" | "custom";
+  /** custom: cut from the roll (tiles across the roll width) instead of on the mat. */
+  roll?: boolean;
 }
 
 export const MATS: Mat[] = [
-  { name: "Portrait 3 · 8″ × 12″", w: 203.2, h: 304.8 },
-  { name: "A4 hoch", w: 210, h: 297 },
-  { name: "A4 quer", w: 297, h: 210 },
-  { name: "Letter", w: 215.9, h: 279.4 },
+  { name: "Portrait 3 · 8″ × 12″", w: 203.2, h: 304.8, kind: "mat" },
+  { name: "A4 hoch", w: 210, h: 297, kind: "page" },
+  { name: "A4 quer", w: 297, h: 210, kind: "page" },
+  { name: "Letter", w: 215.9, h: 279.4, kind: "page" },
 ];
+
+/** Cutting width of the Portrait 3 (roll media). */
+export const ROLL_WIDTH = 203.2;
+export const ROLL_MAX = 5000;
+
+export function rollMat(length: number): Mat {
+  return { name: "Rolle ohne Matte", w: ROLL_WIDTH, h: Math.min(ROLL_MAX, Math.max(50, length)), kind: "roll" };
+}
+
+export function customMat(w: number, h: number, roll = false): Mat {
+  return { name: "Eigene Größe", w: Math.min(3000, Math.max(20, w)), h: Math.min(ROLL_MAX, Math.max(20, h)), kind: "custom", roll };
+}
+
+export function matKindOf(m: Mat): NonNullable<Mat["kind"]> {
+  return m.kind ?? (m.name.startsWith("Portrait 3") ? "mat" : "page");
+}
+
+export interface Guides {
+  /** x positions of vertical guides (mm). */
+  v: number[];
+  /** y positions of horizontal guides (mm). */
+  h: number[];
+}
+
+function loadFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem("schnittwerk." + key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+function saveFlag(key: string, v: boolean) {
+  try {
+    localStorage.setItem("schnittwerk." + key, v ? "1" : "0");
+  } catch {}
+}
 
 export const PAGES = {
   A4: { w: 210, h: 297, media: "A4" },
@@ -75,6 +119,26 @@ class Editor {
   cursor = $state<{ x: number; y: number } | null>(null);
   rightTab = $state<"object" | "trace" | "sticker" | "layers">("object");
 
+  /** Guide lines (dragged out of the rulers). */
+  guides = $state<Guides>({ v: [], h: [] });
+  /** Snap moved objects and drawn shapes to guides, mat and other objects. */
+  #snap = $state(loadFlag("snap", true));
+  get snap() {
+    return this.#snap;
+  }
+  set snap(v: boolean) {
+    this.#snap = v;
+    saveFlag("snap", v);
+  }
+  /** Size fields and on-canvas dimensions keep the aspect ratio. */
+  keepRatio = $state(true);
+  /** Material chosen for this project (new-project assistant), preselected when cutting. */
+  material = $state<string | null>(null);
+  /** Sticker assistant default: kiss-cut + through-cut backing ("die") or kiss-cut only. */
+  stickerStyle = $state<"die" | "kiss">("die");
+  /** Increases with every change (autosave). */
+  rev = $state(0);
+
   /** Print & cut: the work area becomes a printable page with registration marks. */
   /** insetX/insetY: distance of the marks from the paper edge (mm). */
   printCut = $state<{ enabled: boolean; page: PageName; insetX: number; insetY: number }>({ enabled: false, page: "A4", insetX: 15, insetY: 10 });
@@ -112,6 +176,7 @@ class Editor {
     this.#redo = [];
     this.#syncHistory();
     this.dirty = true;
+    this.rev++;
   }
 
   undo() {
@@ -134,6 +199,7 @@ class Editor {
     const ids = new Set(this.objects.map((o) => o.id));
     this.selection = this.selection.filter((id) => ids.has(id));
     this.dirty = true;
+    this.rev++;
     this.#syncHistory();
   }
 
@@ -148,7 +214,38 @@ class Editor {
     this.#syncHistory();
   }
 
+  /** Empties the document (no confirmation – callers ask first). */
+  resetDocument() {
+    this.objects = [];
+    this.images = {};
+    this.selection = [];
+    this.tracePreview = null;
+    this.filePath = null;
+    this.guides = { v: [], h: [] };
+    this.material = null;
+    this.dirty = false;
+    this.resetHistory();
+  }
+
   // ---------- objects ----------
+
+  /** Sets width or height (mm), around the centre; honours `keepRatio`. */
+  setSize(o: Obj, key: "w" | "h", v: number) {
+    if (!(v > 0) || o.locked) return;
+    this.checkpoint();
+    const ratio = o.h / o.w;
+    const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+    if (key === "w") {
+      o.w = v;
+      if (this.keepRatio) o.h = v * ratio;
+    } else {
+      o.h = v;
+      if (this.keepRatio) o.w = v / ratio;
+    }
+    o.x = cx - o.w / 2;
+    o.y = cy - o.h / 2;
+    if (o.type === "path") refreshShape(o);
+  }
 
   byId(id: string): Obj | undefined {
     return this.objects.find((o) => o.id === id);

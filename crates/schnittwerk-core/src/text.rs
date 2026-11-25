@@ -48,6 +48,12 @@ pub struct TextSpec {
     /// "start" | "middle" | "end"
     #[serde(default = "default_align")]
     pub align: String,
+    /// Text along this path (SVG path data in mm) instead of straight lines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Shift along the path in % of its length.
+    #[serde(default)]
+    pub path_offset: f64,
 }
 
 fn default_line() -> f64 {
@@ -73,14 +79,29 @@ pub fn text_to_path(t: &TextSpec) -> crate::Result<ImportedVector> {
         "middle" | "end" => t.align.as_str(),
         _ => "start",
     };
+    let mut defs = String::new();
     let mut tspans = String::new();
-    for (i, line) in lines.iter().enumerate() {
-        let y = t.size * px * (1.0 + i as f64 * t.line_height);
-        let text = if line.is_empty() { " " } else { line };
-        tspans.push_str(&format!(r#"<tspan x="0" y="{y}">{}</tspan>"#, escape(text)));
+    if let Some(d) = t.path.as_deref().filter(|d| !d.trim().is_empty()) {
+        // One line along the path; the path is given in mm, the text in px.
+        let guide = kurbo::BezPath::from_svg(d).map_err(|e| crate::Error::Other(format!("Ungültiger Textpfad: {e}")))?;
+        let guide = kurbo::Affine::scale(px) * guide;
+        defs = format!(r#"<defs><path id="guide" d="{}"/></defs>"#, crate::geom::to_svg_d(&guide));
+        let base = match anchor {
+            "middle" => 50.0,
+            "end" => 100.0,
+            _ => 0.0,
+        };
+        let line = lines.iter().map(|l| l.trim()).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(" ");
+        tspans = format!(r##"<textPath href="#guide" startOffset="{}%">{}</textPath>"##, base + t.path_offset, escape(&line));
+    } else {
+        for (i, line) in lines.iter().enumerate() {
+            let y = t.size * px * (1.0 + i as f64 * t.line_height);
+            let text = if line.is_empty() { " " } else { line };
+            tspans.push_str(&format!(r#"<tspan x="0" y="{y}">{}</tspan>"#, escape(text)));
+        }
     }
     let svg = format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="40000" height="40000"><text font-family="{}" font-size="{}" font-weight="{}" font-style="{}" letter-spacing="{}" text-anchor="{anchor}">{tspans}</text></svg>"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="40000" height="40000">{defs}<text font-family="{}" font-size="{}" font-weight="{}" font-style="{}" letter-spacing="{}" text-anchor="{anchor}">{tspans}</text></svg>"#,
         escape(&t.family),
         t.size * px,
         if t.bold { "bold" } else { "normal" },
@@ -112,10 +133,40 @@ mod tests {
             spacing: 0.0,
             line_height: 1.2,
             align: "start".into(),
+            path: None,
+            path_offset: 0.0,
         })
         .unwrap();
         assert!(v.path_count >= 1);
         // Cap height of a 20 mm font is roughly 14 mm.
         assert!(v.bbox[3] > 8.0 && v.bbox[3] < 22.0, "{:?}", v.bbox);
+    }
+
+    #[test]
+    fn text_follows_an_arc() {
+        let fam = families();
+        let Some(family) = fam.iter().find(|f| f.contains("DejaVu Sans") || f.contains("Noto Sans")).or(fam.first()).cloned() else { return };
+        let spec = |path: Option<String>| TextSpec {
+            content: "HALLO WELT".into(),
+            family: family.clone(),
+            size: 10.0,
+            bold: false,
+            italic: false,
+            spacing: 0.0,
+            line_height: 1.2,
+            align: "middle".into(),
+            path,
+            path_offset: 0.0,
+        };
+        // Circle of radius 40 mm around (0, 0), starting at the bottom, clockwise.
+        let arc = "M0 40A40 40 0 1 1 0 -40A40 40 0 1 1 0 40Z".to_string();
+        let straight = text_to_path(&spec(None)).unwrap();
+        let bent = text_to_path(&spec(Some(arc))).unwrap();
+        // Centred on top of the circle: around x = 0, above y = -40 + cap height.
+        let cx = bent.bbox[0] + bent.bbox[2] / 2.0;
+        assert!(cx.abs() < 3.0, "{:?}", bent.bbox);
+        assert!(bent.bbox[1] < -40.0 && bent.bbox[1] > -55.0, "{:?}", bent.bbox);
+        // Bent text is taller than straight text (the ends go down).
+        assert!(bent.bbox[3] > straight.bbox[3] + 2.0, "{:?} vs {:?}", bent.bbox, straight.bbox);
     }
 }

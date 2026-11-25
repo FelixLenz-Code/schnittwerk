@@ -392,7 +392,7 @@ fn cut_file(args: &Args) -> Result<(), String> {
     for (i, g) in groups.iter().enumerate() {
         let m = g.mat;
         let passes = n_over.unwrap_or(m.passes);
-        let opts = PathOptions { overcut: if m.tool == Tool::Pen { 0.0 } else { m.overcut }, passes, optimize: true };
+        let opts = PathOptions { overcut: if m.tool == Tool::Pen { 0.0 } else { m.overcut }, passes, optimize: true, clip: None };
         let (plan, strokes) = cut::plan(&g.paths, &opts)?;
         if strokes.is_empty() {
             continue;

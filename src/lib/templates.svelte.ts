@@ -2,7 +2,8 @@
 
 import { editor, MATS } from "./editor.svelte";
 import { uid } from "./geometry";
-import { confirmDiscard } from "./io.svelte";
+import { clearAutosave, confirmDiscard } from "./io.svelte";
+import { roundRect } from "./shapes";
 import type { PathObj } from "./types";
 
 export const templatesUi = $state({ open: false });
@@ -10,13 +11,6 @@ export const templatesUi = $state({ open: false });
 const KISS = "#e5484d";
 const THROUGH = "#3e63dd";
 const GUIDE = "#8b919c";
-
-/** Rounded rectangle path (local units = mm). */
-function roundRect(w: number, h: number, r: number): string {
-  r = Math.min(r, w / 2, h / 2);
-  if (r <= 0) return `M0 0H${w}V${h}H0Z`;
-  return `M${r} 0H${w - r}A${r} ${r} 0 0 1 ${w} ${r}V${h - r}A${r} ${r} 0 0 1 ${w - r} ${h}H${r}A${r} ${r} 0 0 1 0 ${h - r}V${r}A${r} ${r} 0 0 1 ${r} 0Z`;
-}
 
 function circle(dia: number): string {
   const r = dia / 2;
@@ -142,18 +136,20 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-/** Starts a new project from a template (asks before discarding changes). */
-export async function newFromTemplate(t: Template) {
-  if (!(await confirmDiscard())) return;
-  editor.objects = [];
-  editor.images = {};
-  editor.selection = [];
-  editor.tracePreview = null;
-  editor.filePath = null;
-  editor.setPrintCut(t.printCut, "A4");
+/** Puts a template's objects into the (already reset) document. */
+export function applyTemplate(t: Template) {
   const objs = t.build();
   if (objs.length) editor.objects.push(...objs);
   editor.resetHistory();
   editor.dirty = false;
+}
+
+/** Starts a new project from a template (asks before discarding changes). */
+export async function newFromTemplate(t: Template) {
+  if (!(await confirmDiscard())) return;
+  editor.resetDocument();
+  editor.setPrintCut(t.printCut, "A4");
+  applyTemplate(t);
+  clearAutosave();
   templatesUi.open = false;
 }

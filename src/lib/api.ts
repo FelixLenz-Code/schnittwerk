@@ -26,14 +26,20 @@ export const api = {
     call<{ kind: "vector"; vector: ImportedVector } | { kind: "image"; info: ImageInfo }>("import_pdf", { path, page: 1 }),
   readText: (path: string) => call<string>("read_text", { path }),
   writeText: (path: string, contents: string) => call<void>("write_text", { path, contents }),
+  fileExists: (path: string) => call<boolean>("file_exists", { path }),
+  autosaveWrite: (contents: string) => call<void>("autosave_write", { contents }),
+  autosaveRead: () => call<string | null>("autosave_read", {}),
+  autosaveClear: () => call<void>("autosave_clear", {}),
+  simplifyPath: (d: string, tolerance: number, cornerDeg: number) =>
+    call<{ d: string; nodesBefore: number; nodesAfter: number }>("simplify_path", { d, tolerance, cornerDeg }),
 
   plotterStatus: () => call<PlotterStatus>("plotter_status", {}),
   bleScan: () => call<BleDevice[]>("ble_scan", {}),
   bleConnect: (id: string) => call<string>("ble_connect", { id }),
   plotterDisconnect: () => call<void>("plotter_disconnect", {}),
   cutPreview: (groups: { paths: PathInput[]; options: PathOptions }[]) => call<CutPlan[]>("cut_preview", { groups }),
-  cutStart: (groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[], regmarks: RegMarks | null) =>
-    call<{ clamped: number }>("cut_start", { req: { groups, regmarks } }),
+  cutStart: (groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[], regmarks: RegMarks | null, feed: number | null = null) =>
+    call<{ clamped: number }>("cut_start", { req: { groups, regmarks, feed } }),
   cutRegtest: (regmarks: RegMarks, settings: CutSettings) => call<{ clamped: number }>("cut_regtest", { regmarks, settings }),
   cutTest: (x: number, y: number, settings: CutSettings) => call<{ clamped: number }>("cut_test", { x, y, settings }),
   cutPause: (paused: boolean) => call<void>("cut_pause", { paused }),

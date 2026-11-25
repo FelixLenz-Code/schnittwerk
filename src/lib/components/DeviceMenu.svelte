@@ -4,8 +4,10 @@
   import { plotter } from "../plotter.svelte";
   import type { BleDevice } from "../types";
   import Icon from "./Icon.svelte";
+  import { fmt } from "../geometry";
 
   let open = $state(false);
+  let confirmBlade = $state(false);
   let scanning = $state(false);
   let connecting = $state<string | null>(null);
   let devices = $state<BleDevice[]>([]);
@@ -124,6 +126,34 @@
       {:else if scanned && !scanning}
         <p class="muted small">Kein Plotter gefunden. Ist er eingeschaltet und Bluetooth am Gerät aktiv?</p>
       {/if}
+      <div class="sep"></div>
+      <div class="blade" class:worn={plotter.bladeWorn}>
+        <div class="blade-head">
+          <strong>Messer</strong>
+          <span class="muted small">seit {new Date(plotter.blade.since).toLocaleDateString("de-DE")} · {plotter.blade.jobs} Schnitte</span>
+        </div>
+        <div class="bar"><div style:width="{Math.min(100, (plotter.blade.mm / 1000 / plotter.blade.limitM) * 100)}%"></div></div>
+        <div class="known">
+          <span class="small">{fmt(plotter.blade.mm / 1000, 1)} m von {plotter.blade.limitM} m geschnitten</span>
+          <button class="btn small-btn" onclick={() => (confirmBlade = true)} disabled={plotter.busy}>Neues Messer</button>
+        </div>
+        {#if confirmBlade}
+          <div class="known">
+            <span class="small">Zähler auf 0 setzen?</span>
+            <span>
+              <button class="btn small-btn primary" onclick={() => { plotter.resetBlade(); confirmBlade = false; }}>Ja</button>
+              <button class="btn small-btn" onclick={() => (confirmBlade = false)}>Nein</button>
+            </span>
+          </div>
+        {/if}
+        <label class="known small">
+          Erinnern nach
+          <span><input class="limit" type="number" min="10" max="2000" step="10" value={plotter.blade.limitM} onchange={(e) => { plotter.blade.limitM = Math.max(10, +e.currentTarget.value || 150); plotter.saveBlade(); }} /> m</span>
+        </label>
+        {#if plotter.bladeWorn}
+          <p class="small worn-text">Das Messer hat sein Ziel erreicht – Schnittbild prüfen, bei ausgefransten Kanten wechseln.</p>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -238,5 +268,41 @@
   }
   .name {
     font-weight: 600;
+  }
+  .blade {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .blade-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .bar {
+    height: 6px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .bar div {
+    height: 100%;
+    background: var(--ok);
+  }
+  .blade.worn .bar div {
+    background: var(--warn);
+  }
+  .worn-text {
+    color: var(--warn);
+  }
+  .limit {
+    width: 64px;
+    height: 22px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-2);
+    text-align: right;
   }
 </style>

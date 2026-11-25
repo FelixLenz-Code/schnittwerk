@@ -14,6 +14,7 @@ pub mod offset;
 pub mod photo;
 pub mod pixscan;
 pub mod preprocess;
+pub mod simplify;
 pub mod sticker;
 pub mod svg_import;
 pub mod text;

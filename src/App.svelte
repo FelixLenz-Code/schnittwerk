@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { inApp } from "./lib/api";
-  import { editor, MATS, PAGES, type PageName } from "./lib/editor.svelte";
+  import { customMat, editor, matKindOf, MATS, PAGES, rollMat, ROLL_MAX, type PageName } from "./lib/editor.svelte";
   import { fmt } from "./lib/geometry";
-  import { copySelection, exportSvg, importDialog, importPaths, newProject, openDialog, paste, saveProject } from "./lib/io.svelte";
+  import { copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
+  import { wizardUi } from "./lib/wizard.svelte";
+  import NewProjectWizard from "./lib/components/NewProjectWizard.svelte";
   import type { Tool } from "./lib/types";
   import Canvas from "./lib/components/Canvas.svelte";
   import Icon from "./lib/components/Icon.svelte";
@@ -46,9 +48,16 @@
 
   // ---------- drag & drop + startup ----------
   let dropping = $state(false);
+  let recovery = $state<Recovery | null>(null);
   onMount(() => {
     requestAnimationFrame(() => editor.fitMat());
     plotter.start();
+    startAutosave();
+    // Leftover unsaved work is offered in the assistant, which opens at
+    // start unless switched off.
+    findRecovery().then((r) => {
+      if (r || wizardUi.atStart) wizardUi.open = true;
+    });
     if (!inApp) {
       editor.toast("Browser-Vorschau: Dateizugriff und Tracen nur in der Desktop-App.", "info");
       return;
@@ -68,11 +77,20 @@
     return () => unlisten?.();
   });
 
+  // The recovery copy may have changed (saved, discarded): look again
+  // whenever the assistant opens.
+  $effect(() => {
+    if (!wizardUi.open) return;
+    let live = true;
+    findRecovery().then((r) => live && (recovery = r));
+    return () => (live = false);
+  });
+
   // ---------- keyboard ----------
-  const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", t: "text" };
+  const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -176,10 +194,31 @@
   const TOOLS: { id: Tool; icon: string; label: string; key: string }[] = [
     { id: "select", icon: "pointer", label: "Auswählen", key: "V" },
     { id: "pan", icon: "hand", label: "Ansicht verschieben", key: "H" },
-    { id: "rect", icon: "square", label: "Rechteck", key: "R" },
-    { id: "ellipse", icon: "circle", label: "Ellipse", key: "E" },
+    { id: "rect", icon: "square", label: "Rechteck (Umschalt = Quadrat)", key: "R" },
+    { id: "ellipse", icon: "circle", label: "Ellipse (Umschalt = Kreis)", key: "E" },
+    { id: "polygon", icon: "hexagon", label: "Vieleck", key: "P" },
+    { id: "star", icon: "star", label: "Stern", key: "S" },
+    { id: "heart", icon: "heart", label: "Herz", key: "" },
+    { id: "line", icon: "line", label: "Linie (Umschalt = 15°-Schritte)", key: "L" },
+    { id: "pen", icon: "pen", label: "Freihand", key: "F" },
     { id: "text", icon: "type", label: "Text", key: "T" },
   ];
+
+  // ---------- work area ----------
+  const matKind = $derived(matKindOf(editor.mat));
+  function pickMat(v: string) {
+    if (v === "roll") editor.mat = rollMat(matKind === "roll" ? editor.mat.h : 600);
+    else if (v === "custom") editor.mat = customMat(Math.max(editor.mat.w, 300), Math.max(editor.mat.h, 400));
+    else editor.mat = MATS.find((m) => m.name === v) ?? MATS[0];
+    editor.fitMat();
+  }
+  function setMatSize(key: "w" | "h", raw: string) {
+    const v = parseFloat(raw.replace(",", "."));
+    if (!Number.isFinite(v)) return;
+    editor.mat = matKind === "roll" ? rollMat(v) : customMat(key === "w" ? v : editor.mat.w, key === "h" ? v : editor.mat.h, editor.mat.roll);
+    editor.dirty = true;
+    editor.fitMat();
+  }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -215,6 +254,7 @@
       <button class="btn zoom" title="Matte einpassen (Strg+0)" onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
       <button class="btn icon" title="Vergrößern" onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
       <button class="btn icon" class:active={editor.showGrid} title="Raster" onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
+      <button class="btn icon" class:active={editor.snap} title="Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht." onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
       <button class="btn icon" title="Design wechseln" onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
@@ -226,7 +266,7 @@
   <main>
     <div class="rail">
       {#each TOOLS as t}
-        <button class="btn icon tool" class:active={editor.tool === t.id} title="{t.label} ({t.key})" onclick={() => (editor.tool = t.id)}>
+        <button class="btn icon tool" class:active={editor.tool === t.id} title={t.key ? `${t.label} (${t.key})` : t.label} onclick={() => (editor.tool = t.id)}>
           <Icon name={t.icon} size={18} />
         </button>
       {/each}
@@ -267,17 +307,25 @@
       </label>
     {:else}
       <label class="mat">
-        Matte
-        <select
-          value={editor.mat.name}
-          onchange={(e) => {
-            editor.mat = MATS.find((m) => m.name === e.currentTarget.value) ?? MATS[0];
-            editor.fitMat();
-          }}
-        >
+        Fläche
+        <select value={matKind === "roll" ? "roll" : matKind === "custom" ? "custom" : editor.mat.name} onchange={(e) => pickMat(e.currentTarget.value)}>
           {#each MATS as m}<option value={m.name}>{m.name}</option>{/each}
+          <option value="roll">Rolle ohne Matte</option>
+          <option value="custom">Eigene Größe (Kacheln)</option>
         </select>
       </label>
+      {#if matKind === "roll"}
+        <label class="mat" title="Länge der Folie, die geschnitten wird">
+          Länge
+          <input class="size" type="number" min="50" max={ROLL_MAX} step="10" value={Math.round(editor.mat.h)} onchange={(e) => setMatSize("h", e.currentTarget.value)} /> mm
+        </label>
+      {:else if matKind === "custom"}
+        <label class="mat">
+          <input class="size" type="number" min="20" step="10" value={Math.round(editor.mat.w)} onchange={(e) => setMatSize("w", e.currentTarget.value)} />
+          ×
+          <input class="size" type="number" min="20" step="10" value={Math.round(editor.mat.h)} onchange={(e) => setMatSize("h", e.currentTarget.value)} /> mm
+        </label>
+      {/if}
     {/if}
   </footer>
 
@@ -289,6 +337,9 @@
   {/if}
   {#if templatesUi.open}
     <TemplatesDialog />
+  {/if}
+  {#if wizardUi.open}
+    <NewProjectWizard bind:recovery />
   {/if}
 
   <div class="toasts">
@@ -402,6 +453,16 @@
   }
   .pc input {
     accent-color: var(--accent);
+  }
+  .size {
+    width: 64px;
+    height: 20px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-2);
+    font-size: 12px;
+    text-align: right;
   }
   .mat select {
     border: 0;

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { editor, regBracketPath } from "../editor.svelte";
-  import { aabb, boxTransform, center, corners, ellipsePath, fromLocal, rectPath, rotate, toLocal, uid } from "../geometry";
-  import type { Obj, PathObj, Vec2 } from "../types";
+  import { aabb, boxTransform, center, corners, fmt, fromLocal, rotate, toLocal, type AABB } from "../geometry";
+  import type { PathObj, ShapeTool, Vec2 } from "../types";
+  import { defaultSpec, makeFreehand, makeLine, makeShape, naturalAspect, refreshShape, shapePath } from "../shapes";
   import { createText } from "../text.svelte";
   import { brush } from "../brush.svelte";
   import { perspective } from "../perspective.svelte";
@@ -10,20 +11,30 @@
 
   type Drag =
     | { kind: "pan"; sx: number; sy: number; panX: number; panY: number }
-    | { kind: "move"; start: Vec2; orig: Map<string, Vec2>; moved: boolean; axisLock: boolean }
+    | { kind: "move"; start: Vec2; orig: Map<string, Vec2>; moved: boolean; axisLock: boolean; box0: AABB | null; targets: Targets }
     | { kind: "scale"; id: string; hx: number; hy: number; w0: number; h0: number; anchor: Vec2; rot: number; moved: boolean; free: boolean }
     | { kind: "rotate"; id: string; c: Vec2; a0: number; rot0: number; moved: boolean }
     | { kind: "marquee"; start: Vec2; cur: Vec2; additive: boolean }
-    | { kind: "draw"; shape: "rect" | "ellipse"; start: Vec2; cur: Vec2 }
+    | { kind: "draw"; shape: ShapeTool; start: Vec2; cur: Vec2; targets: Targets }
+    | { kind: "line"; start: Vec2; cur: Vec2; targets: Targets }
+    | { kind: "pen"; pts: Vec2[] }
+    | { kind: "guide"; axis: "v" | "h"; i: number; targets: Targets }
     | { kind: "brush"; id: string }
     | { kind: "persp"; i: number }
     | { kind: "nodes"; start: Vec2; orig: Map<NodeKey, PNode>; moved: boolean }
     | { kind: "nodeh"; k: NodeKey; side: "cin" | "cout"; moved: boolean }
     | { kind: "nodeMarquee"; start: Vec2; cur: Vec2; additive: boolean };
 
+  type Targets = { xs: number[]; ys: number[] };
+
   let svg: SVGSVGElement;
   let drag = $state<Drag | null>(null);
   let spaceDown = $state(false);
+  /** Snap lines shown while dragging (mm), null = none. */
+  let snapLine = $state<{ x: number | null; y: number | null }>({ x: null, y: null });
+
+  const SHAPE_TOOLS: ShapeTool[] = ["rect", "ellipse", "polygon", "star", "heart"];
+  const isShapeTool = (t: string): t is ShapeTool => (SHAPE_TOOLS as string[]).includes(t);
 
   const z = $derived(editor.view.zoom);
   const px = (n: number) => n / z; // screen px → mm
@@ -38,6 +49,56 @@
     return `${boxTransform(o)} scale(${o.w / (bw || 1)} ${o.h / (bh || 1)}) translate(${-bx} ${-by})`;
   }
 
+  // ---------- snapping ----------
+
+  const SNAP_PX = 6;
+
+  /** Edges and centres of the mat, guides and other objects. */
+  function snapTargets(exclude: Set<string> = new Set()): Targets {
+    const xs = [0, editor.mat.w / 2, editor.mat.w, ...editor.guides.v];
+    const ys = [0, editor.mat.h / 2, editor.mat.h, ...editor.guides.h];
+    const r = editor.regmarks;
+    if (r) {
+      xs.push(r.originX, r.originX + r.width);
+      ys.push(r.originY, r.originY + r.length);
+    }
+    for (const o of editor.objects) {
+      if (!o.visible || exclude.has(o.id)) continue;
+      const b = aabb([o])!;
+      xs.push(b.x0, (b.x0 + b.x1) / 2, b.x1);
+      ys.push(b.y0, (b.y0 + b.y1) / 2, b.y1);
+    }
+    return { xs, ys };
+  }
+
+  /** Smallest correction that puts one of `cands` onto a target, within SNAP_PX. */
+  function snapAxis(cands: number[], targets: number[]): { d: number; at: number } | null {
+    let best: { d: number; at: number } | null = null;
+    const tol = SNAP_PX / z;
+    for (const c of cands)
+      for (const t of targets) {
+        const d = t - c;
+        if (Math.abs(d) <= tol && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, at: t };
+      }
+    return best;
+  }
+
+  /** Snaps a point (drawing tools); Alt turns snapping off. */
+  function snapPoint(p: Vec2, t: Targets, e: { altKey: boolean }): Vec2 {
+    if (!editor.snap || e.altKey) {
+      snapLine = { x: null, y: null };
+      return p;
+    }
+    const sx = snapAxis([p.x], t.xs), sy = snapAxis([p.y], t.ys);
+    snapLine = { x: sx?.at ?? null, y: sy?.at ?? null };
+    return { x: p.x + (sx?.d ?? 0), y: p.y + (sy?.d ?? 0) };
+  }
+
+  function guidesChanged() {
+    editor.dirty = true;
+    editor.rev++;
+  }
+
   // ---------- pointer handling ----------
 
   function onPointerDown(e: PointerEvent) {
@@ -50,6 +111,25 @@
       return;
     }
     if (e.button !== 0) return;
+
+    // Guides: drag a new one out of a ruler, or move an existing one.
+    const ruler = target.closest("[data-ruler]")?.getAttribute("data-ruler") as "v" | "h" | null | undefined;
+    const guide = target.closest("[data-guide]")?.getAttribute("data-guide");
+    if (ruler || guide) {
+      let axis: "v" | "h", i: number;
+      if (guide) {
+        const [a, n] = guide.split(":");
+        axis = a as "v" | "h";
+        i = Number(n);
+      } else {
+        axis = ruler!;
+        const list = editor.guides[axis];
+        list.push(axis === "v" ? p.x : p.y);
+        i = list.length - 1;
+      }
+      drag = { kind: "guide", axis, i, targets: snapTargets() };
+      return;
+    }
 
     // Node editing: nodes, handles, or a marquee to select nodes.
     if (nodes.objId) {
@@ -110,8 +190,20 @@
       return;
     }
 
-    if (editor.tool === "rect" || editor.tool === "ellipse") {
-      drag = { kind: "draw", shape: editor.tool, start: p, cur: p };
+    if (isShapeTool(editor.tool)) {
+      const targets = snapTargets();
+      const q = snapPoint(p, targets, e);
+      drag = { kind: "draw", shape: editor.tool, start: q, cur: q, targets };
+      return;
+    }
+    if (editor.tool === "line") {
+      const targets = snapTargets();
+      const q = snapPoint(p, targets, e);
+      drag = { kind: "line", start: q, cur: q, targets };
+      return;
+    }
+    if (editor.tool === "pen") {
+      drag = { kind: "pen", pts: [p] };
       return;
     }
 
@@ -145,8 +237,9 @@
       } else if (!editor.selection.includes(obj.id)) {
         editor.selection = unit;
       }
-      const orig = new Map(editor.selected.filter((o) => !o.locked).map((o) => [o.id, { x: o.x, y: o.y }]));
-      drag = { kind: "move", start: p, orig, moved: false, axisLock: false };
+      const movable = editor.selected.filter((o) => !o.locked);
+      const orig = new Map(movable.map((o) => [o.id, { x: o.x, y: o.y }]));
+      drag = { kind: "move", start: p, orig, moved: false, axisLock: false, box0: aabb(movable), targets: snapTargets(new Set(orig.keys())) };
       return;
     }
 
@@ -173,6 +266,15 @@
           drag.moved = true;
         }
         if (e.shiftKey) Math.abs(dx) > Math.abs(dy) ? (dy = 0) : (dx = 0);
+        snapLine = { x: null, y: null };
+        if (editor.snap && !e.altKey && drag.box0) {
+          const b = drag.box0;
+          const sx = e.shiftKey && dx === 0 ? null : snapAxis([b.x0 + dx, (b.x0 + b.x1) / 2 + dx, b.x1 + dx], drag.targets.xs);
+          const sy = e.shiftKey && dy === 0 ? null : snapAxis([b.y0 + dy, (b.y0 + b.y1) / 2 + dy, b.y1 + dy], drag.targets.ys);
+          if (sx) dx += sx.d;
+          if (sy) dy += sy.d;
+          snapLine = { x: sx?.at ?? null, y: sy?.at ?? null };
+        }
         for (const o of editor.selected) {
           const s = drag.orig.get(o.id);
           if (s) {
@@ -226,9 +328,42 @@
       }
 
       case "marquee":
-      case "draw":
         drag.cur = p;
         break;
+
+      case "draw":
+        drag.cur = snapPoint(p, drag.targets, e);
+        break;
+
+      case "line": {
+        let q = p;
+        if (e.shiftKey) {
+          // Angles in 15° steps.
+          const a = Math.round(Math.atan2(p.y - drag.start.y, p.x - drag.start.x) / (Math.PI / 12)) * (Math.PI / 12);
+          const len = Math.hypot(p.x - drag.start.x, p.y - drag.start.y);
+          q = { x: drag.start.x + Math.cos(a) * len, y: drag.start.y + Math.sin(a) * len };
+          snapLine = { x: null, y: null };
+        } else {
+          q = snapPoint(p, drag.targets, e);
+        }
+        drag.cur = q;
+        break;
+      }
+
+      case "pen": {
+        const last = drag.pts[drag.pts.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) > px(1.5)) drag.pts.push(p);
+        break;
+      }
+
+      case "guide": {
+        const list = editor.guides[drag.axis];
+        let v = drag.axis === "v" ? p.x : p.y;
+        const s = editor.snap && !e.altKey ? snapAxis([v], drag.axis === "v" ? drag.targets.xs : drag.targets.ys) : null;
+        if (s) v = s.at;
+        list[drag.i] = Math.round(v * 100) / 100;
+        break;
+      }
 
       case "nodes": {
         const q = nodes.fromWorld(p);
@@ -287,7 +422,30 @@
 
   function onPointerUp(e: PointerEvent) {
     svg.releasePointerCapture(e.pointerId);
-    if (drag?.kind === "nodeMarquee") {
+    snapLine = { x: null, y: null };
+    if (drag?.kind === "guide") {
+      // Dropped back onto the ruler: remove it.
+      const r = svg.getBoundingClientRect();
+      const onRuler = drag.axis === "v" ? e.clientX - r.left < RULER : e.clientY - r.top < RULER;
+      if (onRuler) editor.guides[drag.axis].splice(drag.i, 1);
+      guidesChanged();
+    } else if (drag?.kind === "scale" && drag.moved) {
+      const o = editor.byId(drag.id);
+      if (o?.type === "path") refreshShape(o);
+    } else if (drag?.kind === "line") {
+      if (Math.hypot(drag.cur.x - drag.start.x, drag.cur.y - drag.start.y) * z > 3) {
+        editor.add([makeLine(drag.start, drag.cur)]);
+        editor.tool = "select";
+      }
+    } else if (drag?.kind === "pen") {
+      const pts = drag.pts;
+      if (pts.length > 2) {
+        const first = pts[0], last = pts[pts.length - 1];
+        const close = pts.length > 8 && Math.hypot(first.x - last.x, first.y - last.y) < px(12);
+        const o = makeFreehand(pts, close, Math.max(0.1, px(1.2)));
+        if (o) editor.add([o]);
+      }
+    } else if (drag?.kind === "nodeMarquee") {
       const x0 = Math.min(drag.start.x, drag.cur.x), x1 = Math.max(drag.start.x, drag.cur.x);
       const y0 = Math.min(drag.start.y, drag.cur.y), y1 = Math.max(drag.start.y, drag.cur.y);
       if ((x1 - x0) * z > 3 || (y1 - y0) * z > 3) {
@@ -320,22 +478,78 @@
         editor.selection = drag.additive ? [...new Set([...editor.selection, ...unit])] : unit;
       }
     } else if (drag?.kind === "draw") {
-      const x = Math.min(drag.start.x, drag.cur.x), y = Math.min(drag.start.y, drag.cur.y);
-      let w = Math.abs(drag.cur.x - drag.start.x), h = Math.abs(drag.cur.y - drag.start.y);
-      if (e.shiftKey) w = h = Math.max(w, h);
-      if (w > 1 && h > 1) {
-        const ell = drag.shape === "ellipse";
-        const obj: PathObj = {
-          id: uid(), type: "path", name: ell ? "Ellipse" : "Rechteck",
-          d: ell ? ellipsePath(w, h) : rectPath(w, h), bbox: [0, 0, w, h],
-          color: "#e5484d", fill: false, x, y, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
-        };
-        editor.add([obj]);
+      const b = drawBox(drag, e.shiftKey);
+      if (b.w > 1 && b.h > 1) {
+        editor.add([makeShape(defaultSpec(drag.shape), b.x, b.y, b.w, b.h)]);
         editor.tool = "select";
       }
     }
     drag = null;
   }
+
+  /** Box of a shape being drawn; Shift keeps the shape undistorted. */
+  function drawBox(d: { shape: ShapeTool; start: Vec2; cur: Vec2 }, keep: boolean) {
+    let w = Math.abs(d.cur.x - d.start.x), h = Math.abs(d.cur.y - d.start.y);
+    if (keep) {
+      const a = naturalAspect(defaultSpec(d.shape));
+      if (h > w * a) w = h / a;
+      else h = w * a;
+    }
+    const x = d.cur.x < d.start.x ? d.start.x - w : d.start.x;
+    const y = d.cur.y < d.start.y ? d.start.y - h : d.start.y;
+    return { x, y, w, h };
+  }
+  let shiftDown = $state(false);
+
+  /** Right-click on a guide removes it. */
+  function onContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const g = t?.closest("[data-guide]")?.getAttribute("data-guide");
+    if (!g) return;
+    const [axis, i] = g.split(":");
+    editor.guides[axis as "v" | "h"].splice(Number(i), 1);
+    guidesChanged();
+  }
+
+  // ---------- dimensions on the canvas ----------
+
+  let dimEdit = $state<"w" | "h" | null>(null);
+  let dimValue = $state("");
+
+  function startDimEdit(key: "w" | "h") {
+    const o = single;
+    if (!o || o.locked) return;
+    dimEdit = key;
+    dimValue = fmt(o[key], 2);
+  }
+
+  function commitDim() {
+    const o = single;
+    const key = dimEdit;
+    dimEdit = null;
+    if (!o || !key) return;
+    const v = parseFloat(dimValue.replace(",", "."));
+    if (Number.isFinite(v) && v > 0 && Math.abs(v - o[key]) > 1e-6) editor.setSize(o, key, v);
+  }
+
+  /** Box (mm) the size labels belong to. */
+  const dims = $derived.by(() => {
+    if (drag?.kind === "draw") return { ...drawBox(drag, shiftDown), editable: false };
+    if (drag?.kind === "line") {
+      const len = Math.hypot(drag.cur.x - drag.start.x, drag.cur.y - drag.start.y);
+      return { x: Math.min(drag.start.x, drag.cur.x), y: Math.min(drag.start.y, drag.cur.y), w: Math.abs(drag.cur.x - drag.start.x), h: Math.abs(drag.cur.y - drag.start.y), len, editable: false };
+    }
+    if (!single) return null;
+    if (single.rot % 360 === 0) return { x: single.x, y: single.y, w: single.w, h: single.h, editable: !single.locked };
+    const b = aabb([single])!;
+    return { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0, sw: single.w, sh: single.h, editable: !single.locked };
+  });
+  $effect(() => {
+    // Selection changed: drop an unfinished edit.
+    void single?.id;
+    dimEdit = null;
+  });
 
   /** Double-click: path → node editing; in node editing, on the outline →
    *  insert a node, elsewhere → done. */
@@ -382,6 +596,7 @@
   }
 
   function onKey(e: KeyboardEvent, down: boolean) {
+    shiftDown = e.shiftKey;
     const t = e.target;
     const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
     if (e.code === "Space" && !typing) {
@@ -418,7 +633,7 @@
       : editor.picking ? "crosshair"
       : perspective.objId ? "default"
       : brush.mode && brushTarget ? "crosshair"
-      : editor.tool === "rect" || editor.tool === "ellipse" ? "crosshair"
+      : isShapeTool(editor.tool) || editor.tool === "line" || editor.tool === "pen" ? "crosshair"
       : editor.tool === "text" ? "text"
       : "default",
   );
@@ -457,7 +672,7 @@
     onpointerleave={() => (editor.cursor = null)}
     onwheel={onWheel}
     ondblclick={onDblClick}
-    oncontextmenu={(e) => e.preventDefault()}
+    oncontextmenu={onContextMenu}
   >
     <defs>
       <pattern id="grid-minor" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -530,6 +745,24 @@
           <path d={regBracketPath(r)} fill="none" stroke="#000" stroke-width="0.5" stroke-linejoin="miter" />
         </g>
       {/if}
+
+      <!-- Guides -->
+      {#each ["v", "h"] as const as axis}
+        {#each editor.guides[axis] as g, i}
+          {@const x0 = -editor.view.panX / z}
+          {@const y0 = -editor.view.panY / z}
+          {@const x1 = (editor.viewport.w - editor.view.panX) / z}
+          {@const y1 = (editor.viewport.h - editor.view.panY) / z}
+          {@const active = drag?.kind === "guide" && drag.axis === axis && drag.i === i}
+          {#if axis === "v"}
+            <line x1={g} y1={y0} x2={g} y2={y1} class="guide" class:active stroke-width={px(1)} pointer-events="none" />
+            <line data-guide="v:{i}" x1={g} y1={y0} x2={g} y2={y1} stroke="transparent" stroke-width={px(7)} style:cursor="col-resize" />
+          {:else}
+            <line x1={x0} y1={g} x2={x1} y2={g} class="guide" class:active stroke-width={px(1)} pointer-events="none" />
+            <line data-guide="h:{i}" x1={x0} y1={g} x2={x1} y2={g} stroke="transparent" stroke-width={px(7)} style:cursor="row-resize" />
+          {/if}
+        {/each}
+      {/each}
 
       <!-- Live trace preview -->
       {#if editor.tracePreview && previewObj?.type === "image" && !perspective.objId}
@@ -656,18 +889,27 @@
       {/if}
 
       <!-- Marquee / drawing preview -->
-      {#if drag?.kind === "marquee" || drag?.kind === "draw"}
+      {#if drag?.kind === "marquee"}
         {@const x = Math.min(drag.start.x, drag.cur.x)}
         {@const y = Math.min(drag.start.y, drag.cur.y)}
-        {@const w = Math.abs(drag.cur.x - drag.start.x)}
-        {@const h = Math.abs(drag.cur.y - drag.start.y)}
-        {#if drag.kind === "marquee"}
-          <rect {x} {y} width={w} height={h} fill="var(--accent-soft)" stroke="var(--accent)" stroke-width={px(1)} pointer-events="none" />
-        {:else if drag.shape === "rect"}
-          <rect {x} {y} width={w} height={h} fill="none" stroke="var(--cut)" stroke-width={px(1.4)} pointer-events="none" />
-        {:else}
-          <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} fill="none" stroke="var(--cut)" stroke-width={px(1.4)} pointer-events="none" />
+        <rect {x} {y} width={Math.abs(drag.cur.x - drag.start.x)} height={Math.abs(drag.cur.y - drag.start.y)} fill="var(--accent-soft)" stroke="var(--accent)" stroke-width={px(1)} pointer-events="none" />
+      {:else if drag?.kind === "draw"}
+        {@const b = drawBox(drag, shiftDown)}
+        {#if b.w > 0.01 && b.h > 0.01}
+          <path d={shapePath(defaultSpec(drag.shape), b.w, b.h)} transform="translate({b.x} {b.y})" fill="none" stroke="var(--cut)" stroke-width={px(1.4)} pointer-events="none" />
         {/if}
+      {:else if drag?.kind === "line"}
+        <line x1={drag.start.x} y1={drag.start.y} x2={drag.cur.x} y2={drag.cur.y} stroke="var(--cut)" stroke-width={px(1.4)} pointer-events="none" />
+      {:else if drag?.kind === "pen"}
+        <polyline points={drag.pts.map((q) => `${q.x},${q.y}`).join(" ")} fill="none" stroke="var(--cut)" stroke-width={px(1.4)} stroke-linejoin="round" stroke-linecap="round" pointer-events="none" />
+      {/if}
+
+      <!-- Snap indicators -->
+      {#if snapLine.x !== null}
+        <line x1={snapLine.x} y1={-editor.view.panY / z} x2={snapLine.x} y2={(editor.viewport.h - editor.view.panY) / z} class="snap" stroke-width={px(1)} pointer-events="none" />
+      {/if}
+      {#if snapLine.y !== null}
+        <line x1={-editor.view.panX / z} y1={snapLine.y} x2={(editor.viewport.w - editor.view.panX) / z} y2={snapLine.y} class="snap" stroke-width={px(1)} pointer-events="none" />
       {/if}
     </g>
 
@@ -700,7 +942,45 @@
       <rect x="0" y="0" width={RULER} height={RULER} fill="var(--ruler)" />
       <text x="4" y="14" class="unit">mm</text>
     </g>
+    <!-- Drag a guide out of a ruler -->
+    <rect data-ruler="h" x={RULER} y="0" width={Math.max(0, editor.viewport.w - RULER)} height={RULER} fill="transparent" style:cursor="row-resize">
+      <title>Ziehen für eine Hilfslinie</title>
+    </rect>
+    <rect data-ruler="v" x="0" y={RULER} width={RULER} height={Math.max(0, editor.viewport.h - RULER)} fill="transparent" style:cursor="col-resize">
+      <title>Ziehen für eine Hilfslinie</title>
+    </rect>
   </svg>
+
+  {#if dims && !perspective.objId && !nodes.objId}
+    {@const sx = editor.view.panX + dims.x * z}
+    {@const sy = editor.view.panY + dims.y * z}
+    {#if "len" in dims && dims.len !== undefined}
+      <div class="dim" style:left="{sx + (dims.w * z) / 2}px" style:top="{sy + dims.h * z + 10}px">{fmt(dims.len, 1)} mm</div>
+    {:else}
+      {@const wv = "sw" in dims && dims.sw !== undefined ? dims.sw : dims.w}
+      {@const hv = "sh" in dims && dims.sh !== undefined ? dims.sh : dims.h}
+      <div class="dim" class:edit={dims.editable} style:left="{sx + (dims.w * z) / 2}px" style:top="{sy + dims.h * z + 10}px">
+        {#if dimEdit === "w"}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input bind:value={dimValue} autofocus onkeydown={(e) => { if (e.key === "Enter") commitDim(); else if (e.key === "Escape") dimEdit = null; e.stopPropagation(); }} onblur={commitDim} />
+        {:else if dims.editable}
+          <button title="Breite eingeben" onclick={() => startDimEdit("w")}>{fmt(wv, 1)} mm</button>
+        {:else}
+          {fmt(wv, 1)} mm
+        {/if}
+      </div>
+      <div class="dim vert" class:edit={dims.editable} style:left="{sx + dims.w * z + 10}px" style:top="{sy + (dims.h * z) / 2}px">
+        {#if dimEdit === "h"}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input bind:value={dimValue} autofocus onkeydown={(e) => { if (e.key === "Enter") commitDim(); else if (e.key === "Escape") dimEdit = null; e.stopPropagation(); }} onblur={commitDim} />
+        {:else if dims.editable}
+          <button title="Höhe eingeben" onclick={() => startDimEdit("h")}>{fmt(hv, 1)} mm</button>
+        {:else}
+          {fmt(hv, 1)} mm
+        {/if}
+      </div>
+    {/if}
+  {/if}
 
   {#if editor.picking}
     <div class="hint">Klicke auf eine Farbe im Bild · <kbd>Esc</kbd> zum Abbrechen</div>
@@ -754,5 +1034,60 @@
     padding: 0 4px;
     border: 1px solid var(--border);
     border-radius: 4px;
+  }
+  .guide {
+    stroke: #0ea5e9;
+    opacity: 0.85;
+  }
+  .guide.active {
+    stroke-dasharray: none;
+    opacity: 1;
+  }
+  .snap {
+    stroke: #f43f5e;
+    stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .dim {
+    position: absolute;
+    transform: translateX(-50%);
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    color: var(--text-2);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .dim.vert {
+    transform: translateY(-50%);
+  }
+  .dim.edit {
+    pointer-events: auto;
+    padding: 0;
+  }
+  .dim button {
+    border: 0;
+    background: none;
+    padding: 1px 6px;
+    font: inherit;
+    color: inherit;
+    cursor: text;
+  }
+  .dim button:hover {
+    color: var(--accent);
+  }
+  .dim input {
+    width: 64px;
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--panel);
+    font: inherit;
+    text-align: right;
+    outline: none;
   }
 </style>

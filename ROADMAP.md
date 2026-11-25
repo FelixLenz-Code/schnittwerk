@@ -68,3 +68,14 @@
 - ✅ MCP-Schnittstelle (`schnittwerk-mcp`): Bilder tracen, Sticker-Bögen als Projekt anlegen,
   Schnitt-Vorschau und Schneiden nur mit Bestätigung; im .deb enthalten
 
+## Etappe 7 – Komfort
+- ✅ Assistent für neue Projekte: Projektart (Sticker, Vinyl, Flexfolie, Papier, Stift, großes Motiv),
+  Material, Matte oder Rolle, Druckseite, Sticker-Art, Vorlage; beim Start mit „Zuletzt geöffnet“
+- ✅ Automatisches Speichern (Sicherheitskopie alle 20 s) und Wiederherstellen nach einem Absturz
+- ✅ Hilfslinien aus den Linealen, Einrasten an Hilfslinien, Matte und Objekten
+- ✅ Maße direkt am Objekt, per Klick editierbar
+- ✅ Formen: abgerundetes Rechteck, Vieleck, Stern, Herz, Linie, Freihand – Parameter bleiben änderbar
+- ✅ Text auf einem Bogen oder entlang eines beliebigen Pfads
+- ✅ Pfad vereinfachen
+- ✅ Große Motive in Kacheln schneiden, Schneiden ohne Matte von der Rolle (mit Vorschub am Ende)
+- ✅ Messerverschleiß-Zähler

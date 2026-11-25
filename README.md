@@ -44,14 +44,22 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 ## Funktionen
 
 ### Arbeitsfläche
-- Matten für Portrait 3 (8″ × 12″), A4 und Letter mit Raster und Linealen
+- Assistent für neue Projekte: Sticker, Vinyl, Flexfolie, Papier & Karton, Stift oder großes Motiv –
+  wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte
+- Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
+- Matten für Portrait 3 (8″ × 12″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
+  für große Motive – mit Raster und Linealen
+- Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
+- Maße direkt am Objekt anzeigen und per Klick eingeben
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
 - Ausrichten, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
 - Rückgängig/Wiederholen, helles und dunkles Design (folgt dem System)
-- Rechteck, Ellipse und Text mit Systemschriften (fett/kursiv, Abstand, mehrzeilig, Verschweißen)
+- Formen: Rechteck (mit Eckenradius), Ellipse, Vieleck, Stern, Herz, Linie, Freihand
+- Text mit Systemschriften (fett/kursiv, Abstand, mehrzeilig, Verschweißen), auf einem Bogen oder entlang eines Pfads
 - Boolesche Operationen: Vereinen, Abziehen, Schnittmenge, Ausschließen
 - Knotenbearbeitung: Knoten und Griffe ziehen, einfügen, löschen, Ecke/Glatt, Gerade/Kurve
+- Pfad vereinfachen: weniger Knoten bei gleicher Form
 - Konturversatz nach innen oder außen
 - Vorlagen: Sticker/Etiketten, Klappkarte, Lesezeichen, Geschenkanhänger
 
@@ -77,6 +85,9 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 - Vorschau der Schnittreihenfolge, Fortschritt, Pause und Abbrechen
 - Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
 - Testschnitt, Stiftmodus, Spiegeln für Flexfolie
+- Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)
+- Schneiden ohne Matte von der Rolle; Folie wird am Ende hinter das Motiv geschoben
+- Messerverschleiß-Zähler mit Erinnerung nach einstellbarer Schnittstrecke
 - Entgitterungshilfen: Rahmen und Linien durch den Abfall
 - Nesting: Formen platzsparend verschachteln und drehen
 
@@ -138,13 +149,17 @@ Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `
 
 | Taste | Funktion |
 |---|---|
-| `V` / `H` / `R` / `E` / `T` | Auswahl / Ansicht verschieben / Rechteck / Ellipse / Text |
+| `V` / `H` / `T` | Auswahl / Ansicht verschieben / Text |
+| `R` / `E` / `P` / `S` / `L` / `F` | Rechteck / Ellipse / Vieleck / Stern / Linie / Freihand (Shift = unverzerrt bzw. 15°) |
+| `Alt` beim Ziehen | Einrasten kurz ausschalten |
+| Lineal ziehen / Rechtsklick auf Hilfslinie | Hilfslinie anlegen / löschen (oder zurück aufs Lineal ziehen) |
 | `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
 | Mausrad | Zoom (Shift = horizontal scrollen) |
 | `Strg+0` | Matte einpassen |
 | `Strg+I` / `Strg+E` | Importieren / SVG exportieren |
 | `Strg+Enter` / `Strg+P` | Schneiden-Dialog / Drucken |
 | `Strg+G` / `Strg+Shift+G` | Gruppieren / Gruppierung lösen |
+| `Strg+N` / `Strg+Shift+N` | Neues Projekt (Assistent) / Neu aus Vorlage |
 | `Strg+S` / `Strg+Shift+S` / `Strg+O` | Speichern / Speichern unter / Öffnen |
 | `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
 | `Strg+D` / `Entf` | Duplizieren / Löschen |
@@ -190,7 +205,9 @@ crates/schnittwerk-core/   Rust-Bibliothek ohne GUI
   src/trace.rs             Tracing-Pipeline (Masken → Konturen → Bézier)
   src/preprocess.rs        Helligkeit/Kontrast, Otsu, Farbmasken, k-means
   src/svg_import.rs        SVG → ein zusammengesetzter Pfad in mm
-  src/cut.rs               Pfade → Schnittreihenfolge, Überschnitt, Durchgänge
+  src/cut.rs               Pfade → Schnittreihenfolge, Überschnitt, Durchgänge, Kachel-Zuschnitt
+  src/simplify.rs          Pfade vereinfachen (Ecken behalten, Kurven neu anpassen)
+  src/text.rs              Text → Konturen, auch entlang eines Pfads
   src/gpgl.rs              GPGL-Befehle (Silhouette/Graphtec-Protokoll), Passermarken
   src/offset.rs            Distanztransformation, Konturversatz (Bilder + Vektoren)
   src/sticker.rs           Sticker-Kontur: Motiv freistellen, Rand, Löcher füllen
@@ -201,7 +218,8 @@ crates/schnittwerk-cli/    Kommandozeile (tracen, schneiden)
 src-tauri/                 Tauri-Backend (Befehle, Bildspeicher, Schneide-Thread, PDF/Druck)
 src/                       Oberfläche
   lib/editor.svelte.ts     Dokument-Zustand, Auswahl, Undo/Redo
-  lib/io.svelte.ts         Import, Projektdateien (.schnitt), SVG-Export
+  lib/io.svelte.ts         Import, Projektdateien (.schnitt), Autosave, zuletzt geöffnet, SVG-Export
+  lib/shapes.ts            Formen (Vieleck, Stern, Herz, Freihand …)
   lib/components/          Canvas, Trace-Panel, Eigenschaften, Ebenen …
 ```
 

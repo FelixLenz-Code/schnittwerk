@@ -212,7 +212,18 @@ pub fn plot_commands(strokes: &[Vec<Point>], area_w: f64, area_h: f64) -> (Vec<S
 
 /// Return the head to the start and release the carriage (media stays loaded).
 pub fn trailer_commands() -> Vec<String> {
-    ["L0", "\\0,0", "M0,0", "J0", "FN0", "TB50,0"].iter().map(|s| s.to_string()).collect()
+    trailer_commands_feed(None)
+}
+
+/// Like [`trailer_commands`], but with `feed` (mm) the media is pushed out
+/// to that position instead – for roll media without a mat, so the cut
+/// part can be cut off behind the design.
+pub fn trailer_commands_feed(feed: Option<f64>) -> Vec<String> {
+    let end = match feed {
+        Some(y) if y > 0.0 => format!("M{},0", su(y)),
+        _ => "M0,0".into(),
+    };
+    vec!["L0".into(), "\\0,0".into(), end, "J0".into(), "FN0".into(), "TB50,0".into()]
 }
 
 /// Silhouette "type 1" registration marks (print & cut): a filled 5 mm
@@ -360,6 +371,12 @@ mod tests {
         // Media set-up only once.
         assert_eq!(job.setup.iter().filter(|c| c.starts_with("TG")).count(), 1);
         assert!(!job.passes[1].tool.iter().any(|c| c.starts_with("FN") || c.starts_with("TG")));
+    }
+
+    #[test]
+    fn roll_feed_moves_past_the_design() {
+        assert_eq!(trailer_commands_feed(Some(120.0))[2], "M2400,0");
+        assert_eq!(trailer_commands_feed(None), trailer_commands());
     }
 
     #[test]

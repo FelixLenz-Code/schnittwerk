@@ -42,7 +42,16 @@ export interface PathObj extends BaseObj {
   cut?: boolean;
   /** Present on text objects: the outlines are regenerated from it. */
   text?: TextSpec;
+  /** Present on drawn shapes: the path is regenerated from it (e.g. corner radius). */
+  shape?: ShapeSpec;
 }
+
+export type ShapeSpec =
+  | { kind: "rect"; radius: number }
+  | { kind: "ellipse" }
+  | { kind: "polygon"; sides: number }
+  | { kind: "star"; points: number; inner: number }
+  | { kind: "heart" };
 
 export type Obj = ImageObj | PathObj;
 
@@ -53,7 +62,8 @@ export interface ImageAsset {
   pxH: number;
 }
 
-export type Tool = "select" | "pan" | "rect" | "ellipse" | "text";
+export type ShapeTool = "rect" | "ellipse" | "polygon" | "star" | "heart";
+export type Tool = "select" | "pan" | ShapeTool | "line" | "pen" | "text";
 
 // ---- backend payloads ----
 
@@ -127,6 +137,8 @@ export interface PathOptions {
   overcut: number;
   passes: number;
   optimize: boolean;
+  /** Only cut inside [x, y, w, h] (tiles of large designs). */
+  clip?: [number, number, number, number] | null;
 }
 
 export interface PathInput {
@@ -193,6 +205,12 @@ export interface TextSpec {
   align: "start" | "middle" | "end";
   /** Merge overlapping letters into one outline (script fonts). */
   weld: boolean;
+  /** Text along a path (SVG path data in mm); set from `curve` or a picked path. */
+  path?: string | null;
+  /** Shift along the path in % of its length. */
+  pathOffset?: number;
+  /** How `path` was made: arc over / under a circle, or a path of the design. */
+  curve?: { kind: "arcTop" | "arcBottom"; radius: number } | { kind: "custom" } | null;
 }
 
 export interface BleDevice {

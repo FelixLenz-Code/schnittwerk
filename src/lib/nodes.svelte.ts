@@ -52,6 +52,11 @@ class NodeEditor {
       delete o.text;
       editor.toast("Text wird beim Bearbeiten der Knoten zur Form.");
     }
+    if (o.shape) {
+      // Same for shapes: the nodes are edited directly from now on.
+      editor.checkpoint();
+      delete o.shape;
+    }
     editor.selection = [o.id];
     this.#lastD = o.d;
     this.subs = subs;

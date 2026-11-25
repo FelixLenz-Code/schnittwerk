@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { api, inApp } from "./api";
-import { editor } from "./editor.svelte";
+import { editor, matKindOf, type Mat } from "./editor.svelte";
 import type { MatKind, PathInput, PathObj, PlotterStatus } from "./types";
 
 type Phase = "idle" | "cutting" | "paused" | "cancelling";
@@ -22,9 +22,34 @@ export function pathMatrix(o: PathObj, mirrorWidth: number | null, shift?: { dx:
   return [m.a, m.b, m.c, m.d, m.e, m.f];
 }
 
-export function matKindFor(name: string): MatKind {
-  if (name.startsWith("Portrait 3")) return "portrait8x12";
+/** Cutting-mat setting the device gets for a work area. */
+export function matKindFor(m: Mat): MatKind {
+  const k = matKindOf(m);
+  // Large designs are cut tile by tile on the mat.
+  if (k === "mat" || (k === "custom" && !m.roll)) return "portrait8x12";
   return "none";
+}
+
+const BLADE_KEY = "schnittwerk.blade";
+
+/** Cut distance of the current blade (wear counter). */
+export interface BladeLife {
+  /** Millimetres cut with the blade since it was changed. */
+  mm: number;
+  /** Number of cut jobs. */
+  jobs: number;
+  /** When the blade was put in (ISO date). */
+  since: string;
+  /** Show a reminder after this many metres. */
+  limitM: number;
+}
+
+function loadBlade(): BladeLife {
+  try {
+    const b = JSON.parse(localStorage.getItem(BLADE_KEY) ?? "null");
+    if (b && Number.isFinite(b.mm)) return { mm: b.mm, jobs: b.jobs ?? 0, since: b.since ?? new Date().toISOString(), limitM: b.limitM ?? 150 };
+  } catch {}
+  return { mm: 0, jobs: 0, since: new Date().toISOString(), limitM: 150 };
 }
 
 const CALIB_KEY = "schnittwerk.calibration";
@@ -70,6 +95,27 @@ class PlotterStore {
     try {
       localStorage.removeItem(BLE_KEY);
     } catch {}
+  }
+
+  /** Blade wear counter. */
+  blade = $state<BladeLife>(loadBlade());
+  /** Blade cut length (mm) of the running job, counted when it ends. */
+  #jobBladeMm = 0;
+
+  saveBlade() {
+    try {
+      localStorage.setItem(BLADE_KEY, JSON.stringify(this.blade));
+    } catch {}
+  }
+
+  /** A new blade was put in. */
+  resetBlade() {
+    this.blade = { mm: 0, jobs: 0, since: new Date().toISOString(), limitM: this.blade.limitM };
+    this.saveBlade();
+  }
+
+  get bladeWorn() {
+    return this.blade.mm / 1000 >= this.blade.limitM;
   }
 
   /** Print & cut fine adjustment (mm), added to every cut coordinate. */
@@ -119,6 +165,16 @@ class PlotterStore {
       this.progress = e.payload;
     });
     listen<{ status: string; message: string | null }>("cut-finished", (e) => {
+      // Blade wear: the whole job when done, otherwise the part sent so far.
+      const share = e.payload.status === "done" ? 1 : this.progress.total ? this.progress.done / this.progress.total : 0;
+      if (this.#jobBladeMm > 0 && share > 0) {
+        const wasWorn = this.bladeWorn;
+        this.blade.mm += this.#jobBladeMm * share;
+        this.blade.jobs += 1;
+        this.saveBlade();
+        if (!wasWorn && this.bladeWorn) editor.toast(`Das Messer hat ${Math.round(this.blade.mm / 1000)} m geschnitten – Zeit zum Prüfen oder Wechseln.`, "error");
+      }
+      this.#jobBladeMm = 0;
       this.phase = "idle";
       this.registering = false;
       this.lastResult = e.payload;
@@ -174,7 +230,9 @@ class PlotterStore {
     await api.cutCancel();
   }
 
-  begin(job: { color: string; name: string }[] = []) {
+  /** `bladeMm` = length cut with the blade in this job (wear counter). */
+  begin(job: { color: string; name: string }[] = [], bladeMm = 0) {
+    this.#jobBladeMm = bladeMm;
     this.job = job;
     this.phase = "cutting";
     this.progress = { done: 0, total: 0 };

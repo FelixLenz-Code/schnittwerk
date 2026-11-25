@@ -51,11 +51,15 @@ pub struct PathOptions {
     pub passes: u8,
     /// Optimize the order (otherwise: document order).
     pub optimize: bool,
+    /// Only cut what lies inside `[x, y, w, h]` (mm, after the matrix) –
+    /// one tile of a design that is larger than the mat.
+    #[serde(default)]
+    pub clip: Option<[f64; 4]>,
 }
 
 impl Default for PathOptions {
     fn default() -> Self {
-        Self { overcut: 0.3, passes: 1, optimize: true }
+        Self { overcut: 0.3, passes: 1, optimize: true, clip: None }
     }
 }
 
@@ -114,6 +118,85 @@ fn point_in_polygon(p: Point, poly: &[Point]) -> bool {
         j = i;
     }
     inside
+}
+
+fn inside(p: Point, r: Rect) -> bool {
+    p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1
+}
+
+/// Liang–Barsky: the part of segment a→b inside `r`, and whether the start
+/// / end had to be moved (the segment enters / leaves the rectangle).
+fn clip_segment(a: Point, b: Point, r: Rect) -> Option<(Point, Point, bool, bool)> {
+    let d = b - a;
+    let (mut t0, mut t1) = (0.0f64, 1.0f64);
+    for (p, q) in [(-d.x, a.x - r.x0), (d.x, r.x1 - a.x), (-d.y, a.y - r.y0), (d.y, r.y1 - a.y)] {
+        if p.abs() < 1e-12 {
+            if q < 0.0 {
+                return None;
+            }
+        } else {
+            let t = q / p;
+            if p < 0.0 {
+                if t > t1 {
+                    return None;
+                }
+                t0 = t0.max(t);
+            } else {
+                if t < t0 {
+                    return None;
+                }
+                t1 = t1.min(t);
+            }
+        }
+    }
+    if t1 - t0 < 1e-9 {
+        return None;
+    }
+    Some((a + d * t0, a + d * t1, t0 > 0.0, t1 < 1.0))
+}
+
+/// Cuts the polylines down to the rectangle. Shapes that cross the border
+/// become open pieces; shapes completely inside stay as they are.
+pub fn clip_polylines(paths: Vec<Polyline>, r: Rect) -> Vec<Polyline> {
+    let mut out = Vec::new();
+    for p in paths {
+        if p.points.iter().all(|q| inside(*q, r)) {
+            out.push(p);
+            continue;
+        }
+        let mut pts = p.points.clone();
+        if p.closed {
+            // Start at a vertex outside, so no piece wraps around the start.
+            let k = pts.iter().position(|q| !inside(*q, r)).unwrap_or(0);
+            pts.rotate_left(k);
+            pts.push(pts[0]);
+        }
+        let mut cur: Vec<Point> = Vec::new();
+        let flush = |cur: &mut Vec<Point>, out: &mut Vec<Polyline>| {
+            dedupe(cur);
+            if cur.len() >= 2 {
+                out.push(Polyline { points: std::mem::take(cur), closed: false });
+            }
+            cur.clear();
+        };
+        for w in pts.windows(2) {
+            match clip_segment(w[0], w[1], r) {
+                Some((a, b, entered, left)) => {
+                    if entered || cur.is_empty() {
+                        flush(&mut cur, &mut out);
+                        cur.push(a);
+                    }
+                    cur.push(b);
+                    if left {
+                        flush(&mut cur, &mut out);
+                    }
+                }
+                None => flush(&mut cur, &mut out),
+            }
+        }
+        flush(&mut cur, &mut out);
+    }
+    out
 }
 
 /// For every path, the indices of the closed paths that contain it.
@@ -257,6 +340,9 @@ pub struct CutPlan {
 
 pub fn plan(inputs: &[PathInput], opts: &PathOptions) -> Result<(CutPlan, Vec<Vec<Point>>), String> {
     let mut paths = flatten_inputs(inputs)?;
+    if let Some([x, y, w, h]) = opts.clip {
+        paths = clip_polylines(paths, Rect::new(x, y, x + w, y + h));
+    }
     if opts.optimize {
         paths = order(paths, Point::ZERO);
     }
@@ -308,7 +394,7 @@ mod tests {
 
     #[test]
     fn closed_strokes_close_and_overcut() {
-        let s = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 2.0, passes: 1, optimize: true });
+        let s = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 2.0, passes: 1, optimize: true, clip: None });
         let s = &s[0];
         assert_eq!(s[0], Point::new(0.0, 0.0));
         assert!(s.contains(&Point::new(0.0, 0.0)) && s.iter().filter(|p| **p == Point::new(0.0, 0.0)).count() == 2);
@@ -317,10 +403,33 @@ mod tests {
 
     #[test]
     fn passes_repeat_the_loop() {
-        let one = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 0.0, passes: 1, optimize: true });
-        let two = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 0.0, passes: 2, optimize: true });
+        let one = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 0.0, passes: 1, optimize: true, clip: None });
+        let two = cut_strokes(&[square(0.0, 0.0, 10.0)], &PathOptions { overcut: 0.0, passes: 2, optimize: true, clip: None });
         assert_eq!(one[0].len(), 5);
         assert_eq!(two[0].len(), 9);
+    }
+
+    #[test]
+    fn clipping_splits_shapes_at_the_tile_border() {
+        // 20 mm square straddling the right edge of a 0..10 tile.
+        let paths = vec![square(0.0, 0.0, 20.0), square(2.0, 2.0, 3.0)];
+        let r = Rect::new(0.0, 0.0, 10.0, 30.0);
+        let out = clip_polylines(paths, r);
+        // Small square stays closed; the big one becomes one open "C" piece.
+        assert_eq!(out.iter().filter(|p| p.closed).count(), 1);
+        let open: Vec<_> = out.iter().filter(|p| !p.closed).collect();
+        assert_eq!(open.len(), 1, "{open:?}");
+        assert!(open[0].points.iter().all(|q| q.x <= 10.0 + 1e-9));
+        assert!((open[0].length() - 40.0).abs() < 1e-6, "{}", open[0].length());
+    }
+
+    #[test]
+    fn clip_option_in_plan() {
+        let inputs = vec![PathInput { d: "M0 0H100V10H0Z".into(), matrix: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0] }];
+        let opts = PathOptions { overcut: 0.0, clip: Some([0.0, 0.0, 50.0, 20.0]), ..Default::default() };
+        let (plan, _) = plan(&inputs, &opts).unwrap();
+        assert!(plan.bbox[0] + plan.bbox[2] <= 50.0 + 1e-6, "{:?}", plan.bbox);
+        assert!((plan.cut_length - 110.0).abs() < 1e-6, "{}", plan.cut_length);
     }
 
     #[test]

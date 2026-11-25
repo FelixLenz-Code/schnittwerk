@@ -431,7 +431,7 @@ fn cut_svg(a: &Value) -> Result<String, String> {
     let get = |k: &str, d: u8, max: u64| a.get(k).and_then(Value::as_u64).map(|v| v.clamp(1, max) as u8).unwrap_or(d);
     let (pressure, speed, depth, passes) = (get("pressure", m.pressure, 33), get("speed", m.speed, 30), get("depth", m.depth, 10), get("passes", m.passes, 5));
     let matrix = if arg_bool(a, "mirror") { [-1.0, 0.0, 0.0, 1.0, 203.2, 0.0] } else { [1.0, 0.0, 0.0, 1.0, 0.0, 0.0] };
-    let opts = PathOptions { overcut: 0.3, passes, optimize: true };
+    let opts = PathOptions { overcut: 0.3, passes, optimize: true, clip: None };
     let (plan, strokes) = cut::plan(&[PathInput { d: v.d, matrix }], &opts)?;
     let summary = format!(
         "{} Pfade, Schnittlänge {} cm, Bereich x {}–{} mm, y {}–{} mm. Material {} (Tiefe {depth}, Druck {pressure}, Geschwindigkeit {speed}, {passes}×).",

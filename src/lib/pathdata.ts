@@ -351,3 +351,12 @@ export function nearestSegment(subs: Sub[], p: Vec2): { si: number; i: number; t
   }
   return best;
 }
+
+/** Same path, opposite direction (closed subpaths keep their start node). */
+export function reversePath(subs: Sub[]): Sub[] {
+  return subs.map((s) => {
+    const flip = (n: PNode): PNode => ({ ...n, cin: n.cout, cout: n.cin });
+    const nodes = s.closed ? [s.nodes[0], ...s.nodes.slice(1).reverse()] : [...s.nodes].reverse();
+    return { closed: s.closed, nodes: nodes.map(flip) };
+  });
+}

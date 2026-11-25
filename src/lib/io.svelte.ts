@@ -1,6 +1,7 @@
 import { open, save, ask } from "@tauri-apps/plugin-dialog";
-import { api } from "./api";
-import { editor, MATS } from "./editor.svelte";
+import { api, inApp } from "./api";
+import { editor, MATS, type Mat } from "./editor.svelte";
+import { wizardUi } from "./wizard.svelte";
 import { boxTransform, uid } from "./geometry";
 import type { ImageInfo, ImportedVector, Obj, PathObj } from "./types";
 
@@ -146,10 +147,14 @@ export async function importDialog() {
 interface ProjectFile {
   app: "schnittwerk";
   version: 1;
-  mat: { name: string; w: number; h: number };
+  mat: Mat;
   printCut?: { enabled: boolean; page: "A4" | "Letter"; insetX?: number; insetY?: number; inset?: number };
+  guides?: { v: number[]; h: number[] };
+  material?: string | null;
   objects: Obj[];
   images: Record<string, { src: string; name: string }>;
+  /** Only in the recovery copy. */
+  autosave?: { savedAt: number; filePath: string | null };
 }
 
 export async function confirmDiscard(): Promise<boolean> {
@@ -157,16 +162,31 @@ export async function confirmDiscard(): Promise<boolean> {
   return ask("Ungespeicherte Änderungen gehen verloren. Fortfahren?", { title: "Schnittwerk", kind: "warning" });
 }
 
+/** Opens the new-project assistant (asks before discarding changes). */
 export async function newProject() {
   if (!(await confirmDiscard())) return;
-  editor.objects = [];
-  editor.images = {};
-  if (editor.printCut.enabled) editor.setPrintCut(false);
-  editor.selection = [];
-  editor.tracePreview = null;
-  editor.filePath = null;
-  editor.dirty = false;
-  editor.resetHistory();
+  // Changes were given up on purpose: no recovery offer for them.
+  if (editor.dirty) await clearAutosave();
+  wizardUi.open = true;
+}
+
+function projectData(): ProjectFile {
+  const used = new Set(editor.objects.flatMap((o) => (o.type === "image" ? [o.imageId] : [])));
+  const images: ProjectFile["images"] = {};
+  for (const id of used) {
+    const a = editor.images[id];
+    if (a) images[id] = { src: a.src, name: a.name };
+  }
+  return {
+    app: "schnittwerk",
+    version: 1,
+    mat: $state.snapshot(editor.mat),
+    printCut: $state.snapshot(editor.printCut),
+    guides: $state.snapshot(editor.guides),
+    material: editor.material,
+    objects: $state.snapshot(editor.objects) as Obj[],
+    images,
+  };
 }
 
 export async function saveProject(saveAs = false) {
@@ -176,25 +196,13 @@ export async function saveProject(saveAs = false) {
     if (!path) return;
     if (!path.endsWith("." + PROJECT_EXT)) path += "." + PROJECT_EXT;
   }
-  const used = new Set(editor.objects.flatMap((o) => (o.type === "image" ? [o.imageId] : [])));
-  const images: ProjectFile["images"] = {};
-  for (const id of used) {
-    const a = editor.images[id];
-    if (a) images[id] = { src: a.src, name: a.name };
-  }
-  const file: ProjectFile = {
-    app: "schnittwerk",
-    version: 1,
-    mat: $state.snapshot(editor.mat),
-    printCut: $state.snapshot(editor.printCut),
-    objects: $state.snapshot(editor.objects) as Obj[],
-    images,
-  };
   try {
-    await api.writeText(path, JSON.stringify(file));
+    await api.writeText(path, JSON.stringify(projectData()));
     editor.filePath = path;
     editor.dirty = false;
     editor.toast("Projekt gespeichert", "ok");
+    clearAutosave();
+    rememberRecent(path);
   } catch (e) {
     editor.error(e);
   }
@@ -206,8 +214,7 @@ export async function openDialog() {
   if (typeof path === "string") await openProject(path);
 }
 
-async function openProject(path: string) {
-  const file = JSON.parse(await api.readText(path)) as ProjectFile;
+async function applyProject(file: ProjectFile, path: string | null) {
   if (file.app !== "schnittwerk") throw new Error("Keine Schnittwerk-Projektdatei.");
   const remap: Record<string, string> = {};
   const images: typeof editor.images = {};
@@ -216,6 +223,7 @@ async function openProject(path: string) {
     remap[oldId] = info.id;
     images[info.id] = { src: info.src, name: info.name, pxW: info.width, pxH: info.height };
   }
+  editor.resetDocument();
   editor.images = images;
   editor.objects = file.objects.map((o) => (o.type === "image" ? { ...o, imageId: remap[o.imageId] ?? o.imageId } : o));
   editor.mat = MATS.find((m) => m.name === file.mat.name) ?? file.mat;
@@ -223,12 +231,174 @@ async function openProject(path: string) {
   editor.printCut = pc
     ? { enabled: pc.enabled, page: pc.page, insetX: pc.insetX ?? pc.inset ?? 15, insetY: pc.insetY ?? pc.inset ?? 10 }
     : { enabled: false, page: "A4", insetX: 15, insetY: 10 };
-  editor.selection = [];
-  editor.tracePreview = null;
+  editor.guides = { v: file.guides?.v ?? [], h: file.guides?.h ?? [] };
+  editor.material = file.material ?? null;
   editor.filePath = path;
-  editor.dirty = false;
-  editor.resetHistory();
   editor.fitMat();
+}
+
+/** Opens a project file (no confirmation – callers ask first). */
+export async function openProject(path: string) {
+  try {
+    const file = JSON.parse(await api.readText(path)) as ProjectFile;
+    await applyProject(file, path);
+    wizardUi.open = false;
+    clearAutosave();
+    rememberRecent(path);
+  } catch (e) {
+    forgetRecent(path);
+    throw e;
+  }
+}
+
+// ---------- autosave ----------
+
+/** Seconds between recovery copies while there are unsaved changes. */
+const AUTOSAVE_S = 20;
+let savedRev = -1;
+let autosaveTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startAutosave() {
+  if (!inApp || autosaveTimer) return;
+  autosaveTimer = setInterval(writeAutosave, AUTOSAVE_S * 1000);
+}
+
+async function writeAutosave() {
+  if (!editor.dirty || !editor.objects.length || editor.rev === savedRev) return;
+  const rev = editor.rev;
+  try {
+    const data: ProjectFile = { ...projectData(), autosave: { savedAt: Date.now(), filePath: editor.filePath } };
+    await api.autosaveWrite(JSON.stringify(data));
+    savedRev = rev;
+  } catch {
+    /* disk full or similar – try again next time */
+  }
+}
+
+export function clearAutosave(): Promise<void> {
+  savedRev = editor.rev;
+  return inApp ? api.autosaveClear().catch(() => {}) : Promise.resolve();
+}
+
+export interface Recovery {
+  savedAt: number;
+  name: string;
+  objects: number;
+  file: ProjectFile;
+}
+
+/** A recovery copy left over from a crash or an unsaved session. */
+export async function findRecovery(): Promise<Recovery | null> {
+  if (!inApp) return null;
+  try {
+    const raw = await api.autosaveRead();
+    if (!raw) return null;
+    const file = JSON.parse(raw) as ProjectFile;
+    if (file.app !== "schnittwerk" || !file.objects?.length) return null;
+    const fp = file.autosave?.filePath;
+    return { savedAt: file.autosave?.savedAt ?? 0, name: fp?.split("/").pop() ?? "Unbenannt", objects: file.objects.length, file };
+  } catch {
+    return null;
+  }
+}
+
+export async function restoreRecovery(r: Recovery) {
+  await applyProject(r.file, r.file.autosave?.filePath ?? null);
+  // Still unsaved: keep the copy until the user saves.
+  editor.dirty = true;
+  savedRev = editor.rev;
+  wizardUi.open = false;
+  editor.toast("Nicht gespeicherte Arbeit wiederhergestellt", "ok");
+}
+
+// ---------- recent files ----------
+
+const RECENT_KEY = "schnittwerk.recent";
+const RECENT_MAX = 8;
+
+export interface RecentFile {
+  path: string;
+  name: string;
+  time: number;
+  /** Small preview image (data URL). */
+  thumb?: string;
+}
+
+export const recent = $state<{ list: RecentFile[] }>({ list: loadRecent() });
+
+function loadRecent(): RecentFile[] {
+  try {
+    const l = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(l) ? l.filter((r) => typeof r?.path === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function storeRecent() {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent.list));
+  } catch {
+    // Quota: drop the previews and try again.
+    recent.list = recent.list.map(({ thumb: _, ...r }) => r);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recent.list));
+    } catch {}
+  }
+}
+
+async function rememberRecent(path: string) {
+  const name = path.split("/").pop()?.replace(/\.schnitt$/, "") ?? path;
+  const old = recent.list.find((r) => r.path === path);
+  recent.list = [{ path, name, time: Date.now(), thumb: old?.thumb }, ...recent.list.filter((r) => r.path !== path)].slice(0, RECENT_MAX);
+  storeRecent();
+  const thumb = await renderThumb().catch(() => undefined);
+  const entry = recent.list.find((r) => r.path === path);
+  if (entry && thumb) {
+    entry.thumb = thumb;
+    storeRecent();
+  }
+}
+
+export function forgetRecent(path: string) {
+  recent.list = recent.list.filter((r) => r.path !== path);
+  storeRecent();
+}
+
+/** Renders the work area into a small JPEG for the recent files list. */
+async function renderThumb(): Promise<string | undefined> {
+  if (!editor.objects.length) return undefined;
+  const draw = async (withImages: boolean) => {
+    // Lines about 1.5 px wide in the small preview.
+    const stroke = ((editor.mat.w / 160) * 1.5).toFixed(2);
+    const svg = buildSvg(!withImages).replace("<svg ", '<svg style="background:#fff" ').replaceAll('stroke-width="0.25"', `stroke-width="${stroke}"`);
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    try {
+      const img = new Image();
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error("Vorschau fehlgeschlagen"));
+        img.src = url;
+      });
+      const W = 160, H = Math.round((W * editor.mat.h) / editor.mat.w);
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = Math.min(H, 400);
+      const g = c.getContext("2d")!;
+      g.fillStyle = "#fff";
+      g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, W, H);
+      return c.toDataURL("image/jpeg", 0.7);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  try {
+    return await draw(true);
+  } catch {
+    // Embedded pictures may block reading the canvas: outlines only.
+    return await draw(false);
+  }
 }
 
 // ---------- export ----------

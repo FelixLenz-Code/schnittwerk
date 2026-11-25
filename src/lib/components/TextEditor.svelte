@@ -5,6 +5,7 @@
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
+  import { parsePath, reversePath, serializePath } from "../pathdata";
 
   let { obj }: { obj: PathObj & { text: TextSpec } } = $props();
 
@@ -13,6 +14,26 @@
   const shown = $derived(
     filter ? fonts.families.filter((f) => f.toLowerCase().includes(filter.toLowerCase())).slice(0, 200) : fonts.families,
   );
+
+  const curveKind = $derived(obj.text.curve?.kind ?? "none");
+
+  /** Straight / arc: the box keeps its centre. */
+  function setCurve(v: "none" | "arcTop" | "arcBottom" | "custom") {
+    if (v === curveKind || v === "custom") return;
+    editor.checkpoint();
+    const radius = obj.text.curve && obj.text.curve.kind !== "custom" ? obj.text.curve.radius : Math.max(15, obj.text.size * 2.5);
+    obj.text.curve = v === "none" ? null : { kind: v, radius };
+    if (v === "none") obj.text.path = null;
+    obj.text.pathOffset = 0;
+    regenerate(obj.id, "center");
+  }
+
+  function flipSide() {
+    if (!obj.text.path) return;
+    editor.checkpoint();
+    obj.text.path = serializePath(reversePath(parsePath(obj.text.path)));
+    regenerate(obj.id, "exact");
+  }
 
   let touched = false;
   /** One undo step per editing burst. */
@@ -46,18 +67,51 @@
     <div class="row">
       <button class="btn outline style" class:active={obj.text.bold} onclick={() => change("bold", !obj.text.bold)}><b>F</b></button>
       <button class="btn outline style" class:active={obj.text.italic} onclick={() => change("italic", !obj.text.italic)}><i>K</i></button>
-      <div class="grow">
-        <Segmented
-          value={obj.text.align}
-          onchange={(v) => change("align", v)}
-          options={[
-            { value: "start", label: "Links" },
-            { value: "middle", label: "Mitte" },
-            { value: "end", label: "Rechts" },
-          ]}
-        />
-      </div>
+      {#if curveKind === "none" || curveKind === "custom"}
+        <div class="grow">
+          <Segmented
+            value={obj.text.align}
+            onchange={(v) => change("align", v)}
+            options={curveKind === "custom"
+              ? [
+                  { value: "start", label: "Anfang" },
+                  { value: "middle", label: "Mitte" },
+                  { value: "end", label: "Ende" },
+                ]
+              : [
+                  { value: "start", label: "Links" },
+                  { value: "middle", label: "Mitte" },
+                  { value: "end", label: "Rechts" },
+                ]}
+          />
+        </div>
+      {/if}
     </div>
+    <div class="curve">
+      <Segmented
+        value={curveKind}
+        onchange={setCurve}
+        options={[
+          { value: "none", label: "Gerade" },
+          { value: "arcTop", label: "Bogen ⌒", hint: "Text oben auf einem Kreis" },
+          { value: "arcBottom", label: "Bogen ⌣", hint: "Text unten an einem Kreis" },
+          ...(curveKind === "custom" ? [{ value: "custom" as const, label: "Pfad", hint: "Text folgt einem Pfad der Arbeitsfläche" }] : []),
+        ]}
+      />
+    </div>
+    {#if obj.text.curve && obj.text.curve.kind !== "custom"}
+      {@const c = obj.text.curve}
+      <Slider label="Radius" value={c.radius} min={5} max={300} step={1} unit=" mm" oninput={(v) => change("curve", { kind: c.kind, radius: v })} />
+    {/if}
+    {#if obj.text.curve}
+      <Slider label="Verschieben" value={obj.text.pathOffset ?? 0} min={-50} max={50} step={0.5} unit=" %" oninput={(v) => change("pathOffset", v)} hint="Text entlang des Pfads verschieben" />
+    {/if}
+    {#if curveKind === "custom"}
+      <button class="btn outline" onclick={flipSide} title="Laufrichtung umkehren – der Text wechselt auf die andere Seite der Linie">Seite wechseln</button>
+      <p class="muted">Text folgt dem gewählten Pfad. Für einen anderen Pfad: Text und Pfad auswählen → „Text auf Pfad“.</p>
+    {:else if curveKind === "none"}
+      <p class="muted">Auf eine Form setzen: Text und Pfad zusammen auswählen → „Text auf Pfad“.</p>
+    {/if}
     <Slider label="Zeichenabstand" value={obj.text.spacing} min={-2} max={10} step={0.1} unit=" mm" oninput={(v) => change("spacing", v)} />
     {#if obj.text.content.includes("\n")}
       <Slider label="Zeilenabstand" value={obj.text.lineHeight} min={0.7} max={2.5} step={0.05} unit="×" oninput={(v) => change("lineHeight", v)} />
@@ -127,5 +181,10 @@
   }
   .grow {
     flex: 1;
+  }
+  .muted {
+    margin: 0;
+    color: var(--text-3);
+    font-size: 12px;
   }
 </style>

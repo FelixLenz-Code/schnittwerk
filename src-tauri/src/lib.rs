@@ -372,6 +372,59 @@ async fn write_text(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| format!("{path}: {e}"))
 }
 
+/// Fewer nodes for a path (tolerance in path units).
+#[tauri::command]
+async fn simplify_path(d: String, tolerance: f64, corner_deg: f64) -> Result<schnittwerk_core::simplify::SimplifyResult, String> {
+    tauri::async_runtime::spawn_blocking(move || schnittwerk_core::simplify::simplify(&d, tolerance, corner_deg))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+// ---------- autosave ----------
+
+/// `~/.local/share/<app>/autosave.schnitt`
+fn autosave_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("autosave.schnitt"))
+}
+
+/// Writes the recovery copy atomically (temp file + rename), so a crash
+/// while saving never leaves a broken file behind.
+#[tauri::command]
+async fn autosave_write(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let path = autosave_path(&app)?;
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, contents).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn autosave_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = autosave_path(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+async fn autosave_clear(app: tauri::AppHandle) -> Result<(), String> {
+    let path = autosave_path(&app)?;
+    match std::fs::remove_file(&path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
+    }
+}
+
+/// Whether a file still exists (recent files list).
+#[tauri::command]
+async fn file_exists(path: String) -> bool {
+    Path::new(&path).is_file()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -392,6 +445,11 @@ pub fn run() {
             import_pdf,
             read_text,
             write_text,
+            simplify_path,
+            autosave_write,
+            autosave_read,
+            autosave_clear,
+            file_exists,
             plotter::plotter_status,
             plotter::cut_preview,
             plotter::cut_start,

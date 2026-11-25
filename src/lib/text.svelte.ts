@@ -1,6 +1,8 @@
 import { api } from "./api";
 import { editor } from "./editor.svelte";
 import { uid } from "./geometry";
+import { parsePath, serializePath } from "./pathdata";
+import { pathMatrix } from "./plotter.svelte";
 import type { PathObj, TextSpec, Vec2 } from "./types";
 
 class FontStore {
@@ -27,7 +29,33 @@ export const fonts = new FontStore();
 
 let lastSpec: Omit<TextSpec, "content"> | null = null;
 
+/** Circle of radius r around (0, 0) for text over the top (clockwise from the
+ *  bottom) or along the bottom (counter-clockwise from the top), centred. */
+export function arcPath(kind: "arcTop" | "arcBottom", r: number): string {
+  return kind === "arcTop"
+    ? `M0 ${r}A${r} ${r} 0 1 1 0 ${-r}A${r} ${r} 0 1 1 0 ${r}Z`
+    : `M0 ${-r}A${r} ${r} 0 1 0 0 ${r}A${r} ${r} 0 1 0 0 ${-r}Z`;
+}
+
+/** Path data of a path object in mat millimetres (text on that path). */
+export function worldPathD(o: PathObj): string {
+  const [a, b, c, d, e, f] = pathMatrix(o, null);
+  const tr = (p: Vec2) => ({ x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f });
+  const subs = parsePath(o.d).map((s) => ({
+    closed: s.closed,
+    nodes: s.nodes.map((n) => ({ ...tr(n), cin: n.cin && tr(n.cin), cout: n.cout && tr(n.cout) })),
+  }));
+  return serializePath(subs);
+}
+
 async function outline(spec: TextSpec): Promise<{ d: string; bbox: [number, number, number, number] }> {
+  const curve = spec.curve;
+  if (curve && curve.kind !== "custom") {
+    // Arcs are centred on the top / bottom of the circle.
+    spec = { ...spec, path: arcPath(curve.kind, Math.max(1, curve.radius)), align: "middle" };
+  } else if (!curve) {
+    spec = { ...spec, path: null };
+  }
   const v = await api.textToPath(spec);
   if (!spec.weld) return v;
   const w = await api.offsetPaths([{ d: v.d, matrix: [1, 0, 0, 1, 0, 0] }], 0, 20);
@@ -56,8 +84,14 @@ export async function createText(at: Vec2) {
 const pending = new Map<string, number>();
 const seqs = new Map<string, number>();
 
-/** Re-renders a text object after its spec changed (debounced, keeps scaling). */
-export function regenerate(id: string) {
+/**
+ * Re-renders a text object after its spec changed (debounced, keeps scaling).
+ * place = "exact": put the outlines 1:1 where they lie (text on a picked path);
+ * "center": keep the box centre (switching between straight and arc);
+ * default: text along a path stays anchored to the path, otherwise the
+ * top-left corner stays.
+ */
+export function regenerate(id: string, place?: "exact" | "center") {
   clearTimeout(pending.get(id));
   pending.set(
     id,
@@ -72,16 +106,29 @@ export function regenerate(id: string) {
         const cur = editor.byId(id);
         if (!cur || cur.type !== "path" || seqs.get(id) !== my) return;
         const sx = cur.w / (cur.bbox[2] || 1), sy = cur.h / (cur.bbox[3] || 1);
+        const old = { x: cur.x, y: cur.y, w: cur.w, h: cur.h, bbox: cur.bbox };
         cur.d = r.d;
         cur.bbox = r.bbox;
-        cur.w = r.bbox[2] * sx;
-        cur.h = r.bbox[3] * sy;
+        if (place === "exact") {
+          [cur.x, cur.y, cur.w, cur.h] = r.bbox;
+        } else {
+          cur.w = r.bbox[2] * sx;
+          cur.h = r.bbox[3] * sy;
+          if (place === "center") {
+            cur.x = old.x + old.w / 2 - cur.w / 2;
+            cur.y = old.y + old.h / 2 - cur.h / 2;
+          } else if (spec.curve && cur.rot % 360 === 0 && !cur.flipX && !cur.flipY) {
+            // Keep the glyphs where they are on the path.
+            cur.x = old.x + (r.bbox[0] - old.bbox[0]) * sx;
+            cur.y = old.y + (r.bbox[1] - old.bbox[1]) * sy;
+          }
+        }
         cur.name = spec.content.split("\n")[0].slice(0, 30) || "Text";
         const { content: _, ...rest } = spec;
         lastSpec = rest;
       } catch (e) {
         editor.error(e);
       }
-    }, 200),
+    }, place ? 0 : 200),
   );
 }

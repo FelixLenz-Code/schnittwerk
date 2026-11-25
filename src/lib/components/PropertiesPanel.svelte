@@ -10,29 +10,20 @@
   import { nodes } from "../nodes.svelte";
   import { pathBbox, parsePath } from "../pathdata";
   import { polysBox, weedLines, worldPolys } from "../weed";
+  import { refreshShape, rememberSpec, SHAPE_NAMES } from "../shapes";
+  import { regenerate, worldPathD } from "../text.svelte";
+  import Slider from "./Slider.svelte";
 
   const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
   const box = $derived(aabb(editor.selected));
-  let keepRatio = $state(true);
 
   /** Applies a numeric field edit as one undo step. */
   function setField(o: Obj, key: "x" | "y" | "w" | "h" | "rot", raw: string) {
     const v = parseFloat(raw.replace(",", "."));
     if (!Number.isFinite(v)) return;
+    if (key === "w" || key === "h") return editor.setSize(o, key, v);
     editor.checkpoint();
-    if ((key === "w" || key === "h") && v > 0) {
-      const ratio = o.h / o.w;
-      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
-      if (key === "w") {
-        o.w = v;
-        if (keepRatio) o.h = v * ratio;
-      } else {
-        o.h = v;
-        if (keepRatio) o.w = v / ratio;
-      }
-      o.x = cx - o.w / 2;
-      o.y = cy - o.h / 2;
-    } else if (key === "rot") {
+    if (key === "rot") {
       o.rot = ((v % 360) + 360) % 360;
     } else if (key === "x" || key === "y") {
       o[key] = v;
@@ -318,6 +309,66 @@
     editor.toast(`${cells.length} Exemplare auf dem Bogen`, "ok");
   }
 
+  // ---------- shape parameters ----------
+  let shapeTouched = false;
+  function setShape(o: PathObj, spec: NonNullable<PathObj["shape"]>) {
+    if (!shapeTouched) {
+      editor.checkpoint();
+      shapeTouched = true;
+      setTimeout(() => (shapeTouched = false), 800);
+    }
+    o.shape = spec;
+    refreshShape(o);
+    rememberSpec(spec);
+  }
+
+  // ---------- simplify ----------
+  let simplifyTol = $state(0.1);
+  let simplifyBusy = $state(false);
+
+  async function simplify(o: PathObj) {
+    simplifyBusy = true;
+    try {
+      // Tolerance in mm → path units.
+      const scale = (o.w / (o.bbox[2] || 1) + o.h / (o.bbox[3] || 1)) / 2;
+      const r = await api.simplifyPath(o.d, simplifyTol / (scale || 1), 35);
+      if (r.nodesAfter >= r.nodesBefore) {
+        editor.toast("Weniger Knoten geht bei dieser Abweichung nicht.");
+        return;
+      }
+      editor.checkpoint();
+      o.d = r.d;
+      editor.toast(`${r.nodesBefore} → ${r.nodesAfter} Knoten`, "ok");
+    } catch (e) {
+      editor.error(e);
+    } finally {
+      simplifyBusy = false;
+    }
+  }
+
+  // ---------- text on a path ----------
+  /** Exactly one text and one other path selected. */
+  const textOnPath = $derived.by(() => {
+    if (editor.selected.length !== 2) return null;
+    const t = editor.selected.find((o): o is PathObj => o.type === "path" && !!o.text);
+    const g = editor.selected.find((o): o is PathObj => o.type === "path" && !o.text);
+    return t && g ? { t, g } : null;
+  });
+
+  function putTextOnPath() {
+    const p = textOnPath;
+    if (!p || !p.t.text) return;
+    editor.checkpoint();
+    p.t.text.path = worldPathD(p.g);
+    p.t.text.curve = { kind: "custom" };
+    p.t.text.pathOffset = 0;
+    p.t.rot = 0;
+    p.t.flipX = p.t.flipY = false;
+    regenerate(p.t.id, "exact");
+    editor.selection = [p.t.id];
+    editor.toast("Text liegt auf dem Pfad – im Text-Bereich verschieben oder Ausrichtung ändern.", "ok");
+  }
+
   const CUT_COLORS = ["#e5484d", "#3e63dd", "#30a46c", "#f5a524", "#8e4ec6", "#1b1d22"];
 </script>
 
@@ -328,7 +379,9 @@
     <div class="tips">
       <div><kbd>V</kbd> Auswahl</div>
       <div><kbd>H</kbd> / <kbd>Leertaste</kbd> Verschieben</div>
-      <div><kbd>R</kbd> Rechteck · <kbd>E</kbd> Ellipse · <kbd>T</kbd> Text</div>
+      <div><kbd>R</kbd> Rechteck · <kbd>E</kbd> Ellipse · <kbd>P</kbd> Vieleck · <kbd>S</kbd> Stern</div>
+      <div><kbd>L</kbd> Linie · <kbd>F</kbd> Freihand · <kbd>T</kbd> Text</div>
+      <div>Hilfslinien aus den Linealen ziehen</div>
       <div>Mausrad = Zoom · <kbd>Strg</kbd>+<kbd>0</kbd> Einpassen</div>
     </div>
   </div>
@@ -368,11 +421,28 @@
           <input class="field" value={fmt(single.rot, 1)} disabled={single.locked} onchange={(e) => setField(single, "rot", e.currentTarget.value)} />
           <em>°</em>
         </label>
-        <button class="btn icon outline" class:active={keepRatio} title="Seitenverhältnis beibehalten" onclick={() => (keepRatio = !keepRatio)}>
-          <Icon name={keepRatio ? "lock" : "unlock"} />
+        <button class="btn icon outline" class:active={editor.keepRatio} title="Seitenverhältnis beibehalten" onclick={() => (editor.keepRatio = !editor.keepRatio)}>
+          <Icon name={editor.keepRatio ? "lock" : "unlock"} />
         </button>
       </div>
     </section>
+
+    {#if single.type === "path" && single.shape && single.shape.kind !== "ellipse" && single.shape.kind !== "heart"}
+      {@const sh = single.shape}
+      <section>
+        <h3 class="section-title">{SHAPE_NAMES[sh.kind]}</h3>
+        <div class="stack">
+          {#if sh.kind === "rect"}
+            <Slider label="Eckenradius" value={sh.radius} min={0} max={Math.round(Math.min(single.w, single.h) / 2)} step={0.5} unit=" mm" oninput={(v) => setShape(single as PathObj, { ...sh, radius: v })} />
+          {:else if sh.kind === "polygon"}
+            <Slider label="Ecken" value={sh.sides} min={3} max={12} oninput={(v) => setShape(single as PathObj, { ...sh, sides: v })} />
+          {:else if sh.kind === "star"}
+            <Slider label="Zacken" value={sh.points} min={3} max={20} oninput={(v) => setShape(single as PathObj, { ...sh, points: v })} />
+            <Slider label="Innenradius" value={Math.round(sh.inner * 100)} min={10} max={90} unit=" %" oninput={(v) => setShape(single as PathObj, { ...sh, inner: v / 100 })} />
+          {/if}
+        </div>
+      </section>
+    {/if}
 
     {#if single.type === "path"}
       <section>
@@ -390,6 +460,14 @@
           <p class="muted small">Doppelklick auf die Linie fügt einen Knoten ein. <kbd>Alt</kbd> beim Ziehen eines Griffs macht eine Ecke.</p>
         {:else}
           <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title="Auch per Doppelklick auf den Pfad">Knoten bearbeiten</button>
+          {#if !single.text && !single.shape}
+            <div class="simplify">
+              <Slider label="Vereinfachen" bind:value={simplifyTol} min={0.02} max={1} step={0.01} unit=" mm" hint="Erlaubte Abweichung von der Originalform" />
+              <button class="btn outline" disabled={single.locked || simplifyBusy} onclick={() => simplify(single as PathObj)} title="Weniger Knoten, gleiche Form – schneidet ruhiger">
+                {simplifyBusy ? "Berechne …" : "Knoten reduzieren"}
+              </button>
+            </div>
+          {/if}
         {/if}
       </section>
     {/if}
@@ -444,6 +522,9 @@
     <section>
       <h3 class="section-title">{editor.selected.length} Objekte</h3>
       <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
+      {#if textOnPath}
+        <button class="btn primary top-gap" onclick={putTextOnPath} title="Der Text folgt der Linie des anderen Pfads">Text auf Pfad</button>
+      {/if}
     </section>
   {/if}
 
@@ -714,6 +795,15 @@
   }
   .grow-field {
     flex: 1;
+  }
+  .simplify {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .top-gap {
+    margin-top: 10px;
   }
   .pad-wide {
     padding-left: 60px !important;

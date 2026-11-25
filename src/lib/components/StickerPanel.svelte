@@ -18,7 +18,7 @@
   let borderColor = $state("#ffffff");
   let bleedOn = $state(false);
   /** Kiss-cut the sticker and through-cut a backing outline around it. */
-  let dieCut = $state(true);
+  let dieCut = $state(editor.stickerStyle === "die");
   let backingMm = $state(2);
   let bleedMm = $state(1.5);
   let applying = $state(false);

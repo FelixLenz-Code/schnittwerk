@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { api } from "../api";
   import { editor, regBracketPath } from "../editor.svelte";
-  import { fmt, uid } from "../geometry";
+  import { aabb, fmt, uid } from "../geometry";
   import { PRESETS, lastMaterialId, loadCustom, rememberMaterial, saveCustom, type Material } from "../materials";
   import { matKindFor, pathMatrix, plotter } from "../plotter.svelte";
   import type { CutPlan, CutSettings, MatKind, PathInput, PathObj, PathOptions } from "../types";
@@ -18,10 +18,14 @@
   // are the working copy of the active colour; the others live in `byColor`.
   let byColor = $state<Record<string, { materialId: string; m: Material }>>({});
   let active = $state<string>("");
-  let materialId = $state(lastMaterialId());
-  let m = $state<Material>(structuredClone(findMat(lastMaterialId()) ?? PRESETS[0]));
-  let mirror = $state(!!findMat(lastMaterialId())?.mirror);
-  let mat = $state<MatKind>(matKindFor(editor.mat.name));
+  /** Project material (new-project assistant), else the last one used. */
+  const preferred = () => (editor.material && findMat(editor.material) ? editor.material : lastMaterialId());
+  let materialId = $state(preferred());
+  let m = $state<Material>(structuredClone(findMat(preferred()) ?? PRESETS[0]));
+  let mirror = $state(!!findMat(preferred())?.mirror);
+  let mat = $state<MatKind>(matKindFor(editor.mat));
+  /** Roll media: push the media out behind the design at the end. */
+  let feedOut = $state(true);
   let onlySelection = $state(editor.selected.some((o) => o.type === "path"));
   let optimize = $state(true);
   let testX = $state(5);
@@ -94,10 +98,10 @@
     if (color === "#30a46c") return "pen";
     if (color === "#e5484d") {
       // Red is the kiss-cut: never a through-cut or pen preset.
-      const last = lastMaterialId();
+      const last = preferred();
       return ["sticker-through", "pen", "cardstock", "magnet"].includes(last) ? "sticker-matt" : last;
     }
-    return index === 0 ? lastMaterialId() : "sticker-through";
+    return index === 0 ? preferred() : "sticker-through";
   }
 
   // New colours get a material: the first the remembered one, further ones
@@ -154,15 +158,85 @@
   /** A heavier pass comes before a lighter one (sheet may fall apart early). */
   const misordered = $derived(order.some((c, i) => i > 0 && severity(baseOf(order[i - 1])) > severity(baseOf(c))));
 
+  // ---------- tiles (designs larger than the cutting area) ----------
+  let tileOn = $state(true);
+  let tileOverlap = $state(5);
+  let tileIdx = $state(0);
+  let tilesDone = $state<number[]>([]);
+  /** Tile being cut right now (marked done when the job finishes). */
+  let cuttingTile: number | null = null;
+
+  /** Cuttable area of the chosen mat / roll (without print & cut). */
+  const cutArea = $derived(mat === "portrait8_5x12" ? { w: 215.9, h: 304.8 } : mat === "portrait8x12" ? { w: 203.2, h: 304.8 } : { w: plotter.status.widthMm ?? 203.2, h: editor.mat.h });
+
+  /** Bounding box of the design in cut coordinates (after mirroring). */
+  const designBox = $derived.by(() => {
+    const b = aabb(cutObjects);
+    if (!b) return null;
+    return mirror ? { x0: editor.mat.w - b.x1, y0: b.y0, x1: editor.mat.w - b.x0, y1: b.y1 } : b;
+  });
+
+  /** Does the design need tiling at all (bigger than / outside the area)? */
+  const tooBig = $derived(
+    !editor.regmarks && !!designBox && (designBox.x0 < -0.05 || designBox.y0 < -0.05 || designBox.x1 > cutArea.w + 0.05 || designBox.y1 > cutArea.h + 0.05),
+  );
+
+  const tiling = $derived.by(() => {
+    if (!tooBig || !tileOn || !designBox) return null;
+    const { w: tw, h: th } = cutArea;
+    const ov = Math.max(0, Math.min(tileOverlap, Math.min(tw, th) / 4));
+    const W = designBox.x1 - designBox.x0, H = designBox.y1 - designBox.y0;
+    const cols = W <= tw ? 1 : Math.ceil((W - ov) / (tw - ov));
+    const rows = H <= th ? 1 : Math.ceil((H - ov) / (th - ov));
+    const tiles: { x: number; y: number; w: number; h: number; col: number; row: number }[] = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) tiles.push({ x: designBox.x0 + c * (tw - ov), y: designBox.y0 + r * (th - ov), w: tw, h: th, col: c, row: r });
+    return { cols, rows, tiles, box: designBox };
+  });
+  const tile = $derived(tiling ? tiling.tiles[Math.min(tileIdx, tiling.tiles.length - 1)] : null);
+
+  // A different layout starts the tile series again.
+  let tileKey = "";
+  $effect(() => {
+    const k = tiling ? `${tiling.cols}x${tiling.rows}:${fmt(tiling.box.x0)}:${fmt(tiling.box.y0)}:${tileOverlap}` : "";
+    if (k !== tileKey) {
+      tileKey = k;
+      untrack(() => {
+        tileIdx = 0;
+        tilesDone = [];
+      });
+    }
+  });
+
+  // Finished tile: mark it and move on to the next open one.
+  $effect(() => {
+    const r = plotter.lastResult;
+    if (!r) return;
+    untrack(() => {
+      const t = cuttingTile;
+      cuttingTile = null;
+      if (t === null || r.status !== "done" || !tiling) return;
+      if (!tilesDone.includes(t)) tilesDone = [...tilesDone, t];
+      const next = tiling.tiles.findIndex((_, i) => !tilesDone.includes(i));
+      if (next >= 0) {
+        tileIdx = next;
+        editor.toast(`Kachel ${t + 1} fertig – neues Material einlegen, dann Kachel ${next + 1} schneiden.`, "ok");
+      } else {
+        editor.toast("Alle Kacheln geschnitten ✓", "ok");
+      }
+    });
+  });
+
   const groups = $derived(
     order.map((c) => {
       const mm = matOf(c);
       const objs = cutObjects.filter((o) => o.color.toLowerCase() === c);
+      const shift = editor.regmarks ? plotter.calib : tile ? { dx: -tile.x, dy: -tile.y } : undefined;
       return {
         color: c,
         name: mm.name,
-        paths: objs.map((o) => ({ d: o.d, matrix: pathMatrix(o, mirror ? editor.mat.w : null, editor.regmarks ? plotter.calib : undefined) })) as PathInput[],
-        options: { overcut: mm.tool === "pen" ? 0 : mm.overcut, passes: mm.passes, optimize } as PathOptions,
+        paths: objs.map((o) => ({ d: o.d, matrix: pathMatrix(o, mirror ? editor.mat.w : null, shift) })) as PathInput[],
+        options: { overcut: mm.tool === "pen" ? 0 : mm.overcut, passes: mm.passes, optimize, clip: tile ? [0, 0, tile.w, tile.h] : null } as PathOptions,
         settings: {
           tool: mm.tool,
           pressure: mm.pressure,
@@ -229,7 +303,7 @@
     editor.add(objs);
     editor.toast("Testbogen angelegt: drucken, schneiden, dann den weißen Rand um die Quadrate prüfen.", "ok");
   }
-  const area = $derived(reg ? { w: editor.mat.w, h: editor.mat.h } : mat === "portrait8_5x12" ? { w: 215.9, h: 304.8 } : mat === "portrait8x12" ? { w: 203.2, h: 304.8 } : { w: plotter.status.widthMm ?? 203, h: editor.mat.h });
+  const area = $derived(reg ? { w: editor.mat.w, h: editor.mat.h } : cutArea);
   const limits = $derived(reg ? { x0: reg.originX, y0: reg.originY, x1: reg.originX + reg.width, y1: reg.originY + reg.length } : { x0: 0, y0: 0, x1: area.w, y1: area.h });
   const outside = $derived(
     plans.some(
@@ -242,18 +316,34 @@
   // ---------- actions ----------
   const ready = $derived(plotter.status.connected && (plotter.status.state === "ready" || plotter.status.state === "unknown"));
 
+  /** Roll media: where to push the media to after the cut (mm). */
+  const feed = $derived.by(() => {
+    if (reg || mat !== "none" || !feedOut) return null;
+    const end = Math.max(0, ...plans.filter((p) => p.strokes.length).map((p) => p.bbox[1] + p.bbox[3]));
+    return end > 0 ? end + 15 : null;
+  });
+
+  /** Length cut with the blade (wear counter). */
+  const bladeMm = $derived(plans.reduce((n, p, i) => n + (groups[i]?.settings.tool === "blade" ? p.cutLength : 0), 0));
+
   async function startCut() {
     try {
       // Empty groups are skipped by the backend too; dropping them here keeps
       // the pass numbers in the progress display in step with the device.
       const job = ($state.snapshot(groups) as typeof groups).filter((g) => g.paths.length > 0);
-      plotter.begin(job.map((g) => ({ color: g.color, name: g.name })));
+      cuttingTile = tiling ? tileIdx : null;
+      plotter.begin(
+        job.map((g) => ({ color: g.color, name: g.name })),
+        bladeMm,
+      );
       const r = await api.cutStart(
         job.map((g) => ({ paths: g.paths, options: g.options, settings: g.settings })),
         reg ? { ...reg } : null,
+        feed,
       );
       if (r.clamped > 0) editor.toast(`${r.clamped} Punkte lagen außerhalb und wurden an den Rand gesetzt.`, "error");
     } catch (e) {
+      cuttingTile = null;
       plotter.phase = "idle";
       editor.error(e);
     }
@@ -323,6 +413,12 @@
   }
 
   const fmtLen = (mm: number) => (mm >= 1000 ? `${fmt(mm / 1000, 2)} m` : `${fmt(mm / 10, 1)} cm`);
+
+  /** Path of a cut object in the tile map (world coordinates, mirrored like the cut). */
+  function mapTransform(o: PathObj) {
+    const [a, b, c, d, e, f] = pathMatrix(o, mirror ? editor.mat.w : null);
+    return `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
+  }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
@@ -394,6 +490,11 @@
             <div class="dev-name">{plotter.status.model ?? "Kein Plotter"}</div>
             <div class="dev-state">{plotter.status.message ?? STATE_TEXT[plotter.status.state]}</div>
           </div>
+        </div>
+        <div class="blade" class:worn={plotter.bladeWorn} title="Geschnittene Strecke seit dem letzten Messerwechsel">
+          <Icon name="scissors" size={12} />
+          Messer: {fmtLen(plotter.blade.mm)} seit {new Date(plotter.blade.since).toLocaleDateString("de-DE")}
+          {#if plotter.bladeWorn}– bitte prüfen{/if}
         </div>
 
         <section>
@@ -477,6 +578,9 @@
             <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
             <Toggle disabled={plotter.busy} label="Nur Auswahl schneiden" bind:checked={onlySelection} />
             <Toggle disabled={plotter.busy} label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
+            {#if mat === "none" && !reg}
+              <Toggle disabled={plotter.busy} label="Folie am Ende herausschieben" bind:checked={feedOut} hint="Schiebt das Material hinter das Motiv, damit es abgeschnitten werden kann" />
+            {/if}
           </div>
           <div class="stats">
             {#if plans.length}
@@ -492,6 +596,49 @@
           </div>
           {#if outside}
             <p class="warn-text">Teile liegen außerhalb {reg ? "des Passermarken-Rahmens" : "des Schneidebereichs"} und werden abgeschnitten.</p>
+          {/if}
+          {#if tooBig}
+            <div class="tiles">
+              <div class="calib-head">
+                <span>Großes Motiv: in Kacheln schneiden</span>
+                <input type="checkbox" bind:checked={tileOn} disabled={plotter.busy} title="Motiv auf mehrere Matten aufteilen" />
+              </div>
+              {#if tiling}
+                <svg class="tilemap" viewBox="{tiling.box.x0 - 4} {tiling.box.y0 - 4} {tiling.box.x1 - tiling.box.x0 + 8} {tiling.box.y1 - tiling.box.y0 + 8}" preserveAspectRatio="xMidYMid meet">
+                  {#each cutObjects as o (o.id)}
+                    <path d={o.d} transform={mapTransform(o)} fill="none" stroke="var(--text-3)" stroke-width="1" vector-effect="non-scaling-stroke" />
+                  {/each}
+                  {#each tiling.tiles as t, i}
+                    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+                    <rect
+                      x={t.x}
+                      y={t.y}
+                      width={t.w}
+                      height={t.h}
+                      class="tile"
+                      class:on={i === tileIdx}
+                      class:done={tilesDone.includes(i)}
+                      vector-effect="non-scaling-stroke"
+                      onclick={() => !plotter.busy && (tileIdx = i)}
+                    />
+                  {/each}
+                </svg>
+                <div class="tile-buttons">
+                  {#each tiling.tiles as t, i}
+                    <button class="tbtn" class:on={i === tileIdx} class:done={tilesDone.includes(i)} disabled={plotter.busy} onclick={() => (tileIdx = i)} title="Reihe {t.row + 1}, Spalte {t.col + 1}">
+                      {#if tilesDone.includes(i)}<Icon name="check" size={11} />{/if}{i + 1}
+                    </button>
+                  {/each}
+                </div>
+                <div class="calib-row">
+                  <label>Überlappung <input class="field num" type="number" min="0" max="30" step="1" bind:value={tileOverlap} disabled={plotter.busy} /> mm</label>
+                  <span>{tiling.tiles.length} Kacheln · {fmt(cutArea.w)} × {fmt(cutArea.h)} mm</span>
+                </div>
+                <p class="hint">Kachel {tileIdx + 1} wird oben links auf {mat === "none" ? "dem Material" : "der Matte"} geschnitten. Nach jedem Schnitt neues Material einlegen.</p>
+              {:else}
+                <p class="hint">Aus: alles außerhalb des Schneidebereichs wird abgeschnitten.</p>
+              {/if}
+            </div>
           {/if}
           {#if reg}
             <div class="calib">
@@ -539,7 +686,7 @@
               <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
             </div>
             <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={startCut}>
-              <Icon name="scissors" /> {allPen ? "Zeichnen" : "Schneiden"}
+              <Icon name="scissors" /> {allPen ? "Zeichnen" : "Schneiden"}{tiling ? ` – Kachel ${tileIdx + 1}/${tiling.tiles.length}` : ""}
             </button>
             {#if !plotter.status.connected}
               <p class="hint center">Plotter per USB anschließen und einschalten.</p>
@@ -829,6 +976,82 @@
   .info-text :global(svg) {
     flex: none;
     margin-top: 2px;
+    color: var(--accent);
+  }
+  .blade {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 4px 16px 0;
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+  .blade.worn {
+    color: var(--warn);
+    font-weight: 600;
+  }
+  .tiles {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+  }
+  .tiles input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+  }
+  .tilemap {
+    width: 100%;
+    height: 150px;
+    margin-top: 8px;
+    background: var(--panel);
+    border-radius: 6px;
+  }
+  .tile {
+    fill: transparent;
+    stroke: var(--border-strong);
+    stroke-width: 1;
+    cursor: pointer;
+  }
+  .tile:hover {
+    fill: var(--accent-soft);
+  }
+  .tile.done {
+    fill: color-mix(in srgb, var(--ok) 15%, transparent);
+  }
+  .tile.on {
+    stroke: var(--accent);
+    stroke-width: 2;
+    fill: var(--accent-soft);
+  }
+  .tile-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .tbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 30px;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .tbtn.done {
+    color: var(--ok);
+  }
+  .tbtn.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
     color: var(--accent);
   }
   .warn-text {
