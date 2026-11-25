@@ -96,7 +96,7 @@ sudo wget -O /etc/udev/rules.d/70-silhouette.rules https://raw.githubusercontent
 ```
 
 Gut zu wissen:
-- Das Flatpak darf auf USB-Geräte, Bluetooth und den Home-Ordner zugreifen.
+- Das Flatpak darf auf USB-Geräte, Bluetooth, den Home-Ordner und das Netzwerk (Update-Suche) zugreifen.
   PDF-Import (`pdftocairo`) und Drucken (`lp`) laufen über die Programme des Systems
   (Pakete `poppler-utils` und `cups-client` bzw. `poppler` und `cups`).
 - Updates bietet Schnittwerk selbst an (siehe [Updates](#updates)).
