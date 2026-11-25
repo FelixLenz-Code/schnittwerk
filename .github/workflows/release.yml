@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.3.4 && git push origin v0.3.4
+#   git tag v0.3.5 && git push origin v0.3.5
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release
@@ -128,9 +128,11 @@ jobs:
           \`\`\`
           Danach den Plotter einmal aus- und wieder einstecken (udev-Regel).
 
-          **Flatpak** (andere Distributionen): \`Schnittwerk.flatpak\` herunterladen und
-          \`flatpak install --user Schnittwerk.flatpak\`. Für USB einmalig die udev-Regel
-          installieren, siehe [README](${repo}#flatpak).
+          **Flatpak mit einem Befehl** (andere Distributionen):
+          \`\`\`
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && curl -fL -o /tmp/Schnittwerk.flatpak ${repo}/releases/latest/download/Schnittwerk.flatpak && flatpak install --user -y /tmp/Schnittwerk.flatpak
+          \`\`\`
+          Für USB einmalig die udev-Regel installieren, siehe [README](${repo}#flatpak).
 
           Ausführliche Anleitung: [README](${repo}#installation)
 

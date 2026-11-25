@@ -245,9 +245,11 @@ pub async fn update_install(app: AppHandle, asset: Asset) -> Result<(), String> 
 #[tauri::command]
 pub fn update_restart(app: AppHandle) {
     if install_kind() == InstallKind::Flatpak {
-        let mut cmd = crate::host_command("flatpak");
-        cmd.args(["run", APP_ID]);
-        let _ = cmd.spawn();
+        // Detached on the host: flatpak-spawn would otherwise wait for the new
+        // instance and keep this sandbox alive until it is closed.
+        let mut cmd = crate::host_command("sh");
+        cmd.args(["-c", &format!("setsid flatpak run {APP_ID} >/dev/null 2>&1 &")]);
+        let _ = cmd.status();
         app.exit(0);
     } else {
         app.restart();

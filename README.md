@@ -82,11 +82,11 @@ Download-Ordner `sudo apt install ./Schnittwerk_*_amd64.deb` ausführen.
 ### Flatpak
 
 Für andere Distributionen (Fedora, Arch, openSUSE …) gibt es ein Flatpak. Voraussetzung ist
-Flatpak mit [Flathub](https://flathub.org/setup) – die benötigte GNOME-Laufzeit wird von dort
-automatisch nachgeladen.
+nur, dass Flatpak installiert ist. Ein Befehl richtet bei Bedarf Flathub ein (von dort kommt
+die GNOME-Laufzeit), lädt das neueste Schnittwerk-Flatpak und installiert es für deinen Benutzer:
 
 ```bash
-wget -O /tmp/Schnittwerk.flatpak https://github.com/FelixLenz-Code/schnittwerk/releases/latest/download/Schnittwerk.flatpak && flatpak install --user -y /tmp/Schnittwerk.flatpak
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && curl -fL -o /tmp/Schnittwerk.flatpak https://github.com/FelixLenz-Code/schnittwerk/releases/latest/download/Schnittwerk.flatpak && flatpak install --user -y /tmp/Schnittwerk.flatpak
 ```
 
 Ein Flatpak darf keine udev-Regel installieren. Damit der Plotter **per USB** erkannt wird,
