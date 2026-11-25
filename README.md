@@ -18,9 +18,13 @@ brauchst dafür weder Silhouette Studio noch Windows.
 > neuem Material immer erst einen Testschnitt. Die Nutzung erfolgt auf eigene
 > Verantwortung (siehe [Lizenz](#lizenz)).
 
-| Bilder tracen | Sticker-Assistent | Schneiden |
+| Startseite | Bilder tracen | Sticker-Assistent |
 |---|---|---|
-| ![Tracen](docs/screenshots/tracen.png) | ![Sticker-Assistent](docs/screenshots/sticker-assistent.png) | ![Schneiden](docs/screenshots/schneiden.png) |
+| ![Startseite mit Projektarten und zuletzt geöffneten Projekten](docs/screenshots/startseite.png) | ![Tracen](docs/screenshots/tracen.png) | ![Sticker-Assistent](docs/screenshots/sticker-assistent.png) |
+
+| Formen, Text auf Bogen, Hilfslinien | Schneiden | Große Motive in Kacheln |
+|---|---|---|
+| ![Formen und Text](docs/screenshots/formen.png) | ![Schneiden](docs/screenshots/schneiden.png) | ![Kacheln](docs/screenshots/kacheln.png) |
 
 ## Installation
 
