@@ -42,6 +42,8 @@ export function matKindOf(m: Mat): NonNullable<Mat["kind"]> {
   return m.kind ?? (m.name.startsWith("Portrait 3") ? "mat" : "page");
 }
 
+export type ProjectKind = "sticker" | "vinyl" | "htv" | "paper" | "pen" | "large";
+
 export interface Guides {
   /** x positions of vertical guides (mm). */
   v: number[];
@@ -176,6 +178,8 @@ class Editor {
   keepRatio = $state(true);
   /** Material chosen for this project (new-project assistant), preselected when cutting. */
   material = $state<string | null>(null);
+  /** Project type from the new-project assistant; decides which panel opens for imported pictures. */
+  projectKind = $state<ProjectKind | null>(null);
   /** Sticker assistant default: kiss-cut + through-cut backing ("die") or kiss-cut only. */
   stickerStyle = $state<"die" | "kiss">("die");
   /** Increases with every change (autosave). */
@@ -265,6 +269,7 @@ class Editor {
     this.filePath = null;
     this.guides = { v: [], h: [] };
     this.material = null;
+    this.projectKind = null;
     this.dirty = false;
     this.resetHistory();
   }

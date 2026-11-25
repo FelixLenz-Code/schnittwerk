@@ -241,10 +241,10 @@
 
 <div class="app">
   <header>
-    <div class="brand">
+    <button class="brand" title="Startseite: neues Projekt, zuletzt geöffnet" onclick={newProject}>
       <span class="logo"><Icon name="scissors" size={16} stroke={2.2} /></span>
       <span class="title">Schnittwerk</span>
-    </div>
+    </button>
 
     <div class="group">
       <button class="btn icon" title="Neu (Strg+N)" onclick={newProject}><Icon name="filePlus" /></button>
@@ -254,28 +254,53 @@
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn outline" title="Bild oder SVG importieren (Strg+I)" onclick={importDialog}><Icon name="imagePlus" /> Importieren</button>
-      <button class="btn" title="Schnittlinien als SVG exportieren (Strg+E)" onclick={exportSvg}><Icon name="download" /> SVG</button>
+      <button class="btn outline" title="Bild oder SVG importieren (Strg+I)" onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">Importieren</span></button>
+      <button class="btn" title="Schnittlinien als SVG exportieren (Strg+E)" onclick={exportSvg}><Icon name="download" /> <span class="lbl">SVG</span></button>
     </div>
     <span class="divider"></span>
     <div class="group">
       <button class="btn icon" title="Rückgängig (Strg+Z)" disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
       <button class="btn icon" title="Wiederholen (Strg+Y)" disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
     </div>
+    <span class="divider"></span>
+    <div class="group">
+      <button class="btn" class:active={editor.gridSnap} title="Raster: beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)" onclick={() => (editor.gridSnap = !editor.gridSnap)}>
+        <Icon name="grid" /> Raster
+      </button>
+      {#if editor.gridSnap}
+        <select class="hsel" title="Rasterweite beim Verschieben" value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
+          {#each [0.5, 1, 2, 5, 10] as g}<option value={g}>{fmt(g)} mm</option>{/each}
+        </select>
+        <select class="hsel" title="Winkelschritt beim Drehen" value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
+          {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
+        </select>
+      {/if}
+    </div>
+    <span class="divider"></span>
+    <div class="group">
+      <button class="btn" class:active={editor.printCut.enabled} title="Print & Cut: Seite mit Passermarken zum Drucken und Ausschneiden" onclick={() => editor.setPrintCut(!editor.printCut.enabled)}>
+        <Icon name="sticker" /> Print & Cut
+      </button>
+      {#if editor.printCut.enabled}
+        <select class="hsel" title="Papierformat" value={editor.printCut.page} onchange={(e) => editor.setPrintCut(true, e.currentTarget.value as PageName)}>
+          {#each Object.keys(PAGES) as p}<option value={p}>{p}</option>{/each}
+        </select>
+      {/if}
+    </div>
 
     <div class="spacer"></div>
 
     <div class="group">
-      <button class="btn icon" title="Verkleinern" onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
+      <button class="btn icon lbl" title="Verkleinern" onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
       <button class="btn zoom" title="Matte einpassen (Strg+0)" onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
-      <button class="btn icon" title="Vergrößern" onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
+      <button class="btn icon lbl" title="Vergrößern" onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
       <button class="btn icon" class:active={editor.showGrid} title="Raster" onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
       <button class="btn icon" class:active={editor.snap} title="Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht." onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
       <button class="btn icon" title="Design wechseln" onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
     <DeviceMenu />
-    <button class="btn outline" title="Für Print & Cut drucken (Strg+P)" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> Drucken</button>
+    <button class="btn outline" title="Für Print & Cut drucken (Strg+P)" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">Drucken</span></button>
     <button class="btn primary" title="Schneiden-Dialog öffnen (Strg+Enter)" onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> Schneiden</button>
   </header>
 
@@ -310,34 +335,7 @@
       {/if}
     </span>
     <span class="spacer"></span>
-    <label class="pc" title="Beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)">
-      <input type="checkbox" bind:checked={editor.gridSnap} />
-      Raster
-    </label>
-    {#if editor.gridSnap}
-      <label class="mat" title="Rasterweite beim Verschieben">
-        <select value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
-          {#each [0.5, 1, 2, 5, 10] as g}<option value={g}>{fmt(g)} mm</option>{/each}
-        </select>
-      </label>
-      <label class="mat" title="Winkelschritt beim Drehen">
-        <select value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
-          {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
-        </select>
-      </label>
-    {/if}
-    <label class="pc" title="Seite mit Passermarken für Print & Cut">
-      <input type="checkbox" checked={editor.printCut.enabled} onchange={(e) => editor.setPrintCut(e.currentTarget.checked)} />
-      Print & Cut
-    </label>
-    {#if editor.printCut.enabled}
-      <label class="mat">
-        Seite
-        <select value={editor.printCut.page} onchange={(e) => editor.setPrintCut(true, e.currentTarget.value as PageName)}>
-          {#each Object.keys(PAGES) as p}<option value={p}>{p}</option>{/each}
-        </select>
-      </label>
-    {:else}
+    {#if !editor.printCut.enabled}
       <label class="mat">
         Fläche
         <select value={matKind === "roll" ? "roll" : matKind === "custom" ? "custom" : editor.mat.name} onchange={(e) => pickMat(e.currentTarget.value)}>
@@ -403,7 +401,30 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding-right: 10px;
+    margin-right: 6px;
+    padding: 3px 10px 3px 3px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .brand:hover {
+    background: var(--panel-2);
+  }
+  /* Narrow windows: icon-only buttons (the title still names them). */
+  @media (max-width: 1600px) {
+    .lbl {
+      display: none;
+    }
+  }
+  .hsel {
+    height: 28px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    font-size: 12px;
+    cursor: pointer;
   }
   .logo {
     display: inline-flex;
@@ -476,15 +497,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-  .pc {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-  .pc input {
-    accent-color: var(--accent);
   }
   .size {
     width: 64px;

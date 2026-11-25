@@ -1,5 +1,5 @@
 # Baut das .deb und legt ein GitHub-Release an, sobald ein Tag v* gepusht wird.
-#   git tag v0.3.2 && git push origin v0.3.2
+#   git tag v0.3.3 && git push origin v0.3.3
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und das .deb als
 # Artefakt hochgeladen.
 name: Release

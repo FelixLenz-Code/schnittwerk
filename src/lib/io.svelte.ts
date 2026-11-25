@@ -1,6 +1,6 @@
 import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { api, inApp } from "./api";
-import { editor, MATS, type Mat } from "./editor.svelte";
+import { editor, MATS, type Mat, type ProjectKind } from "./editor.svelte";
 import { wizardUi } from "./wizard.svelte";
 import { boxTransform, uid } from "./geometry";
 import type { ImageInfo, ImportedVector, Obj, PathObj } from "./types";
@@ -20,6 +20,14 @@ function placeOnMat(w: number, h: number) {
   w *= s;
   h *= s;
   return { x: (editor.mat.w - w) / 2, y: (editor.mat.h - h) / 2, w, h };
+}
+
+/** Panel for a newly imported picture: the sticker assistant for sticker
+ *  projects (or a print & cut page), otherwise tracing. */
+function imageTab(): "sticker" | "trace" {
+  const k = editor.projectKind;
+  if (k) return k === "sticker" ? "sticker" : "trace";
+  return editor.printCut.enabled ? "sticker" : "trace";
 }
 
 function addImage(info: ImageInfo) {
@@ -73,7 +81,7 @@ export async function paste() {
     const c = await api.clipboardRead();
     if (c.kind === "image") {
       addImage(c.info);
-      editor.rightTab = "trace";
+      editor.rightTab = imageTab();
       return;
     }
     if (c.kind === "svg") {
@@ -106,7 +114,7 @@ export async function importPaths(paths: string[]) {
       const e = ext(path);
       if (IMAGE_EXT.includes(e)) {
         addImage(await api.loadImage(path));
-        editor.rightTab = "trace";
+        editor.rightTab = imageTab();
       } else if (e === "svg") {
         addVector(await api.importSvg(path));
       } else if (e === "dxf") {
@@ -116,7 +124,7 @@ export async function importPaths(paths: string[]) {
         if (r.kind === "vector") addVector(r.vector);
         else {
           addImage(r.info);
-          editor.rightTab = "trace";
+          editor.rightTab = imageTab();
           editor.toast("PDF ohne Vektoren – Seite als Bild eingefügt, zum Tracen bereit.");
         }
       } else if (e === PROJECT_EXT) {
@@ -151,6 +159,7 @@ interface ProjectFile {
   printCut?: { enabled: boolean; page: "A4" | "Letter"; insetX?: number; insetY?: number; inset?: number };
   guides?: { v: number[]; h: number[] };
   material?: string | null;
+  kind?: ProjectKind | null;
   objects: Obj[];
   images: Record<string, { src: string; name: string }>;
   /** Only in the recovery copy. */
@@ -162,12 +171,18 @@ export async function confirmDiscard(): Promise<boolean> {
   return ask("Ungespeicherte Änderungen gehen verloren. Fortfahren?", { title: "Schnittwerk", kind: "warning" });
 }
 
-/** Opens the new-project assistant (asks before discarding changes). */
-export async function newProject() {
-  if (!(await confirmDiscard())) return;
-  // Changes were given up on purpose: no recovery offer for them.
-  if (editor.dirty) await clearAutosave();
+/** Opens the start page / new-project assistant. Unsaved changes are only
+ *  asked about when something there replaces the current project. */
+export function newProject() {
   wizardUi.open = true;
+}
+
+/** Before replacing the current project: asks about unsaved changes. */
+export async function leaveDocument(): Promise<boolean> {
+  if (!(await confirmDiscard())) return false;
+  // Changes were given up on purpose: no recovery offer for them.
+  if (editor.dirty && editor.objects.length) await clearAutosave();
+  return true;
 }
 
 function projectData(): ProjectFile {
@@ -184,6 +199,7 @@ function projectData(): ProjectFile {
     printCut: $state.snapshot(editor.printCut),
     guides: $state.snapshot(editor.guides),
     material: editor.material,
+    kind: editor.projectKind,
     objects: $state.snapshot(editor.objects) as Obj[],
     images,
   };
@@ -258,6 +274,7 @@ async function applyProject(file: ProjectFile, path: string | null) {
     : { enabled: false, page: "A4", insetX: 15, insetY: 10 };
   editor.guides = { v: file.guides?.v ?? [], h: file.guides?.h ?? [] };
   editor.material = file.material ?? null;
+  editor.projectKind = file.kind ?? null;
   editor.filePath = path;
   editor.fitMat();
 }

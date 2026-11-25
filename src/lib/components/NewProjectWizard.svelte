@@ -1,9 +1,9 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, inApp } from "../api";
-  import { customMat, editor, MATS, PAGES, rollMat, ROLL_MAX, ROLL_WIDTH, type PageName } from "../editor.svelte";
+  import { customMat, editor, MATS, PAGES, rollMat, ROLL_MAX, ROLL_WIDTH, type PageName, type ProjectKind } from "../editor.svelte";
   import { fmt } from "../geometry";
-  import { clearAutosave, forgetRecent, openProject, recent, restoreRecovery, type Recovery, type RecentFile } from "../io.svelte";
+  import { clearAutosave, confirmDiscard, forgetRecent, leaveDocument, openProject, recent, restoreRecovery, type Recovery, type RecentFile } from "../io.svelte";
   import { loadCustom, PRESETS, rememberMaterial, type Material } from "../materials";
   import { applyTemplate, TEMPLATES } from "../templates.svelte";
   import { setWizardAtStart, wizardUi } from "../wizard.svelte";
@@ -12,7 +12,7 @@
 
   let { recovery = $bindable() }: { recovery: Recovery | null } = $props();
 
-  type Kind = "sticker" | "vinyl" | "htv" | "paper" | "pen" | "large";
+  type Kind = ProjectKind;
 
   const KINDS: { id: Kind; icon: string; name: string; hint: string }[] = [
     { id: "sticker", icon: "sticker", name: "Sticker", hint: "Drucken und ausschneiden (Print & Cut)" },
@@ -82,7 +82,8 @@
     step = 2;
   }
 
-  function create() {
+  async function create() {
+    if (!(await leaveDocument())) return;
     editor.resetDocument();
     if (kind === "sticker") {
       editor.setPrintCut(true, page);
@@ -95,6 +96,7 @@
       }
     }
     editor.material = materialId;
+    editor.projectKind = kind;
     rememberMaterial(materialId);
     editor.stickerStyle = stickerStyle;
     const t = templates.find((x) => x.id === templateId);
@@ -107,7 +109,8 @@
     requestAnimationFrame(() => editor.fitMat());
   }
 
-  function blank() {
+  async function blank() {
+    if (!(await leaveDocument())) return;
     editor.resetDocument();
     if (editor.printCut.enabled) editor.setPrintCut(false);
     editor.mat = MATS[0];
@@ -118,6 +121,7 @@
   }
 
   async function openRecent(r: RecentFile) {
+    if (!(await confirmDiscard())) return;
     if (inApp && !(await api.fileExists(r.path))) {
       forgetRecent(r.path);
       editor.toast(`„${r.name}“ gibt es nicht mehr.`, "error");
@@ -131,6 +135,7 @@
   }
 
   async function openOther() {
+    if (!(await confirmDiscard())) return;
     const path = await open({ filters: [{ name: "Schnittwerk-Projekt", extensions: ["schnitt"] }] });
     if (typeof path !== "string") return;
     try {
@@ -141,7 +146,7 @@
   }
 
   async function restore() {
-    if (!recovery) return;
+    if (!recovery || !(await confirmDiscard())) return;
     try {
       await restoreRecovery(recovery);
       recovery = null;

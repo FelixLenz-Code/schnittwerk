@@ -45,7 +45,9 @@ Zum Entfernen: `sudo apt remove schnittwerk`.
 
 ### Arbeitsfläche
 - Assistent für neue Projekte: Sticker, Vinyl, Flexfolie, Papier & Karton, Stift oder großes Motiv –
-  wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte
+  wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte.
+  Ein Klick auf „Schnittwerk“ oben links führt jederzeit zurück zu dieser Startseite.
+  Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
 - Matten für Portrait 3 (8″ × 12″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe

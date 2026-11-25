@@ -174,6 +174,10 @@
     color: var(--text-2);
     font-size: 12px;
     cursor: pointer;
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .device:hover {
     border-color: var(--border-strong);
