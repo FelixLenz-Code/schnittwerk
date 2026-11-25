@@ -2,6 +2,7 @@
 // inserted, deleted and switched between corner / smooth, line / curve.
 
 import { editor } from "./editor.svelte";
+import { t } from "./i18n.svelte";
 import { fromLocal, rotate, toLocal } from "./geometry";
 import { parsePath, pathBbox, serializePath, splitSegment, type PNode, type Sub } from "./pathdata";
 import type { PathObj, Vec2 } from "./types";
@@ -41,7 +42,7 @@ class NodeEditor {
     }
     const n = subs.reduce((k, s) => k + s.nodes.length, 0);
     if (n > NODE_LIMIT) {
-      editor.toast(`Pfad hat ${n} Knoten – zum Bearbeiten erst mit stärkerer Glättung tracen.`, "error");
+      editor.toast(t("Pfad hat {n} Knoten – zum Bearbeiten erst mit stärkerer Glättung tracen.", { n }), "error");
       return;
     }
     // Nodes whose handles are already collinear count as smooth.

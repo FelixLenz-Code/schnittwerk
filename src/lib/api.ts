@@ -60,8 +60,12 @@ export const api = {
   bleConnect: (id: string) => call<string>("ble_connect", { id }),
   plotterDisconnect: () => call<void>("plotter_disconnect", {}),
   cutPreview: (groups: { paths: PathInput[]; options: PathOptions }[]) => call<CutPlan[]>("cut_preview", { groups }),
-  cutStart: (groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[], regmarks: RegMarks | null, feed: number | null = null) =>
-    call<{ clamped: number }>("cut_start", { req: { groups, regmarks, feed } }),
+  cutStart: (
+    groups: { paths: PathInput[]; options: PathOptions; settings: CutSettings }[],
+    regmarks: RegMarks | null,
+    feed: number | null = null,
+    resume: { pass: number; stroke: number } | null = null,
+  ) => call<{ clamped: number }>("cut_start", { req: { groups, regmarks, feed, resume } }),
   cutRegtest: (regmarks: RegMarks, settings: CutSettings) => call<{ clamped: number }>("cut_regtest", { regmarks, settings }),
   cutTest: (x: number, y: number, settings: CutSettings) => call<{ clamped: number }>("cut_test", { x, y, settings }),
   cutPause: (paused: boolean) => call<void>("cut_pause", { paused }),

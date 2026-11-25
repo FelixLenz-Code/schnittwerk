@@ -1,4 +1,5 @@
 import type { Obj, Vec2 } from "./types";
+import { locale } from "./i18n.svelte";
 
 export const DEG = Math.PI / 180;
 
@@ -77,7 +78,7 @@ export function boxTransform(o: Obj): string {
 }
 
 export function fmt(v: number, digits = 1): string {
-  return (Math.round(v * 10 ** digits) / 10 ** digits).toLocaleString("de-DE", {
+  return (Math.round(v * 10 ** digits) / 10 ** digits).toLocaleString(locale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   });

@@ -2,6 +2,7 @@ import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { api, inApp } from "./api";
 import { editor, MATS, type Mat, type ProjectKind } from "./editor.svelte";
 import { wizardUi } from "./wizard.svelte";
+import { t } from "./i18n.svelte";
 import { boxTransform, uid } from "./geometry";
 import type { ImageInfo, ImportedVector, Obj, PathObj } from "./types";
 
@@ -73,7 +74,10 @@ export async function copySelection(cut = false) {
   }
   // So the next paste takes these objects, not an older picture.
   await api.clipboardMark().catch(() => {});
-  editor.toast(`${objs.length} ${objs.length === 1 ? "Objekt" : "Objekte"} ${cut ? "ausgeschnitten" : "kopiert"}`);
+  const n = objs.length;
+  editor.toast(
+    cut ? t(n === 1 ? "1 Objekt ausgeschnitten" : "{n} Objekte ausgeschnitten", { n }) : t(n === 1 ? "1 Objekt kopiert" : "{n} Objekte kopiert", { n }),
+  );
 }
 
 export async function paste() {
@@ -85,7 +89,7 @@ export async function paste() {
       return;
     }
     if (c.kind === "svg") {
-      addVector({ ...c.vector, name: "Eingefügt" });
+      addVector({ ...c.vector, name: t("Eingefügt") });
       return;
     }
   } catch (e) {
@@ -130,7 +134,7 @@ export async function importPaths(paths: string[]) {
       } else if (e === PROJECT_EXT) {
         await openProject(path);
       } else {
-        editor.toast(`Dateityp .${e} wird (noch) nicht unterstützt.`, "error");
+        editor.toast(t("Dateityp .{ext} wird (noch) nicht unterstützt.", { ext: e }), "error");
       }
     } catch (err) {
       editor.error(err);
@@ -142,9 +146,9 @@ export async function importDialog() {
   const res = await open({
     multiple: true,
     filters: [
-      { name: "Bilder & Vektoren", extensions: [...IMAGE_EXT, ...VECTOR_EXT] },
-      { name: "Bilder", extensions: IMAGE_EXT },
-      { name: "Vektoren (SVG, DXF, PDF)", extensions: VECTOR_EXT },
+      { name: t("Bilder & Vektoren"), extensions: [...IMAGE_EXT, ...VECTOR_EXT] },
+      { name: t("Bilder"), extensions: IMAGE_EXT },
+      { name: t("Vektoren (SVG, DXF, PDF)"), extensions: VECTOR_EXT },
     ],
   });
   if (res) await importPaths(Array.isArray(res) ? res : [res]);
@@ -168,7 +172,7 @@ interface ProjectFile {
 
 export async function confirmDiscard(): Promise<boolean> {
   if (!editor.dirty || !editor.objects.length) return true;
-  return ask("Ungespeicherte Änderungen gehen verloren. Fortfahren?", { title: "Schnittwerk", kind: "warning" });
+  return ask(t("Ungespeicherte Änderungen gehen verloren. Fortfahren?"), { title: "Schnittwerk", kind: "warning", okLabel: t("Fortfahren"), cancelLabel: t("Abbrechen") });
 }
 
 /** Opens the start page / new-project assistant. Unsaved changes are only
@@ -209,7 +213,7 @@ function projectData(): ProjectFile {
 export async function saveProject(saveAs = false): Promise<boolean> {
   let path = editor.filePath;
   if (!path || saveAs) {
-    path = await save({ defaultPath: "Projekt.schnitt", filters: [{ name: "Schnittwerk-Projekt", extensions: [PROJECT_EXT] }] });
+    path = await save({ defaultPath: t("Projekt") + ".schnitt", filters: [{ name: t("Schnittwerk-Projekt"), extensions: [PROJECT_EXT] }] });
     if (!path) return false;
     if (!path.endsWith("." + PROJECT_EXT)) path += "." + PROJECT_EXT;
   }
@@ -251,7 +255,7 @@ export async function confirmClose(): Promise<boolean> {
 
 export async function openDialog() {
   if (!(await confirmDiscard())) return;
-  const path = await open({ filters: [{ name: "Schnittwerk-Projekt", extensions: [PROJECT_EXT] }] });
+  const path = await open({ filters: [{ name: t("Schnittwerk-Projekt"), extensions: [PROJECT_EXT] }] });
   if (typeof path === "string") await openProject(path);
 }
 
@@ -470,7 +474,7 @@ export async function exportSvg() {
     editor.toast("Keine Schnittlinien zum Exportieren.", "error");
     return;
   }
-  let path = await save({ defaultPath: "Schnittlinien.svg", filters: [{ name: "SVG", extensions: ["svg"] }] });
+  let path = await save({ defaultPath: t("Schnittlinien") + ".svg", filters: [{ name: "SVG", extensions: ["svg"] }] });
   if (!path) return;
   if (!path.toLowerCase().endsWith(".svg")) path += ".svg";
   try {

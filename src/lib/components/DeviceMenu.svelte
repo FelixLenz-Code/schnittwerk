@@ -5,6 +5,7 @@
   import type { BleDevice } from "../types";
   import Icon from "./Icon.svelte";
   import { fmt } from "../geometry";
+  import { locale, t, tMsg } from "../i18n.svelte";
 
   let open = $state(false);
   let confirmBlade = $state(false);
@@ -33,7 +34,7 @@
     try {
       const name = await api.bleConnect(d.id);
       plotter.rememberBle({ id: d.id, name: d.name || name });
-      editor.toast(`${name} per Bluetooth verbunden – verbindet sich künftig automatisch`, "ok");
+      editor.toast(t("{name} per Bluetooth verbunden – verbindet sich künftig automatisch", { name }), "ok");
       open = false;
       plotter.poll();
     } catch (e) {
@@ -64,19 +65,19 @@
     class:warn={plotter.status.state === "unloaded"}
     class:busy={plotter.status.state === "cutting" || plotter.status.state === "moving"}
     class:err={plotter.status.state === "error"}
-    title={plotter.status.message ?? "Plotter-Verbindung"}
+    title={tMsg(plotter.status.message ?? "Plotter-Verbindung")}
     onclick={() => (open = !open)}
   >
     <span class="dot"></span>
     {#if plotter.status.connected}
       {#if plotter.status.connection === "Bluetooth"}<span class="bt">BT</span>{/if}
-      {plotter.status.model?.replace("Silhouette ", "")} · {STATE[plotter.status.state] ?? ""}
+      {plotter.status.model?.replace("Silhouette ", "")} · {t(STATE[plotter.status.state] ?? "")}
     {:else if plotter.reconnecting}
-      Verbinde per Bluetooth …
+      {t("Verbinde per Bluetooth …")}
     {:else if plotter.status.state === "error"}
-      Plotter-Fehler
+      {t("Plotter-Fehler")}
     {:else}
-      Kein Plotter
+      {t("Kein Plotter")}
     {/if}
   </button>
 
@@ -85,73 +86,73 @@
       <div class="head">
         {#if plotter.status.connected}
           <strong>{plotter.status.model}</strong>
-          <span class="muted">verbunden über {plotter.status.connection}</span>
+          <span class="muted">{t("verbunden über {c}", { c: plotter.status.connection ?? "" })}</span>
         {:else}
-          <strong>Kein Plotter verbunden</strong>
-          <span class="muted">{plotter.status.message ?? "Per USB anschließen – wird automatisch erkannt."}</span>
+          <strong>{t("Kein Plotter verbunden")}</strong>
+          <span class="muted">{tMsg(plotter.status.message ?? "Per USB anschließen – wird automatisch erkannt.")}</span>
         {/if}
       </div>
       {#if plotter.status.connection === "Bluetooth"}
-        <button class="btn outline" onclick={disconnect} disabled={plotter.busy}>Bluetooth trennen</button>
+        <button class="btn outline" onclick={disconnect} disabled={plotter.busy}>{t("Bluetooth trennen")}</button>
       {/if}
       {#if plotter.knownBle}
         <div class="known">
           <span class="muted small">
-            Automatisch verbinden mit <strong>{plotter.knownBle.name || "Plotter"}</strong>
-            {#if plotter.reconnecting}– wird gesucht …{/if}
+            {t("Automatisch verbinden mit")} <strong>{plotter.knownBle.name || "Plotter"}</strong>
+            {#if plotter.reconnecting}– {t("wird gesucht …")}{/if}
           </span>
           {#if plotter.status.connection !== "Bluetooth"}
-            <button class="btn small-btn" onclick={() => plotter.forgetBle()}>Vergessen</button>
+            <button class="btn small-btn" onclick={() => plotter.forgetBle()}>{t("Vergessen")}</button>
           {/if}
         </div>
       {/if}
       <div class="sep"></div>
       <button class="btn outline" onclick={scan} disabled={scanning || plotter.busy}>
-        <Icon name="usb" /> {scanning ? "Suche per Bluetooth …" : "Per Bluetooth suchen"}
+        <Icon name="usb" /> {scanning ? t("Suche per Bluetooth …") : t("Per Bluetooth suchen")}
       </button>
       {#if devices.length}
         <ul>
           {#each devices as d (d.id)}
             <li>
               <div>
-                <div class="name">{d.name || "Unbenannt"}</div>
+                <div class="name">{d.name || t("Unbenannt")}</div>
                 <div class="muted small">{d.address}{d.rssi !== null ? ` · ${d.rssi} dBm` : ""}</div>
               </div>
               <button class="btn primary" disabled={!!connecting} onclick={() => connect(d)}>
-                {connecting === d.id ? "Verbinde …" : "Verbinden"}
+                {connecting === d.id ? t("Verbinde …") : t("Verbinden")}
               </button>
             </li>
           {/each}
         </ul>
       {:else if scanned && !scanning}
-        <p class="muted small">Kein Plotter gefunden. Ist er eingeschaltet und Bluetooth am Gerät aktiv?</p>
+        <p class="muted small">{t("Kein Plotter gefunden. Ist er eingeschaltet und Bluetooth am Gerät aktiv?")}</p>
       {/if}
       <div class="sep"></div>
       <div class="blade" class:worn={plotter.bladeWorn}>
         <div class="blade-head">
-          <strong>Messer</strong>
-          <span class="muted small">seit {new Date(plotter.blade.since).toLocaleDateString("de-DE")} · {plotter.blade.jobs} Schnitte</span>
+          <strong>{t("Messer")}</strong>
+          <span class="muted small">{t("seit {date} · {n} Schnitte", { date: new Date(plotter.blade.since).toLocaleDateString(locale()), n: plotter.blade.jobs })}</span>
         </div>
         <div class="bar"><div style:width="{Math.min(100, (plotter.blade.mm / 1000 / plotter.blade.limitM) * 100)}%"></div></div>
         <div class="known">
-          <span class="small">{fmt(plotter.blade.mm / 1000, 1)} m von {plotter.blade.limitM} m geschnitten</span>
-          <button class="btn small-btn" onclick={() => (confirmBlade = true)} disabled={plotter.busy}>Neues Messer</button>
+          <span class="small">{t("{a} m von {b} m geschnitten", { a: fmt(plotter.blade.mm / 1000, 1), b: plotter.blade.limitM })}</span>
+          <button class="btn small-btn" onclick={() => (confirmBlade = true)} disabled={plotter.busy}>{t("Neues Messer")}</button>
         </div>
         {#if confirmBlade}
           <div class="known">
-            <span class="small">Zähler auf 0 setzen?</span>
+            <span class="small">{t("Zähler auf 0 setzen?")}</span>
             <span>
-              <button class="btn small-btn primary" onclick={() => { plotter.resetBlade(); confirmBlade = false; }}>Ja</button>
-              <button class="btn small-btn" onclick={() => (confirmBlade = false)}>Nein</button>
+              <button class="btn small-btn primary" onclick={() => { plotter.resetBlade(); confirmBlade = false; }}>{t("Ja")}</button>
+              <button class="btn small-btn" onclick={() => (confirmBlade = false)}>{t("Nein")}</button>
             </span>
           </div>
         {/if}
         <label class="known small">
-          Erinnern nach
+          {t("Erinnern nach")}
           <span><input class="limit" type="number" min="10" max="2000" step="10" value={plotter.blade.limitM} onchange={(e) => { plotter.blade.limitM = Math.max(10, +e.currentTarget.value || 150); plotter.saveBlade(); }} /> m</span>
         </label>
         {#if plotter.bladeWorn}
-          <p class="small worn-text">Das Messer hat sein Ziel erreicht – Schnittbild prüfen, bei ausgefransten Kanten wechseln.</p>
+          <p class="small worn-text">{t("Das Messer hat sein Ziel erreicht – Schnittbild prüfen, bei ausgefransten Kanten wechseln.")}</p>
         {/if}
       </div>
     </div>

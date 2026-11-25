@@ -1,7 +1,9 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, inApp } from "../api";
-  import { customMat, editor, MATS, PAGES, rollMat, ROLL_MAX, ROLL_WIDTH, type PageName, type ProjectKind } from "../editor.svelte";
+  import { customMat, editor, MATS, matSize, PAGES, rollMat, ROLL_MAX, ROLL_WIDTH, type PageName, type ProjectKind } from "../editor.svelte";
+  import { plotter } from "../plotter.svelte";
+  import type { MatKind } from "../types";
   import { fmt } from "../geometry";
   import { clearAutosave, confirmDiscard, forgetRecent, leaveDocument, openProject, recent, restoreRecovery, type Recovery, type RecentFile } from "../io.svelte";
   import { loadCustom, PRESETS, rememberMaterial, type Material } from "../materials";
@@ -9,6 +11,7 @@
   import { setWizardAtStart, wizardUi } from "../wizard.svelte";
   import Icon from "./Icon.svelte";
   import Segmented from "./Segmented.svelte";
+  import { i18n, locale, setLang, t } from "../i18n.svelte";
   import { updater } from "../update.svelte";
   import { getVersion } from "@tauri-apps/api/app";
 
@@ -54,6 +57,9 @@
   let kind = $state<Kind>("sticker");
   let materialId = $state("sticker-matt");
   let base = $state<"mat" | "roll">("mat");
+  /** Mat size: the Cameo mats when a Cameo is connected. */
+  let matChoice = $state<MatKind>(plotter.status.model?.includes("Cameo") ? "cameo12x12" : "portrait8x12");
+  const matDims = $derived(matSize(matChoice) ?? { w: 203.2, h: 304.8 });
   let rollLength = $state(600);
   let page = $state<PageName>("A4");
   let stickerStyle = $state<"die" | "kiss">("die");
@@ -66,7 +72,9 @@
   /** Own materials (cut dialog) – offered for every type except the pen. */
   const own = $derived(kind === "pen" ? [] : custom.filter((m) => m.tool === "blade"));
   /** Tiles on the mat (same formula as the cut dialog, 5 mm overlap). */
-  const matTiles = $derived((largeW <= 203.2 ? 1 : Math.ceil((largeW - 5) / 198.2)) * (largeH <= 304.8 ? 1 : Math.ceil((largeH - 5) / 299.8)));
+  const matTiles = $derived(
+    (largeW <= matDims.w ? 1 : Math.ceil((largeW - 5) / (matDims.w - 5))) * (largeH <= matDims.h ? 1 : Math.ceil((largeH - 5) / (matDims.h - 5))),
+  );
   const material = $derived(findMat(materialId));
   const templates = $derived(
     kind === "sticker"
@@ -95,9 +103,9 @@
     } else {
       if (editor.printCut.enabled) editor.setPrintCut(false);
       if (kind === "large") {
-        editor.mat = base === "roll" && largeW <= ROLL_WIDTH ? rollMat(largeH) : customMat(largeW, largeH, base === "roll");
+        editor.mat = base === "roll" && largeW <= ROLL_WIDTH ? rollMat(largeH) : customMat(largeW, largeH, base === "roll", base === "roll" ? undefined : matChoice);
       } else {
-        editor.mat = base === "roll" ? rollMat(rollLength) : MATS[0];
+        editor.mat = base === "roll" ? rollMat(rollLength) : (MATS.find((m) => m.cut === matChoice) ?? MATS[0]);
       }
     }
     editor.material = materialId;
@@ -129,7 +137,7 @@
     if (!(await confirmDiscard())) return;
     if (inApp && !(await api.fileExists(r.path))) {
       forgetRecent(r.path);
-      editor.toast(`„${r.name}“ gibt es nicht mehr.`, "error");
+      editor.toast(t("„{name}“ gibt es nicht mehr.", { name: r.name }), "error");
       return;
     }
     try {
@@ -141,7 +149,7 @@
 
   async function openOther() {
     if (!(await confirmDiscard())) return;
-    const path = await open({ filters: [{ name: "Schnittwerk-Projekt", extensions: ["schnitt"] }] });
+    const path = await open({ filters: [{ name: t("Schnittwerk-Projekt"), extensions: ["schnitt"] }] });
     if (typeof path !== "string") return;
     try {
       await openProject(path);
@@ -169,30 +177,30 @@
     wizardUi.open = false;
   }
 
-  const when = (t: number) => {
-    const d = new Date(t);
+  const when = (ms: number) => {
+    const d = new Date(ms);
     const today = new Date();
-    const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    return d.toDateString() === today.toDateString() ? `heute ${time}` : `${d.toLocaleDateString("de-DE")} ${time}`;
+    const time = d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+    return d.toDateString() === today.toDateString() ? t("heute {time}", { time }) : `${d.toLocaleDateString(locale())} ${time}`;
   };
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
 
 <div class="backdrop" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Neues Projekt">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Neues Projekt")}>
     <aside>
       {#if recovery}
         <div class="recovery">
-          <div class="rec-title"><Icon name="clock" size={14} /> Nicht gespeicherte Arbeit</div>
-          <div class="muted small">„{recovery.name}“ · {recovery.objects} {recovery.objects === 1 ? "Objekt" : "Objekte"} · {when(recovery.savedAt)}</div>
+          <div class="rec-title"><Icon name="clock" size={14} /> {t("Nicht gespeicherte Arbeit")}</div>
+          <div class="muted small">„{t(recovery.name)}“ · {recovery.objects === 1 ? t("1 Objekt") : t("{n} Objekte", { n: recovery.objects })} · {when(recovery.savedAt)}</div>
           <div class="rec-actions">
-            <button class="btn primary" onclick={restore}>Wiederherstellen</button>
-            <button class="btn outline" onclick={discardRecovery}>Verwerfen</button>
+            <button class="btn primary" onclick={restore}>{t("Wiederherstellen")}</button>
+            <button class="btn outline" onclick={discardRecovery}>{t("Verwerfen")}</button>
           </div>
         </div>
       {/if}
-      <h3 class="section-title">Zuletzt geöffnet</h3>
+      <h3 class="section-title">{t("Zuletzt geöffnet")}</h3>
       {#if recent.list.length}
         <ul class="recent">
           {#each recent.list as r (r.path)}
@@ -204,32 +212,36 @@
                   <span class="muted small">{when(r.time)}</span>
                 </span>
               </button>
-              <button class="btn icon forget" title="Aus der Liste entfernen" aria-label="Aus der Liste entfernen" onclick={() => forgetRecent(r.path)}><Icon name="x" size={12} /></button>
+              <button class="btn icon forget" title={t("Aus der Liste entfernen")} aria-label={t("Aus der Liste entfernen")} onclick={() => forgetRecent(r.path)}><Icon name="x" size={12} /></button>
             </li>
           {/each}
         </ul>
       {:else}
-        <p class="muted small">Noch keine Projekte gespeichert.</p>
+        <p class="muted small">{t("Noch keine Projekte gespeichert.")}</p>
       {/if}
-      <button class="btn outline open" onclick={openOther}><Icon name="folder" /> Projekt öffnen …</button>
+      <button class="btn outline open" onclick={openOther}><Icon name="folder" /> {t("Projekt öffnen …")}</button>
       <div class="bottom">
         <label class="atstart">
           <input type="checkbox" checked={wizardUi.atStart} onchange={(e) => setWizardAtStart(e.currentTarget.checked)} />
-          Beim Start anzeigen
+          {t("Beim Start anzeigen")}
         </label>
         <div class="version">
           <span>Schnittwerk {version}</span>
           {#if updater.available}
-            <button class="link strong" onclick={() => (updater.dialogOpen = true)}>Update auf {updater.info?.latest}</button>
+            <button class="link strong" onclick={() => (updater.dialogOpen = true)}>{t("Update auf {v}", { v: updater.info?.latest ?? "" })}</button>
           {:else}
             <button class="link" onclick={() => updater.check()} disabled={updater.phase === "checking"}>
-              {updater.phase === "checking" ? "Prüfe …" : "Nach Updates suchen"}
+              {updater.phase === "checking" ? t("Prüfe …") : t("Nach Updates suchen")}
             </button>
           {/if}
         </div>
+        <div class="version">
+          <span>Sprache · Language</span>
+          <span class="langs"><button class="link" class:cur={i18n.lang === "de"} onclick={() => setLang("de")}>Deutsch</button> · <button class="link" class:cur={i18n.lang === "en"} onclick={() => setLang("en")}>English</button></span>
+        </div>
         <label class="atstart">
           <input type="checkbox" checked={updater.auto} onchange={(e) => updater.setAuto(e.currentTarget.checked)} />
-          Automatisch nach Updates suchen
+          {t("Automatisch nach Updates suchen")}
         </label>
       </div>
     </aside>
@@ -237,10 +249,10 @@
     <div class="main">
       <header>
         {#if step === 2}
-          <button class="btn icon" onclick={() => (step = 1)} aria-label="Zurück"><Icon name="chevronLeft" /></button>
+          <button class="btn icon" onclick={() => (step = 1)} aria-label={t("Zurück")}><Icon name="chevronLeft" /></button>
         {/if}
-        <h2>{step === 1 ? "Was möchtest du machen?" : kindInfo.name}</h2>
-        <button class="btn icon close" onclick={close} aria-label="Schließen"><Icon name="x" /></button>
+        <h2>{step === 1 ? t("Was möchtest du machen?") : t(kindInfo.name)}</h2>
+        <button class="btn icon close" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
       </header>
 
       {#if step === 1}
@@ -248,28 +260,28 @@
           {#each KINDS as k}
             <button class="kind" onclick={() => choose(k.id)}>
               <span class="kicon"><Icon name={k.icon} size={22} /></span>
-              <span class="kname">{k.name}</span>
-              <span class="muted small">{k.hint}</span>
+              <span class="kname">{t(k.name)}</span>
+              <span class="muted small">{t(k.hint)}</span>
             </button>
           {/each}
         </div>
         <div class="foot">
-          <button class="btn" onclick={blank}>Leere Matte</button>
+          <button class="btn" onclick={blank}>{t("Leere Matte")}</button>
         </div>
       {:else}
         <div class="form">
           <section>
-            <h3 class="section-title">Material</h3>
+            <h3 class="section-title">{t("Material")}</h3>
             {#if materials.length > 1 || own.length}
               <div class="chips">
                 {#each materials as m (m.id)}
-                  <button class="chip" class:on={materialId === m.id} onclick={() => (materialId = m.id)}>{m.name}</button>
+                  <button class="chip" class:on={materialId === m.id} onclick={() => (materialId = m.id)}>{t(m.name)}</button>
                 {/each}
               </div>
             {/if}
             {#if own.length}
               <div class="chips own">
-                <span class="muted small">Eigene:</span>
+                <span class="muted small">{t("Eigene:")}</span>
                 {#each own as m (m.id)}
                   <button class="chip" class:on={materialId === m.id} onclick={() => (materialId = m.id)}>{m.name}</button>
                 {/each}
@@ -277,20 +289,20 @@
             {/if}
             {#if material}
               <p class="muted small">
-                {material.name}:
-                {#if material.tool === "blade"}Messertiefe {material.depth} ·{" "}{/if}Druck {material.pressure} · Geschwindigkeit {material.speed}{material.passes > 1 ? ` · ${material.passes} Durchgänge` : ""}{material.mirror ? " · gespiegelt" : ""}
-                – beim Schneiden änderbar.
+                {t(material.name)}:
+                {#if material.tool === "blade"}{t("Messertiefe")} {material.depth} ·{" "}{/if}{t("Druck")} {material.pressure} · {t("Geschwindigkeit")} {material.speed}{material.passes > 1 ? ` · ${t("{n} Durchgänge", { n: material.passes })}` : ""}{material.mirror ? ` · ${t("gespiegelt")}` : ""}
+                – {t("beim Schneiden änderbar.")}
               </p>
             {/if}
           </section>
 
           {#if kind === "sticker"}
             <section>
-              <h3 class="section-title">Druckseite</h3>
+              <h3 class="section-title">{t("Druckseite")}</h3>
               <Segmented value={page} onchange={(v) => (page = v as PageName)} options={Object.keys(PAGES).map((p) => ({ value: p, label: p }))} />
             </section>
             <section>
-              <h3 class="section-title">Sticker-Art</h3>
+              <h3 class="section-title">{t("Sticker-Art")}</h3>
               <Segmented
                 value={stickerStyle}
                 onchange={(v) => (stickerStyle = v as "die" | "kiss")}
@@ -301,45 +313,51 @@
               />
               <p class="muted small">
                 {stickerStyle === "die"
-                  ? "Jeder Sticker wird angeschnitten und mit einem Rand durchgeschnitten – fertige Einzelsticker."
-                  : "Die Sticker werden nur angeschnitten und bleiben auf dem Bogen."}
+                  ? t("Jeder Sticker wird angeschnitten und mit einem Rand durchgeschnitten – fertige Einzelsticker.")
+                  : t("Die Sticker werden nur angeschnitten und bleiben auf dem Bogen.")}
               </p>
             </section>
           {:else}
             {#if kind === "large"}
               <section>
-                <h3 class="section-title">Größe des Motivs</h3>
+                <h3 class="section-title">{t("Größe des Motivs")}</h3>
                 <div class="size-row">
-                  <label class="num"><span>B</span><input class="field" type="number" min="50" max="3000" step="10" bind:value={largeW} /><em>mm</em></label>
+                  <label class="num"><span>{t("B")}</span><input class="field" type="number" min="50" max="3000" step="10" bind:value={largeW} /><em>mm</em></label>
                   <span class="times">×</span>
-                  <label class="num"><span>H</span><input class="field" type="number" min="50" max={ROLL_MAX} step="10" bind:value={largeH} /><em>mm</em></label>
+                  <label class="num"><span>{t("H")}</span><input class="field" type="number" min="50" max={ROLL_MAX} step="10" bind:value={largeH} /><em>mm</em></label>
                 </div>
               </section>
             {/if}
             <section>
-              <h3 class="section-title">Unterlage</h3>
+              <h3 class="section-title">{t("Unterlage")}</h3>
               <Segmented
-                value={base}
-                onchange={(v) => (base = v as "mat" | "roll")}
-                options={canRoll
-                  ? [
-                      { value: "mat", label: "Schneidematte 8″ × 12″" },
-                      { value: "roll", label: "Ohne Matte (Rolle)" },
-                    ]
-                  : [{ value: "mat", label: "Schneidematte 8″ × 12″" }]}
+                value={base === "roll" ? "roll" : matChoice}
+                onchange={(v) => {
+                  if (v === "roll") base = "roll";
+                  else {
+                    base = "mat";
+                    matChoice = v as MatKind;
+                  }
+                }}
+                options={[
+                  { value: "portrait8x12", label: "Matte 8″ × 12″", hint: "Portrait" },
+                  { value: "cameo12x12", label: "Matte 12″ × 12″", hint: "Cameo" },
+                  { value: "cameo12x24", label: "Matte 12″ × 24″", hint: "Cameo" },
+                  ...(canRoll ? [{ value: "roll", label: "Ohne Matte (Rolle)" }] : []),
+                ]}
               />
               {#if base === "roll" && kind !== "large"}
                 <div class="size-row">
-                  <label class="num wide"><span>Länge</span><input class="field" type="number" min="50" max={ROLL_MAX} step="10" bind:value={rollLength} /><em>mm</em></label>
+                  <label class="num wide"><span>{t("Länge")}</span><input class="field" type="number" min="50" max={ROLL_MAX} step="10" bind:value={rollLength} /><em>mm</em></label>
                 </div>
               {/if}
               <p class="muted small">
                 {#if base === "roll"}
-                  Nur für Folie mit festem Trägerpapier. Breite {fmt(ROLL_WIDTH)} mm{tilesAcross ? ` – das Motiv wird in ${Math.ceil((largeW - 5) / (ROLL_WIDTH - 5))} Bahnen geschnitten` : ""}. Am Ende wird die Folie hinter dem Motiv herausgeschoben.
+                  {t("Nur für Folie mit festem Trägerpapier. Breite {w} mm", { w: fmt(ROLL_WIDTH) })}{tilesAcross ? ` – ${t("das Motiv wird in {n} Bahnen geschnitten", { n: Math.ceil((largeW - 5) / (ROLL_WIDTH - 5)) })}` : ""}. {t("Am Ende wird die Folie hinter dem Motiv herausgeschoben.")}
                 {:else if kind === "large"}
-                  Schneidebereich 203 × 305 mm – das Motiv wird in {matTiles} {matTiles === 1 ? "Kachel" : "Kacheln"} geschnitten.
+                  {matTiles === 1 ? t("Schneidebereich {w} × {h} mm – das Motiv passt auf eine Matte.", { w: fmt(matDims.w), h: fmt(matDims.h) }) : t("Schneidebereich {w} × {h} mm – das Motiv wird in {n} Kacheln geschnitten.", { w: fmt(matDims.w), h: fmt(matDims.h), n: matTiles })}
                 {:else}
-                  Material oben links auf die Matte legen.
+                  {t("Material oben links auf die Matte legen.")}{matChoice !== "portrait8x12" ? ` ${t("Die 12″-Matten passen nur in die Cameo.")}` : ""}
                 {/if}
               </p>
             </section>
@@ -347,21 +365,21 @@
 
           {#if templates.length}
             <section>
-              <h3 class="section-title">Vorlage</h3>
+              <h3 class="section-title">{t("Vorlage")}</h3>
               <div class="chips">
-                <button class="chip" class:on={templateId === "none"} onclick={() => (templateId = "none")}>Leer</button>
-                {#each templates as t (t.id)}
-                  <button class="chip" class:on={templateId === t.id} onclick={() => (templateId = t.id)} title={t.hint}>{t.name}</button>
+                <button class="chip" class:on={templateId === "none"} onclick={() => (templateId = "none")}>{t("Leer")}</button>
+                {#each templates as tpl (tpl.id)}
+                  <button class="chip" class:on={templateId === tpl.id} onclick={() => (templateId = tpl.id)} title={t(tpl.hint)}>{t(tpl.name)}</button>
                 {/each}
               </div>
             </section>
           {/if}
 
-          <p class="tip"><Icon name="sparkle" size={13} /> {TIPS[kind]}</p>
+          <p class="tip"><Icon name="sparkle" size={13} /> {t(TIPS[kind])}</p>
         </div>
         <div class="foot">
-          <button class="btn" onclick={() => (step = 1)}>Zurück</button>
-          <button class="btn primary" onclick={create}>Projekt anlegen <Icon name="arrowRight" /></button>
+          <button class="btn" onclick={() => (step = 1)}>{t("Zurück")}</button>
+          <button class="btn primary" onclick={create}>{t("Projekt anlegen")} <Icon name="arrowRight" /></button>
         </div>
       {/if}
     </div>
@@ -517,6 +535,15 @@
     color: var(--accent);
     font-size: 12px;
     cursor: pointer;
+  }
+  .langs {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .link.cur {
+    color: var(--text);
+    font-weight: 600;
   }
   .link.strong {
     font-weight: 600;

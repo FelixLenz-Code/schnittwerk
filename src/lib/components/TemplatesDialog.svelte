@@ -1,6 +1,7 @@
 <script lang="ts">
   import { TEMPLATES, newFromTemplate, templatesUi } from "../templates.svelte";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
 
   /** Thumbnail shapes (viewBox 0 0 40 40). */
   const THUMBS: Record<string, string> = {
@@ -22,21 +23,21 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
 
 <div class="backdrop" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Neu aus Vorlage">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Neu aus Vorlage")}>
     <header>
-      <h2><Icon name="filePlus" size={18} /> Neu aus Vorlage</h2>
-      <button class="btn icon" onclick={close} aria-label="Schließen"><Icon name="x" /></button>
+      <h2><Icon name="filePlus" size={18} /> {t("Neu aus Vorlage")}</h2>
+      <button class="btn icon" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
     <div class="grid">
-      {#each TEMPLATES as t}
-        <button class="card" onclick={() => newFromTemplate(t)}>
+      {#each TEMPLATES as tpl}
+        <button class="card" onclick={() => newFromTemplate(tpl)}>
           <svg viewBox="0 0 40 40" aria-hidden="true">
-            <path d={THUMBS[t.id] ?? THUMBS.empty} fill="none" stroke="var(--cut)" stroke-width="1.2" />
-            {#if t.id === "card"}<line x1="10" y1="20" x2="30" y2="20" stroke="var(--text-3)" stroke-dasharray="2 2" />{/if}
+            <path d={THUMBS[tpl.id] ?? THUMBS.empty} fill="none" stroke="var(--cut)" stroke-width="1.2" />
+            {#if tpl.id === "card"}<line x1="10" y1="20" x2="30" y2="20" stroke="var(--text-3)" stroke-dasharray="2 2" />{/if}
           </svg>
-          <span class="name">{t.name}</span>
-          <span class="hint">{t.hint}</span>
-          {#if t.printCut}<span class="badge">Print & Cut</span>{/if}
+          <span class="name">{t(tpl.name)}</span>
+          <span class="hint">{t(tpl.hint)}</span>
+          {#if tpl.printCut}<span class="badge">Print & Cut</span>{/if}
         </button>
       {/each}
     </div>

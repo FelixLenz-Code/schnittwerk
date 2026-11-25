@@ -82,3 +82,9 @@
 - ✅ Nachfrage beim Schließen mit ungespeicherten Änderungen
 - ✅ Flexfolie: ganze Folie oder jedes Element einzeln spiegeln
 - ✅ Raster beim Verschieben und Winkelschritte beim Drehen (abschaltbar, standardmäßig an)
+
+## Etappe 8 – Schneiden und Sprache
+- ✅ Geschätzte Schnittzeit und Restzeit (selbstlernend)
+- ✅ Weiterschneiden nach Abbruch oder Verbindungsfehler (ab dem ersten nicht sicher geschnittenen Pfad, verstellbar)
+- ✅ Matten 12″ × 12″ und 12″ × 24″ für die Cameo
+- ✅ Englische Oberfläche (Sprache folgt dem System, umschaltbar)

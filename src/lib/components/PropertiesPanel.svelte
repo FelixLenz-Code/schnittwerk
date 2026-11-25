@@ -13,6 +13,7 @@
   import { refreshShape, rememberSpec, SHAPE_NAMES } from "../shapes";
   import { regenerate, worldPathD } from "../text.svelte";
   import Slider from "./Slider.svelte";
+  import { t } from "../i18n.svelte";
 
   const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
   const box = $derived(aabb(editor.selected));
@@ -58,7 +59,7 @@
       if (!r.contours) throw new Error("Versatz ergibt keine Kontur (zu stark nach innen?).");
       const [x, y, w, h] = r.bbox;
       const obj: PathObj = {
-        id: uid(), type: "path", name: `Versatz ${fmt(offsetMm)} mm`, d: r.d, bbox: r.bbox, color: "#3e63dd", fill: false,
+        id: uid(), type: "path", name: t("Versatz {d} mm", { d: fmt(offsetMm) }), d: r.d, bbox: r.bbox, color: "#3e63dd", fill: false,
         x, y, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
       };
       editor.add([obj]);
@@ -89,7 +90,7 @@
     const w = b.x1 - b.x0 + 2 * pad, h = b.y1 - b.y0 + 2 * pad;
     const d = `M${r} 0H${w - r}A${r} ${r} 0 0 1 ${w} ${r}V${h - r}A${r} ${r} 0 0 1 ${w - r} ${h}H${r}A${r} ${r} 0 0 1 0 ${h - r}V${r}A${r} ${r} 0 0 1 ${r} 0Z`;
     const frame: PathObj = {
-      id: uid(), type: "path", name: "Schnittrahmen", d, bbox: [0, 0, w, h], color: "#3e63dd", fill: false,
+      id: uid(), type: "path", name: t("Schnittrahmen"), d, bbox: [0, 0, w, h], color: "#3e63dd", fill: false,
       x: b.x0 - pad, y: b.y0 - pad, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
     };
     editor.add([frame], false);
@@ -128,7 +129,7 @@
             horizontal: weedDir.includes("h"),
             vertical: weedDir.includes("v"),
           });
-    const objs = [mk("Entgitterungsrahmen", rect), mk("Entgitterungslinien", lines)].filter((o): o is PathObj => !!o);
+    const objs = [mk(t("Entgitterungsrahmen"), rect), mk(t("Entgitterungslinien"), lines)].filter((o): o is PathObj => !!o);
     editor.add(objs, false);
     editor.toast(lines ? "Entgitterungsrahmen und -linien angelegt" : "Entgitterungsrahmen angelegt", "ok");
   }
@@ -252,11 +253,13 @@
           placeUnit(objs, p.rot, p.center, p.dx, p.dy);
         });
         placeUnit(unit, r.placements[0].rot, r.placements[0].center, r.placements[0].dx, r.placements[0].dy);
-        editor.toast(`${r.placements.length} Exemplare platzsparend verteilt`, "ok");
+        editor.toast(t("{n} Exemplare platzsparend verteilt", { n: r.placements.length }), "ok");
       } else {
         for (const p of r.placements) placeUnit(units[p.item], p.rot, p.center, p.dx, p.dy);
         editor.toast(
-          r.unplaced.length ? `${r.placements.length} angeordnet, ${r.unplaced.length} passen nicht mehr drauf` : `${r.placements.length} Teile platzsparend angeordnet`,
+          r.unplaced.length
+            ? t("{a} angeordnet, {b} passen nicht mehr drauf", { a: r.placements.length, b: r.unplaced.length })
+            : t("{n} Teile platzsparend angeordnet", { n: r.placements.length }),
           r.unplaced.length ? "error" : "ok",
         );
       }
@@ -306,7 +309,7 @@
       }
     }
     editor.objects.push(...copies);
-    editor.toast(`${cells.length} Exemplare auf dem Bogen`, "ok");
+    editor.toast(t("{n} Exemplare auf dem Bogen", { n: cells.length }), "ok");
   }
 
   // ---------- shape parameters ----------
@@ -374,15 +377,15 @@
 
 {#if !editor.selected.length}
   <div class="empty">
-    <p><strong>Nichts ausgewählt</strong></p>
-    <p class="muted">Importiere eine Datei (<kbd>Strg</kbd>+<kbd>I</kbd>) oder ziehe sie direkt auf die Arbeitsfläche.</p>
+    <p><strong>{t("Nichts ausgewählt")}</strong></p>
+    <p class="muted">{t("Importiere eine Datei")} (<kbd>{t("Strg")}</kbd>+<kbd>I</kbd>) {t("oder ziehe sie direkt auf die Arbeitsfläche.")}</p>
     <div class="tips">
-      <div><kbd>V</kbd> Auswahl</div>
-      <div><kbd>H</kbd> / <kbd>Leertaste</kbd> Verschieben</div>
-      <div><kbd>R</kbd> Rechteck · <kbd>E</kbd> Ellipse · <kbd>P</kbd> Vieleck · <kbd>S</kbd> Stern</div>
-      <div><kbd>L</kbd> Linie · <kbd>F</kbd> Freihand · <kbd>T</kbd> Text</div>
-      <div>Hilfslinien aus den Linealen ziehen</div>
-      <div>Mausrad = Zoom · <kbd>Strg</kbd>+<kbd>0</kbd> Einpassen</div>
+      <div><kbd>V</kbd> {t("Auswahl")}</div>
+      <div><kbd>H</kbd> / <kbd>{t("Leertaste")}</kbd> {t("Verschieben")}</div>
+      <div><kbd>R</kbd> {t("Rechteck")} · <kbd>E</kbd> {t("Ellipse")} · <kbd>P</kbd> {t("Vieleck")} · <kbd>S</kbd> {t("Stern")}</div>
+      <div><kbd>L</kbd> {t("Linie")} · <kbd>F</kbd> {t("Freihand")} · <kbd>T</kbd> {t("Text")}</div>
+      <div>{t("Hilfslinien aus den Linealen ziehen")}</div>
+      <div>{t("Mausrad = Zoom")} · <kbd>{t("Strg")}</kbd>+<kbd>0</kbd> {t("Einpassen")}</div>
     </div>
   </div>
 {:else}
@@ -402,11 +405,11 @@
     </section>
 
     <section>
-      <h3 class="section-title">Position & Größe</h3>
+      <h3 class="section-title">{t("Position & Größe")}</h3>
       <div class="grid">
         {#each [["x", "X"], ["y", "Y"], ["w", "B"], ["h", "H"]] as [key, label]}
           <label class="num">
-            <span>{label}</span>
+            <span>{t(label)}</span>
             <input
               class="field"
               value={fmt(single[key as "x"], 2)}
@@ -421,7 +424,7 @@
           <input class="field" value={fmt(single.rot, 1)} disabled={single.locked} onchange={(e) => setField(single, "rot", e.currentTarget.value)} />
           <em>°</em>
         </label>
-        <button class="btn icon outline" class:active={editor.keepRatio} title="Seitenverhältnis beibehalten" onclick={() => (editor.keepRatio = !editor.keepRatio)}>
+        <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
           <Icon name={editor.keepRatio ? "lock" : "unlock"} />
         </button>
       </div>
@@ -430,7 +433,7 @@
     {#if single.type === "path" && single.shape && single.shape.kind !== "ellipse" && single.shape.kind !== "heart"}
       {@const sh = single.shape}
       <section>
-        <h3 class="section-title">{SHAPE_NAMES[sh.kind]}</h3>
+        <h3 class="section-title">{t(SHAPE_NAMES[sh.kind])}</h3>
         <div class="stack">
           {#if sh.kind === "rect"}
             <Slider label="Eckenradius" value={sh.radius} min={0} max={Math.round(Math.min(single.w, single.h) / 2)} step={0.5} unit=" mm" oninput={(v) => setShape(single as PathObj, { ...sh, radius: v })} />
@@ -446,25 +449,25 @@
 
     {#if single.type === "path"}
       <section>
-        <h3 class="section-title">Knoten</h3>
+        <h3 class="section-title">{t("Knoten")}</h3>
         {#if nodes.objId === single.id}
-          <p class="muted small">{nodes.count} Knoten · {nodes.sel.length} ausgewählt</p>
+          <p class="muted small">{t("{n} Knoten · {s} ausgewählt", { n: nodes.count, s: nodes.sel.length })}</p>
           <div class="cut-types">
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(false)} title="Knick: Griffe unabhängig">Ecke</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(true)} title="Weicher Übergang: Griffe in einer Linie">Glatt</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(true)} title="Abschnitt nach dem Knoten wird gerade">Gerade</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(false)} title="Abschnitt nach dem Knoten wird zur Kurve">Kurve</button>
-            <button class="btn outline danger" disabled={!nodes.sel.length} onclick={() => nodes.deleteSelected()}>Löschen</button>
-            <button class="btn primary" onclick={() => nodes.stop()}><Icon name="check" /> Fertig</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(false)} title={t("Knick: Griffe unabhängig")}>{t("Ecke")}</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(true)} title={t("Weicher Übergang: Griffe in einer Linie")}>{t("Glatt")}</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(true)} title={t("Abschnitt nach dem Knoten wird gerade")}>{t("Gerade")}</button>
+            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(false)} title={t("Abschnitt nach dem Knoten wird zur Kurve")}>{t("Kurve")}</button>
+            <button class="btn outline danger" disabled={!nodes.sel.length} onclick={() => nodes.deleteSelected()}>{t("Löschen")}</button>
+            <button class="btn primary" onclick={() => nodes.stop()}><Icon name="check" /> {t("Fertig")}</button>
           </div>
-          <p class="muted small">Doppelklick auf die Linie fügt einen Knoten ein. <kbd>Alt</kbd> beim Ziehen eines Griffs macht eine Ecke.</p>
+          <p class="muted small">{t("Doppelklick auf die Linie fügt einen Knoten ein.")} <kbd>Alt</kbd> {t("beim Ziehen eines Griffs macht eine Ecke.")}</p>
         {:else}
-          <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title="Auch per Doppelklick auf den Pfad">Knoten bearbeiten</button>
+          <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title={t("Auch per Doppelklick auf den Pfad")}>{t("Knoten bearbeiten")}</button>
           {#if !single.text && !single.shape}
             <div class="simplify">
               <Slider label="Vereinfachen" bind:value={simplifyTol} min={0.02} max={1} step={0.01} unit=" mm" hint="Erlaubte Abweichung von der Originalform" />
-              <button class="btn outline" disabled={single.locked || simplifyBusy} onclick={() => simplify(single as PathObj)} title="Weniger Knoten, gleiche Form – schneidet ruhiger">
-                {simplifyBusy ? "Berechne …" : "Knoten reduzieren"}
+              <button class="btn outline" disabled={single.locked || simplifyBusy} onclick={() => simplify(single as PathObj)} title={t("Weniger Knoten, gleiche Form – schneidet ruhiger")}>
+                {simplifyBusy ? t("Berechne …") : t("Knoten reduzieren")}
               </button>
             </div>
           {/if}
@@ -478,12 +481,12 @@
 
     {#if single.type === "path"}
       <section>
-        <h3 class="section-title">Schnittlinie</h3>
+        <h3 class="section-title">{t("Schnittlinie")}</h3>
         <div class="colors">
           {#each CUT_COLORS as c}
-            <button class="color" class:on={single.color === c} style:background={c} aria-label="Farbe {c}" onclick={() => setColor(single, c)}></button>
+            <button class="color" class:on={single.color === c} style:background={c} aria-label={t("Farbe {c}", { c })} onclick={() => setColor(single, c)}></button>
           {/each}
-          <input type="color" value={single.color} onchange={(e) => setColor(single, e.currentTarget.value)} title="Eigene Farbe" />
+          <input type="color" value={single.color} onchange={(e) => setColor(single, e.currentTarget.value)} title={t("Eigene Farbe")} />
         </div>
         <div class="stack">
           <Toggle
@@ -492,11 +495,11 @@
             hint="Nur Anzeige – geschnitten wird immer die Linie"
           />
           <label class="toggle-row">
-            <span>Schneiden</span>
+            <span>{t("Schneiden")}</span>
             <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint(); single.cut = e.currentTarget.checked; }} />
           </label>
           <label class="toggle-row">
-            <span>Fläche drucken</span>
+            <span>{t("Fläche drucken")}</span>
             <span class="row">
               {#if single.printFill}
                 <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint(); single.printFill = e.currentTarget.value; }} />
@@ -508,149 +511,149 @@
       </section>
     {:else}
       <section>
-        <h3 class="section-title">Bild</h3>
+        <h3 class="section-title">{t("Bild")}</h3>
         <div class="stack">
           <label class="range-row">
-            <span>Deckkraft</span>
+            <span>{t("Deckkraft")}</span>
             <input type="range" min="0.1" max="1" step="0.05" bind:value={single.opacity} />
           </label>
-          <button class="btn primary" onclick={() => (editor.rightTab = "trace")}><Icon name="wand" /> Bild tracen …</button>
+          <button class="btn primary" onclick={() => (editor.rightTab = "trace")}><Icon name="wand" /> {t("Bild tracen …")}</button>
         </div>
       </section>
     {/if}
   {:else if box}
     <section>
-      <h3 class="section-title">{editor.selected.length} Objekte</h3>
+      <h3 class="section-title">{t("{n} Objekte", { n: editor.selected.length })}</h3>
       <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
       {#if textOnPath}
-        <button class="btn primary top-gap" onclick={putTextOnPath} title="Der Text folgt der Linie des anderen Pfads">Text auf Pfad</button>
+        <button class="btn primary top-gap" onclick={putTextOnPath} title={t("Der Text folgt der Linie des anderen Pfads")}>{t("Text auf Pfad")}</button>
       {/if}
     </section>
   {/if}
 
   {#if selPaths.length}
     <section>
-      <h3 class="section-title">Schnittart</h3>
+      <h3 class="section-title">{t("Schnittart")}</h3>
       <div class="cut-types">
-        {#each CUT_TYPES as t}
+        {#each CUT_TYPES as ct}
           <button
             class="btn outline ctype"
-            class:active={selPaths.every((o) => o.color.toLowerCase() === t.color)}
-            title={t.hint}
-            onclick={() => setCutColor(t.color)}
+            class:active={selPaths.every((o) => o.color.toLowerCase() === ct.color)}
+            title={t(ct.hint)}
+            onclick={() => setCutColor(ct.color)}
           >
-            <span class="dot" style:background={t.color}></span>{t.label}
+            <span class="dot" style:background={ct.color}></span>{t(ct.label)}
           </button>
         {/each}
       </div>
-      <p class="muted small">Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.</p>
+      <p class="muted small">{t("Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.")}</p>
     </section>
   {/if}
 
   {#if selPaths.length >= 2}
     <section>
-      <h3 class="section-title">Pfade kombinieren</h3>
+      <h3 class="section-title">{t("Pfade kombinieren")}</h3>
       <div class="cut-types">
         {#each BOOL_OPS as b}
-          <button class="btn outline" disabled={boolBusy} title={b.hint} onclick={() => combine(b.op)}>{b.label}</button>
+          <button class="btn outline" disabled={boolBusy} title={t(b.hint)} onclick={() => combine(b.op)}>{t(b.label)}</button>
         {/each}
       </div>
     </section>
   {/if}
 
   <section>
-    <h3 class="section-title">Rahmen</h3>
-    <button class="btn outline" onclick={frameSelection} title="Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten">Schnittrahmen um Auswahl</button>
+    <h3 class="section-title">{t("Rahmen")}</h3>
+    <button class="btn outline" onclick={frameSelection} title={t("Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten")}>{t("Schnittrahmen um Auswahl")}</button>
   </section>
 
   {#if selPaths.length}
     <section>
-      <h3 class="section-title">Entgittern (Folie)</h3>
+      <h3 class="section-title">{t("Entgittern (Folie)")}</h3>
       <div class="stack">
-        <label class="toggle-row" title="Abstand des Rahmens zum Motiv">
-          <span>Rand</span>
+        <label class="toggle-row" title={t("Abstand des Rahmens zum Motiv")}>
+          <span>{t("Rand")}</span>
           <span class="row unit-field"><input class="field" type="number" min="0.5" step="0.5" bind:value={weedMargin} /> mm</span>
         </label>
         <label class="toggle-row">
-          <span>Linien</span>
+          <span>{t("Linien")}</span>
           <select class="field weed-select" bind:value={weedDir}>
-            <option value="h">Waagrecht</option>
-            <option value="v">Senkrecht</option>
-            <option value="hv">Beides</option>
-            <option value="none">Keine</option>
+            <option value="h">{t("Waagrecht")}</option>
+            <option value="v">{t("Senkrecht")}</option>
+            <option value="hv">{t("Beides")}</option>
+            <option value="none">{t("Keine")}</option>
           </select>
         </label>
         {#if weedDir !== "none"}
-          <label class="toggle-row" title="Abstand zwischen den Linien">
-            <span>Linienabstand</span>
+          <label class="toggle-row" title={t("Abstand zwischen den Linien")}>
+            <span>{t("Linienabstand")}</span>
             <span class="row unit-field"><input class="field" type="number" min="3" step="1" bind:value={weedSpacing} /> mm</span>
           </label>
         {/if}
-        <button class="btn outline" onclick={addWeeding} title="Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen">Entgitterungshilfe anlegen</button>
+        <button class="btn outline" onclick={addWeeding} title={t("Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen")}>{t("Entgitterungshilfe anlegen")}</button>
       </div>
-      <p class="muted small">Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).</p>
+      <p class="muted small">{t("Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).")}</p>
     </section>
 
     <section>
-      <h3 class="section-title">Kontur versetzen</h3>
+      <h3 class="section-title">{t("Kontur versetzen")}</h3>
       <div class="row">
         <label class="num grow-field">
           <span>±</span>
           <input class="field" type="number" step="0.5" bind:value={offsetMm} />
           <em>mm</em>
         </label>
-        <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? "Berechne …" : "Neue Kontur"}</button>
+        <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? t("Berechne …") : t("Neue Kontur")}</button>
       </div>
-      <p class="muted small">Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.</p>
+      <p class="muted small">{t("Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.")}</p>
     </section>
   {/if}
 
   <section>
-    <h3 class="section-title">Bogen füllen</h3>
+    <h3 class="section-title">{t("Bogen füllen")}</h3>
     <div class="row">
       <label class="num grow-field">
-        <span>Abstand</span>
+        <span>{t("Abstand")}</span>
         <input class="field pad-wide" type="number" min="0" step="0.5" bind:value={gap} />
         <em>mm</em>
       </label>
-      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(true)} title="Bogen mit Kopien der Auswahl füllen">Füllen</button>
-      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(false)} title="Ausgewählte Teile platzsparend anordnen (ohne Kopien)">Anordnen</button>
+      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(true)} title={t("Bogen mit Kopien der Auswahl füllen")}>{t("Füllen")}</button>
+      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(false)} title={t("Ausgewählte Teile platzsparend anordnen (ohne Kopien)")}>{t("Anordnen")}</button>
     </div>
     <div class="stack">
       <Toggle label="Formen verschachteln" bind:checked={nestShapes} hint="Echte Umrisse ineinander setzen und drehen statt eines starren Rasters" />
     </div>
-    <p class="muted small">Verteilt die Auswahl so oft wie möglich auf {editor.printCut.enabled ? "der Seite (ohne Markenzonen)" : "der Matte"}.</p>
+    <p class="muted small">{editor.printCut.enabled ? t("Verteilt die Auswahl so oft wie möglich auf der Seite (ohne Markenzonen).") : t("Verteilt die Auswahl so oft wie möglich auf der Matte.")}</p>
   </section>
 
   <section>
-    <h3 class="section-title">Ausrichten {editor.selected.length === 1 ? "auf Matte" : ""}</h3>
+    <h3 class="section-title">{editor.selected.length === 1 ? t("Ausrichten auf Matte") : t("Ausrichten")}</h3>
     <div class="row">
-      <button class="btn icon" title="Links" onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
-      <button class="btn icon" title="Horizontal zentrieren" onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
-      <button class="btn icon" title="Rechts" onclick={() => editor.align("right")}><Icon name="alignRight" /></button>
+      <button class="btn icon" title={t("Links")} onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
+      <button class="btn icon" title={t("Horizontal zentrieren")} onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
+      <button class="btn icon" title={t("Rechts")} onclick={() => editor.align("right")}><Icon name="alignRight" /></button>
       <span class="sep"></span>
-      <button class="btn icon" title="Oben" onclick={() => editor.align("top")}><Icon name="alignTop" /></button>
-      <button class="btn icon" title="Vertikal zentrieren" onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
-      <button class="btn icon" title="Unten" onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
+      <button class="btn icon" title={t("Oben")} onclick={() => editor.align("top")}><Icon name="alignTop" /></button>
+      <button class="btn icon" title={t("Vertikal zentrieren")} onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
+      <button class="btn icon" title={t("Unten")} onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
     </div>
   </section>
 
   <section>
-    <h3 class="section-title">Anordnen</h3>
+    <h3 class="section-title">{t("Anordnen")}</h3>
     <div class="row wrap">
-      <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> Spiegeln</button>
-      <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> Kippen</button>
-      <button class="btn icon outline" title="Nach vorne (Strg+↑)" onclick={() => editor.restack(1)}><Icon name="arrowUp" /></button>
-      <button class="btn icon outline" title="Nach hinten (Strg+↓)" onclick={() => editor.restack(-1)}><Icon name="arrowDown" /></button>
+      <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> {t("Spiegeln")}</button>
+      <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> {t("Kippen")}</button>
+      <button class="btn icon outline" title={t("Nach vorne (Strg+↑)")} onclick={() => editor.restack(1)}><Icon name="arrowUp" /></button>
+      <button class="btn icon outline" title={t("Nach hinten (Strg+↓)")} onclick={() => editor.restack(-1)}><Icon name="arrowDown" /></button>
     </div>
     <div class="row wrap" style="margin-top: 8px">
       {#if editor.selected.some((o) => o.group)}
-        <button class="btn outline" title="Gruppierung aufheben (Strg+Shift+G)" onclick={() => editor.ungroupSelected()}><Icon name="layers" /> Lösen</button>
+        <button class="btn outline" title={t("Gruppierung aufheben (Strg+Shift+G)")} onclick={() => editor.ungroupSelected()}><Icon name="layers" /> {t("Lösen")}</button>
       {:else if editor.selected.length > 1}
-        <button class="btn outline" title="Gruppieren (Strg+G)" onclick={() => editor.groupSelected()}><Icon name="layers" /> Gruppieren</button>
+        <button class="btn outline" title={t("Gruppieren (Strg+G)")} onclick={() => editor.groupSelected()}><Icon name="layers" /> {t("Gruppieren")}</button>
       {/if}
-      <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> Duplizieren</button>
-      <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> Löschen</button>
+      <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> {t("Duplizieren")}</button>
+      <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> {t("Löschen")}</button>
     </div>
   </section>
 {/if}

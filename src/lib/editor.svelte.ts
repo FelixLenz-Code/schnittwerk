@@ -1,6 +1,7 @@
 import { aabb, uid } from "./geometry";
 import { refreshShape } from "./shapes";
-import type { ImageAsset, Obj, RegMarks, TraceParams, TraceResult, Tool } from "./types";
+import { tMsg } from "./i18n.svelte";
+import type { ImageAsset, MatKind, Obj, RegMarks, TraceParams, TraceResult, Tool } from "./types";
 
 export interface TracePreview {
   objId: string;
@@ -17,10 +18,14 @@ export interface Mat {
   kind?: "mat" | "page" | "roll" | "custom";
   /** custom: cut from the roll (tiles across the roll width) instead of on the mat. */
   roll?: boolean;
+  /** Cutting mat the device is told about (mats only). */
+  cut?: MatKind;
 }
 
 export const MATS: Mat[] = [
-  { name: "Portrait 3 · 8″ × 12″", w: 203.2, h: 304.8, kind: "mat" },
+  { name: "Portrait 3 · 8″ × 12″", w: 203.2, h: 304.8, kind: "mat", cut: "portrait8x12" },
+  { name: "Cameo · 12″ × 12″", w: 304.8, h: 304.8, kind: "mat", cut: "cameo12x12" },
+  { name: "Cameo · 12″ × 24″", w: 304.8, h: 609.6, kind: "mat", cut: "cameo12x24" },
   { name: "A4 hoch", w: 210, h: 297, kind: "page" },
   { name: "A4 quer", w: 297, h: 210, kind: "page" },
   { name: "Letter", w: 215.9, h: 279.4, kind: "page" },
@@ -34,8 +39,9 @@ export function rollMat(length: number): Mat {
   return { name: "Rolle ohne Matte", w: ROLL_WIDTH, h: Math.min(ROLL_MAX, Math.max(50, length)), kind: "roll" };
 }
 
-export function customMat(w: number, h: number, roll = false): Mat {
-  return { name: "Eigene Größe", w: Math.min(3000, Math.max(20, w)), h: Math.min(ROLL_MAX, Math.max(20, h)), kind: "custom", roll };
+/** `cut` = mat the tiles are cut on (default: the Portrait mat). */
+export function customMat(w: number, h: number, roll = false, cut?: MatKind): Mat {
+  return { name: "Eigene Größe", w: Math.min(3000, Math.max(20, w)), h: Math.min(ROLL_MAX, Math.max(20, h)), kind: "custom", roll, cut };
 }
 
 export function matKindOf(m: Mat): NonNullable<Mat["kind"]> {
@@ -318,7 +324,7 @@ class Editor {
     const copies = this.selected.map((o) => ({
       ...($state.snapshot(o) as Obj),
       id: uid(),
-      name: o.name + " Kopie",
+      name: o.name + " " + tMsg("Kopie"),
       x: o.x + 5,
       y: o.y + 5,
       locked: false,
@@ -450,7 +456,8 @@ class Editor {
   #toastId = 0;
   toast(text: string, kind: Toast["kind"] = "info") {
     const id = ++this.#toastId;
-    this.toasts.push({ id, text, kind });
+    // Fixed German texts are translated here; texts with values come translated.
+    this.toasts.push({ id, text: tMsg(text), kind });
     setTimeout(() => (this.toasts = this.toasts.filter((t) => t.id !== id)), kind === "error" ? 6000 : 3000);
   }
 
@@ -460,3 +467,27 @@ class Editor {
 }
 
 export const editor = new Editor();
+
+/** Cuttable size (mm) of a mat setting; null = no mat (roll / paper). */
+export function matSize(k: MatKind): { w: number; h: number } | null {
+  switch (k) {
+    case "portrait8x12":
+      return { w: 203.2, h: 304.8 };
+    case "portrait8_5x12":
+      return { w: 215.9, h: 304.8 };
+    case "cameo12x12":
+      return { w: 304.8, h: 304.8 };
+    case "cameo12x24":
+      return { w: 304.8, h: 609.6 };
+    default:
+      return null;
+  }
+}
+
+export const MAT_LABELS: Record<MatKind, string> = {
+  portrait8x12: "Matte 8″ × 12″",
+  portrait8_5x12: "Matte 8,5″ × 12″",
+  cameo12x12: "Matte 12″ × 12″ (Cameo)",
+  cameo12x24: "Matte 12″ × 24″ (Cameo)",
+  none: "Ohne Matte",
+};

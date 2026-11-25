@@ -5,6 +5,7 @@
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
+  import { t } from "../i18n.svelte";
   import { parsePath, reversePath, serializePath } from "../pathdata";
 
   let { obj }: { obj: PathObj & { text: TextSpec } } = $props();
@@ -49,24 +50,24 @@
 </script>
 
 <section>
-  <h3 class="section-title">Text</h3>
+  <h3 class="section-title">{t("Text")}</h3>
   <div class="stack">
     <textarea class="field area" rows="3" value={obj.text.content} oninput={(e) => change("content", e.currentTarget.value)}></textarea>
     <div class="fontpick">
-      <input class="field" placeholder="Schrift suchen …" bind:value={filter} />
+      <input class="field" placeholder={t("Schrift suchen …")} bind:value={filter} />
       <select class="field" size="6" value={obj.text.family} onchange={(e) => change("family", e.currentTarget.value)}>
         {#if !shown.includes(obj.text.family)}<option value={obj.text.family}>{obj.text.family}</option>{/if}
         {#each shown as f}<option value={f} style:font-family={f}>{f}</option>{/each}
       </select>
     </div>
     <label class="num">
-      <span>Größe</span>
+      <span>{t("Größe")}</span>
       <input class="field" type="number" min="1" step="1" value={obj.text.size} onchange={(e) => change("size", Math.max(1, +e.currentTarget.value || 20))} />
       <em>mm</em>
     </label>
     <div class="row">
-      <button class="btn outline style" class:active={obj.text.bold} onclick={() => change("bold", !obj.text.bold)}><b>F</b></button>
-      <button class="btn outline style" class:active={obj.text.italic} onclick={() => change("italic", !obj.text.italic)}><i>K</i></button>
+      <button class="btn outline style" class:active={obj.text.bold} onclick={() => change("bold", !obj.text.bold)}><b>{t("F")}</b></button>
+      <button class="btn outline style" class:active={obj.text.italic} onclick={() => change("italic", !obj.text.italic)}><i>{t("K")}</i></button>
       {#if curveKind === "none" || curveKind === "custom"}
         <div class="grow">
           <Segmented
@@ -107,10 +108,10 @@
       <Slider label="Verschieben" value={obj.text.pathOffset ?? 0} min={-50} max={50} step={0.5} unit=" %" oninput={(v) => change("pathOffset", v)} hint="Text entlang des Pfads verschieben" />
     {/if}
     {#if curveKind === "custom"}
-      <button class="btn outline" onclick={flipSide} title="Laufrichtung umkehren – der Text wechselt auf die andere Seite der Linie">Seite wechseln</button>
-      <p class="muted">Text folgt dem gewählten Pfad. Für einen anderen Pfad: Text und Pfad auswählen → „Text auf Pfad“.</p>
+      <button class="btn outline" onclick={flipSide} title={t("Laufrichtung umkehren – der Text wechselt auf die andere Seite der Linie")}>{t("Seite wechseln")}</button>
+      <p class="muted">{t("Text folgt dem gewählten Pfad. Für einen anderen Pfad: Text und Pfad auswählen → „Text auf Pfad“.")}</p>
     {:else if curveKind === "none"}
-      <p class="muted">Auf eine Form setzen: Text und Pfad zusammen auswählen → „Text auf Pfad“.</p>
+      <p class="muted">{t("Auf eine Form setzen: Text und Pfad zusammen auswählen → „Text auf Pfad“.")}</p>
     {/if}
     <Slider label="Zeichenabstand" value={obj.text.spacing} min={-2} max={10} step={0.1} unit=" mm" oninput={(v) => change("spacing", v)} />
     {#if obj.text.content.includes("\n")}

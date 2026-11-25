@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { editor } from "./editor.svelte";
+import { i18n, t } from "./i18n.svelte";
 import { uid } from "./geometry";
 import { perspective } from "./perspective.svelte";
 import type { ImageObj, PathObj } from "./types";
@@ -162,11 +163,11 @@ class PixScanStore {
     this.offset = { x: round(this.offset.x + s.dx), y: round(this.offset.y + s.dy) };
     this.save();
     live.pixscan = { x: live.x, y: live.y };
-    editor.toast(`Kalibrierung gespeichert (X ${fmt(this.offset.x)} mm, Y ${fmt(this.offset.y)} mm)`, "ok");
+    editor.toast(t("Kalibrierung gespeichert (X {x} mm, Y {y} mm)", { x: fmt(this.offset.x), y: fmt(this.offset.y) }), "ok");
   }
 }
 
 const round = (v: number) => Math.round(v * 100) / 100;
-const fmt = (v: number) => v.toFixed(2).replace(".", ",");
+const fmt = (v: number) => (i18n.lang === "de" ? v.toFixed(2).replace(".", ",") : v.toFixed(2));
 
 export const pixscan = new PixScanStore();

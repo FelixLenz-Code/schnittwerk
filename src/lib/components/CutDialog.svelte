@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { api } from "../api";
-  import { editor, regBracketPath } from "../editor.svelte";
+  import { editor, MAT_LABELS, matSize, regBracketPath } from "../editor.svelte";
   import { aabb, fmt, uid } from "../geometry";
   import { PRESETS, lastMaterialId, loadCustom, rememberMaterial, saveCustom, type Material } from "../materials";
   import { matKindFor, pathMatrix, plotter } from "../plotter.svelte";
@@ -10,6 +10,7 @@
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
   import Segmented from "./Segmented.svelte";
+  import { locale, t, tMsg } from "../i18n.svelte";
 
   let custom = $state<Material[]>(loadCustom());
   const all = $derived([...PRESETS, ...custom]);
@@ -87,7 +88,7 @@
     m = structuredClone(entry);
     rememberMaterial(entry.id);
     naming = null;
-    editor.toast(`Material „${name}" gespeichert`, "ok");
+    editor.toast(t("Material „{name}“ gespeichert", { name }), "ok");
   }
 
   function deleteMaterial() {
@@ -201,7 +202,9 @@
   let cuttingTile: number | null = null;
 
   /** Cuttable area of the chosen mat / roll (without print & cut). */
-  const cutArea = $derived(mat === "portrait8_5x12" ? { w: 215.9, h: 304.8 } : mat === "portrait8x12" ? { w: 203.2, h: 304.8 } : { w: plotter.status.widthMm ?? 203.2, h: editor.mat.h });
+  const cutArea = $derived(matSize(mat) ?? { w: plotter.status.widthMm ?? 203.2, h: editor.mat.h });
+  /** The chosen mat is wider than the connected cutter (12″ mat in a Portrait). */
+  const matTooWide = $derived(!!plotter.status.widthMm && cutArea.w > plotter.status.widthMm + 1);
 
   /** Bounding box of the design in cut coordinates (after mirroring). */
   const designBox = $derived.by(() => {
@@ -248,14 +251,14 @@
     const r = plotter.lastResult;
     if (!r) return;
     untrack(() => {
-      const t = cuttingTile;
+      const doneTile = cuttingTile;
       cuttingTile = null;
-      if (t === null || r.status !== "done" || !tiling) return;
-      if (!tilesDone.includes(t)) tilesDone = [...tilesDone, t];
+      if (doneTile === null || r.status !== "done" || !tiling) return;
+      if (!tilesDone.includes(doneTile)) tilesDone = [...tilesDone, doneTile];
       const next = tiling.tiles.findIndex((_, i) => !tilesDone.includes(i));
       if (next >= 0) {
         tileIdx = next;
-        editor.toast(`Kachel ${t + 1} fertig – neues Material einlegen, dann Kachel ${next + 1} schneiden.`, "ok");
+        editor.toast(t("Kachel {a} fertig – neues Material einlegen, dann Kachel {b} schneiden.", { a: doneTile + 1, b: next + 1 }), "ok");
       } else {
         editor.toast("Alle Kacheln geschnitten ✓", "ok");
       }
@@ -330,7 +333,7 @@
     const g = uid();
     const objs: PathObj[] = spots.flatMap(([cx, cy]) => {
       const sq = (s: number, extra: Partial<PathObj>): PathObj => ({
-        id: uid(), type: "path", name: "Kalibrierung", d: `M0 0H${s}V${s}H0Z`, bbox: [0, 0, s, s], color: "#e5484d", fill: false,
+        id: uid(), type: "path", name: t("Kalibrierung"), d: `M0 0H${s}V${s}H0Z`, bbox: [0, 0, s, s], color: "#e5484d", fill: false,
         x: cx - s / 2, y: cy - s / 2, w: s, h: s, rot: 0, flipX: false, flipY: false, visible: true, locked: false, group: g, ...extra,
       });
       return [sq(10, { printFill: "#000000", cut: false, color: "#8b919c" }), sq(14, {})];
@@ -361,22 +364,86 @@
   /** Length cut with the blade (wear counter). */
   const bladeMm = $derived(plans.reduce((n, p, i) => n + (groups[i]?.settings.tool === "blade" ? p.cutLength : 0), 0));
 
-  async function startCut() {
+  // ---------- time estimate ----------
+  /**
+   * Rough cut time in seconds before the learned correction: speed n ≈ n cm/s
+   * while cutting (slower in corners), lifting the blade per path, AutoBlade
+   * adjustment per pass and the registration mark search.
+   */
+  const rawEstimate = $derived.by(() => {
+    if (!plans.length) return 0;
+    let s = 4;
+    if (reg) s += 35;
+    plans.forEach((p, i) => {
+      const g = groups[i];
+      if (!g || !p.strokes.length) return;
+      const v = Math.max(1, g.settings.speed) * 10 * 0.7;
+      s += p.cutLength / v + p.travelLength / Math.max(v, 100) + p.strokes.length * 0.3 + (g.settings.depth !== null ? 5 : 1);
+    });
+    return s;
+  });
+  const estimate = $derived(rawEstimate * plotter.timeFactor);
+
+  function fmtDuration(sec: number): string {
+    if (sec < 60) return t("< 1 Min");
+    const min = Math.round(sec / 60);
+    return min < 60 ? t("{m} Min", { m: min }) : t("{h} Std {m} Min", { h: Math.floor(min / 60), m: min % 60 });
+  }
+
+  /** Clock for the remaining time while cutting. */
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!plotter.busy) return;
+    const t = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(t);
+  });
+  const remaining = $derived.by(() => {
+    const t = plotter.timing;
+    if (!t) return null;
+    const pausedNow = t.pausedAt ? now - t.pausedAt : 0;
+    const elapsed = (now - t.start - t.paused - pausedNow) / 1000;
+    return Math.max(0, t.estimate * plotter.timeFactor - elapsed);
+  });
+
+  // ---------- continue after an interruption ----------
+  /** Short hash of the cut data – resuming only makes sense for the same job. */
+  function hash(str: string): string {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(36) + str.length.toString(36);
+  }
+  const jobGroups = $derived(groups.filter((g) => g.paths.length > 0));
+  const jobKey = $derived(hash(JSON.stringify([jobGroups.map((g) => [g.paths, g.options]), reg, mirror])));
+  const resume = $derived(plotter.resume && plotter.resume.key === jobKey ? plotter.resume : null);
+  /** Paths to repeat before the interruption point (adjustable). */
+  let back = $state(0);
+  $effect(() => {
+    void resume?.point;
+    back = 0;
+  });
+  const resumeFrom = $derived(resume ? Math.max(0, resume.point.stroke - back) : 0);
+
+  async function startCut(fromResume = false) {
     try {
       // Empty groups are skipped by the backend too; dropping them here keeps
       // the pass numbers in the progress display in step with the device.
-      const job = ($state.snapshot(groups) as typeof groups).filter((g) => g.paths.length > 0);
+      const job = $state.snapshot(jobGroups) as typeof groups;
+      const point = fromResume && resume ? { pass: resume.point.pass, stroke: resumeFrom } : null;
       cuttingTile = tiling ? tileIdx : null;
       plotter.begin(
-        job.map((g) => ({ color: g.color, name: g.name })),
-        bladeMm,
+        // Resumed: the progress shows the remaining passes.
+        job.slice(point?.pass ?? 0).map((g) => ({ color: g.color, name: g.name })),
+        point ? 0 : bladeMm,
+        point ? 0 : rawEstimate,
+        jobKey,
       );
       const r = await api.cutStart(
         job.map((g) => ({ paths: g.paths, options: g.options, settings: g.settings })),
         reg ? { ...reg } : null,
         feed,
+        point,
       );
-      if (r.clamped > 0) editor.toast(`${r.clamped} Punkte lagen außerhalb und wurden an den Rand gesetzt.`, "error");
+      if (r.clamped > 0) editor.toast(t("{n} Punkte lagen außerhalb und wurden an den Rand gesetzt.", { n: r.clamped }), "error");
     } catch (e) {
       cuttingTile = null;
       plotter.phase = "idle";
@@ -418,16 +485,17 @@
   const allPen = $derived(groups.length > 0 && groups.every((g) => g.settings.tool === "pen"));
 
   const progressText = $derived.by(() => {
-    if (plotter.registering) return "Suche Passermarken …";
-    if (plotter.phase === "paused") return "Pausiert";
-    if (plotter.phase === "cancelling") return "Breche ab …";
+    if (plotter.registering) return t("Suche Passermarken …");
+    if (plotter.phase === "paused") return t("Pausiert");
+    if (plotter.phase === "cancelling") return t("Breche ab …");
     const n = plotter.job.length;
-    const step = n > 1 ? `Schritt ${Math.min(plotter.pass + 1, n)}/${n} (${plotter.job[plotter.pass]?.name ?? ""}) · ` : "";
+    const step = n > 1 ? `${t("Schritt {a}/{b}", { a: Math.min(plotter.pass + 1, n), b: n })} (${t(plotter.job[plotter.pass]?.name ?? "")}) · ` : "";
     if (plotter.draining) {
       const last = plotter.pass >= n - 1;
-      return `${step}${last ? "schneidet die letzten Linien …" : "schneidet den Rest dieses Schritts …"}`;
+      return `${step}${last ? t("schneidet die letzten Linien …") : t("schneidet den Rest dieses Schritts …")}`;
     }
-    return `${step}${pct} %`;
+    const left = remaining !== null && remaining > 0 ? ` · ${t("noch ca. {d}", { d: fmtDuration(remaining) })}` : "";
+    return `${step}${pct} %${left}`;
   });
 
   const pct = $derived(plotter.progress.total ? Math.round((plotter.progress.done / plotter.progress.total) * 100) : 0);
@@ -459,10 +527,10 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
 
 <div class="backdrop" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Schneiden">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Schneiden")}>
     <header>
-      <h2><Icon name="scissors" size={18} /> Schneiden</h2>
-      <button class="btn icon" onclick={close} disabled={plotter.busy} aria-label="Schließen"><Icon name="x" /></button>
+      <h2><Icon name="scissors" size={18} /> {t("Schneiden")}</h2>
+      <button class="btn icon" onclick={close} disabled={plotter.busy} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
 
     <div class="body">
@@ -506,14 +574,14 @@
         </svg>
         <div class="legend">
           {#if groups.length > 1}
-            Reihenfolge:
+            {t("Reihenfolge:")}
             {#each groups as g, i}
-              <span class="sw" style:background={g.color}></span> {i + 1}. {g.name}{i < groups.length - 1 ? " →" : ""}
+              <span class="sw" style:background={g.color}></span> {i + 1}. {t(g.name)}{i < groups.length - 1 ? " →" : ""}
             {/each}
           {:else}
-            Reihenfolge: zuerst <span class="sw" style:background={strokeColor(0, 2)}></span> zuletzt <span class="sw" style:background={strokeColor(1, 2)}></span>
+            {t("Reihenfolge:")} {t("zuerst")} <span class="sw" style:background={strokeColor(0, 2)}></span> {t("zuletzt")} <span class="sw" style:background={strokeColor(1, 2)}></span>
           {/if}
-          <span class="dash"></span> Leerfahrt
+          <span class="dash"></span> {t("Leerfahrt")}
         </div>
       </div>
 
@@ -522,63 +590,63 @@
         <div class="device" class:ok={ready} class:warn={plotter.status.state === "unloaded"} class:err={plotter.status.state === "error"}>
           <span class="dot"></span>
           <div>
-            <div class="dev-name">{plotter.status.model ?? "Kein Plotter"}</div>
-            <div class="dev-state">{plotter.status.message ?? STATE_TEXT[plotter.status.state]}</div>
+            <div class="dev-name">{plotter.status.model ?? t("Kein Plotter")}</div>
+            <div class="dev-state">{tMsg(plotter.status.message ?? STATE_TEXT[plotter.status.state])}</div>
           </div>
         </div>
-        <div class="blade" class:worn={plotter.bladeWorn} title="Geschnittene Strecke seit dem letzten Messerwechsel">
+        <div class="blade" class:worn={plotter.bladeWorn} title={t("Geschnittene Strecke seit dem letzten Messerwechsel")}>
           <Icon name="scissors" size={12} />
-          Messer: {fmtLen(plotter.blade.mm)} seit {new Date(plotter.blade.since).toLocaleDateString("de-DE")}
-          {#if plotter.bladeWorn}– bitte prüfen{/if}
+          {t("Messer: {len} seit {date}", { len: fmtLen(plotter.blade.mm), date: new Date(plotter.blade.since).toLocaleDateString(locale()) })}
+          {#if plotter.bladeWorn}– {t("bitte prüfen")}{/if}
         </div>
 
         <section>
-          <h3 class="section-title">Material{colors.length > 1 ? " je Schnittfarbe" : ""}</h3>
+          <h3 class="section-title">{colors.length > 1 ? t("Material je Schnittfarbe") : t("Material")}</h3>
           {#if colors.length > 1}
             <div class="color-tabs">
               {#each order as c, i}
                 <div class="ctab-row">
-                  <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title="Einstellungen für diese Farbe">
+                  <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title={t("Einstellungen für diese Farbe")}>
                     <span class="sw" style:background={c}></span>
-                    <span class="ctab-text">{i + 1}. {matOf(c).name}</span>
+                    <span class="ctab-text">{i + 1}. {t(matOf(c).name)}</span>
                   </button>
-                  <button class="btn icon mini" onclick={() => moveColor(c, -1)} disabled={plotter.busy || i === 0} title="Früher schneiden" aria-label="Früher schneiden"><Icon name="arrowUp" size={13} /></button>
-                  <button class="btn icon mini" onclick={() => moveColor(c, 1)} disabled={plotter.busy || i === order.length - 1} title="Später schneiden" aria-label="Später schneiden"><Icon name="arrowDown" size={13} /></button>
+                  <button class="btn icon mini" onclick={() => moveColor(c, -1)} disabled={plotter.busy || i === 0} title={t("Früher schneiden")} aria-label={t("Früher schneiden")}><Icon name="arrowUp" size={13} /></button>
+                  <button class="btn icon mini" onclick={() => moveColor(c, 1)} disabled={plotter.busy || i === order.length - 1} title={t("Später schneiden")} aria-label={t("Später schneiden")}><Icon name="arrowDown" size={13} /></button>
                 </div>
               {/each}
             </div>
             {#if misordered}
               <p class="warn-text order-warn">
-                Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.
-                <button class="btn small-btn" onclick={() => (manualOrder = bySeverity(colors))} disabled={plotter.busy}>Leichte zuerst</button>
+                {t("Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.")}
+                <button class="btn small-btn" onclick={() => (manualOrder = bySeverity(colors))} disabled={plotter.busy}>{t("Leichte zuerst")}</button>
               </p>
             {/if}
           {/if}
           <div class="row">
             <select class="field" value={materialId} onchange={(e) => pickMaterial(e.currentTarget.value)} disabled={plotter.busy}>
-              <optgroup label="Vorlagen">
-                {#each PRESETS as p}<option value={p.id}>{p.name}</option>{/each}
+              <optgroup label={t("Vorlagen")}>
+                {#each PRESETS as p}<option value={p.id}>{t(p.name)}</option>{/each}
               </optgroup>
               {#if custom.length}
-                <optgroup label="Eigene">
+                <optgroup label={t("Eigene")}>
                   {#each custom as p}<option value={p.id}>{p.name}</option>{/each}
                 </optgroup>
               {/if}
             </select>
-            <button class="btn icon outline" title="Als eigenes Material speichern" onclick={() => (naming = modified ? `${m.name} (angepasst)` : m.name)} disabled={plotter.busy}><Icon name="save" /></button>
+            <button class="btn icon outline" title={t("Als eigenes Material speichern")} onclick={() => (naming = modified ? `${t(m.name)} (${t("angepasst")})` : t(m.name))} disabled={plotter.busy}><Icon name="save" /></button>
             {#if materialId.startsWith("c-")}
-              <button class="btn icon outline danger" title="Material löschen" onclick={deleteMaterial} disabled={plotter.busy}><Icon name="trash" /></button>
+              <button class="btn icon outline danger" title={t("Material löschen")} onclick={deleteMaterial} disabled={plotter.busy}><Icon name="trash" /></button>
             {/if}
           </div>
           {#if naming !== null}
             <form class="row name-row" onsubmit={(e) => { e.preventDefault(); saveAsMaterial(); }}>
               <!-- svelte-ignore a11y_autofocus -->
-              <input class="field" bind:value={naming} placeholder="Name des Materials" autofocus />
-              <button class="btn primary" type="submit">Speichern</button>
-              <button class="btn" type="button" onclick={() => (naming = null)}>Abbrechen</button>
+              <input class="field" bind:value={naming} placeholder={t("Name des Materials")} autofocus />
+              <button class="btn primary" type="submit">{t("Speichern")}</button>
+              <button class="btn" type="button" onclick={() => (naming = null)}>{t("Abbrechen")}</button>
             </form>
           {/if}
-          <p class="hint">{modified ? "Angepasst – speichern, um die Werte zu behalten." : "Startwerte – vorher mit einem Testschnitt prüfen."}</p>
+          <p class="hint">{modified ? t("Angepasst – speichern, um die Werte zu behalten.") : t("Startwerte – vorher mit einem Testschnitt prüfen.")}</p>
           <div class="controls">
             {#if m.tool === "blade"}
               <Slider disabled={plotter.busy} label="Messertiefe" bind:value={m.depth} min={1} max={10} hint="AutoBlade-Tiefe, wird vor dem Schnitt automatisch eingestellt" />
@@ -590,24 +658,26 @@
               <Slider disabled={plotter.busy} label="Überschnitt" bind:value={m.overcut} min={0} max={2} step={0.1} unit=" mm" hint="Schneidet geschlossene Formen etwas über den Startpunkt hinaus" />
             {/if}
             <label class="select-row">
-              <span>Werkzeug</span>
+              <span>{t("Werkzeug")}</span>
               <select class="field" bind:value={m.tool} disabled={plotter.busy}>
-                <option value="blade">AutoBlade (Messer)</option>
-                <option value="pen">Stift</option>
+                <option value="blade">{t("AutoBlade (Messer)")}</option>
+                <option value="pen">{t("Stift")}</option>
               </select>
             </label>
           </div>
         </section>
 
         <section>
-          <h3 class="section-title">Auftrag</h3>
+          <h3 class="section-title">{t("Auftrag")}</h3>
           <div class="controls">
             <label class="select-row">
-              <span>Matte</span>
+              <span>{t("Matte")}</span>
               <select class="field" bind:value={mat} disabled={plotter.busy}>
-                <option value="portrait8x12">Matte 8″ × 12″</option>
-                <option value="portrait8_5x12">Matte 8,5″ × 12″</option>
-                <option value="none">Ohne Matte</option>
+                <option value="portrait8x12">{t(MAT_LABELS.portrait8x12)}</option>
+                <option value="portrait8_5x12">{t(MAT_LABELS.portrait8_5x12)}</option>
+                <option value="cameo12x12">{t(MAT_LABELS.cameo12x12)}</option>
+                <option value="cameo12x24">{t(MAT_LABELS.cameo12x24)}</option>
+                <option value="none">{t("Ohne Matte")}</option>
               </select>
             </label>
             <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
@@ -623,8 +693,8 @@
                 />
                 <p class="hint">
                   {mirrorMode === "sheet"
-                    ? "Die ganze Folie wird seitenverkehrt – Elemente tauschen links und rechts."
-                    : "Jedes Element wird an Ort und Stelle gespiegelt. Gruppen werden als Ganzes gespiegelt."}
+                    ? t("Die ganze Folie wird seitenverkehrt – Elemente tauschen links und rechts.")
+                    : t("Jedes Element wird an Ort und Stelle gespiegelt. Gruppen werden als Ganzes gespiegelt.")}
                 </p>
               </div>
             {/if}
@@ -636,37 +706,41 @@
           </div>
           <div class="stats">
             {#if plans.length}
-              <span><b>{totals.paths}</b> Pfade</span>
-              <span><b>{fmtLen(totals.cut)}</b> Schnitt</span>
-              <span><b>{fmtLen(totals.travel)}</b> Leerweg</span>
-              {#if plans.length > 1}<span><b>{plans.length}</b> Schritte</span>{/if}
+              <span>{totals.paths === 1 ? t("1 Pfad") : t("{n} Pfade", { n: totals.paths })}</span>
+              <span><b>{fmtLen(totals.cut)}</b> {t("Schnitt")}</span>
+              <span><b>{fmtLen(totals.travel)}</b> {t("Leerweg")}</span>
+              {#if plans.length > 1}<span><b>{plans.length}</b> {t("Schritte")}</span>{/if}
+              <span title={t("Schätzung – wird mit jedem fertigen Schnitt genauer")}><b>≈ {fmtDuration(estimate)}</b> {t("Dauer")}</span>
             {:else if planError}
               <span class="err-text">{planError}</span>
             {:else}
-              <span class="muted">Keine Schnittlinien – erst tracen oder Formen zeichnen.</span>
+              <span class="muted">{t("Keine Schnittlinien – erst tracen oder Formen zeichnen.")}</span>
             {/if}
           </div>
+          {#if matTooWide}
+            <p class="warn-text">{t("Diese Matte ist breiter als der Plotter ({w} mm) – nur der Teil, der hineinpasst, wird geschnitten.", { w: fmt(plotter.status.widthMm ?? 0) })}</p>
+          {/if}
           {#if outside}
-            <p class="warn-text">Teile liegen außerhalb {reg ? "des Passermarken-Rahmens" : "des Schneidebereichs"} und werden abgeschnitten.</p>
+            <p class="warn-text">{reg ? t("Teile liegen außerhalb des Passermarken-Rahmens und werden abgeschnitten.") : t("Teile liegen außerhalb des Schneidebereichs und werden abgeschnitten.")}</p>
           {/if}
           {#if tooBig}
             <div class="tiles">
               <div class="calib-head">
-                <span>Großes Motiv: in Kacheln schneiden</span>
-                <input type="checkbox" bind:checked={tileOn} disabled={plotter.busy} title="Motiv auf mehrere Matten aufteilen" />
+                <span>{t("Großes Motiv: in Kacheln schneiden")}</span>
+                <input type="checkbox" bind:checked={tileOn} disabled={plotter.busy} title={t("Motiv auf mehrere Matten aufteilen")} />
               </div>
               {#if tiling}
                 <svg class="tilemap" viewBox="{tiling.box.x0 - 4} {tiling.box.y0 - 4} {tiling.box.x1 - tiling.box.x0 + 8} {tiling.box.y1 - tiling.box.y0 + 8}" preserveAspectRatio="xMidYMid meet">
                   {#each cutObjects as o (o.id)}
                     <path d={o.d} transform={mapTransform(o)} fill="none" stroke="var(--text-3)" stroke-width="1" vector-effect="non-scaling-stroke" />
                   {/each}
-                  {#each tiling.tiles as t, i}
+                  {#each tiling.tiles as tl, i}
                     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
                     <rect
-                      x={t.x}
-                      y={t.y}
-                      width={t.w}
-                      height={t.h}
+                      x={tl.x}
+                      y={tl.y}
+                      width={tl.w}
+                      height={tl.h}
                       class="tile"
                       class:on={i === tileIdx}
                       class:done={tilesDone.includes(i)}
@@ -676,36 +750,36 @@
                   {/each}
                 </svg>
                 <div class="tile-buttons">
-                  {#each tiling.tiles as t, i}
-                    <button class="tbtn" class:on={i === tileIdx} class:done={tilesDone.includes(i)} disabled={plotter.busy} onclick={() => (tileIdx = i)} title="Reihe {t.row + 1}, Spalte {t.col + 1}">
+                  {#each tiling.tiles as tl, i}
+                    <button class="tbtn" class:on={i === tileIdx} class:done={tilesDone.includes(i)} disabled={plotter.busy} onclick={() => (tileIdx = i)} title={t("Reihe {r}, Spalte {c}", { r: tl.row + 1, c: tl.col + 1 })}>
                       {#if tilesDone.includes(i)}<Icon name="check" size={11} />{/if}{i + 1}
                     </button>
                   {/each}
                 </div>
                 <div class="calib-row">
-                  <label>Überlappung <input class="field num" type="number" min="0" max="30" step="1" bind:value={tileOverlap} disabled={plotter.busy} /> mm</label>
-                  <span>{tiling.tiles.length} Kacheln · {fmt(cutArea.w)} × {fmt(cutArea.h)} mm</span>
+                  <label>{t("Überlappung")} <input class="field num" type="number" min="0" max="30" step="1" bind:value={tileOverlap} disabled={plotter.busy} /> mm</label>
+                  <span>{t("{n} Kacheln", { n: tiling.tiles.length })} · {fmt(cutArea.w)} × {fmt(cutArea.h)} mm</span>
                 </div>
-                <p class="hint">Kachel {tileIdx + 1} wird oben links auf {mat === "none" ? "dem Material" : "der Matte"} geschnitten. Nach jedem Schnitt neues Material einlegen.</p>
+                <p class="hint">{mat === "none" ? t("Kachel {n} wird oben links auf dem Material geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 }) : t("Kachel {n} wird oben links auf der Matte geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 })}</p>
               {:else}
-                <p class="hint">Aus: alles außerhalb des Schneidebereichs wird abgeschnitten.</p>
+                <p class="hint">{t("Aus: alles außerhalb des Schneidebereichs wird abgeschnitten.")}</p>
               {/if}
             </div>
           {/if}
           {#if reg}
             <div class="calib">
               <div class="calib-head">
-                <span>Feinjustierung Druck ↔ Schnitt</span>
-                <button class="btn small-btn" onclick={addCalibrationSheet} disabled={plotter.busy} title="Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite">Testbogen</button>
+                <span>{t("Feinjustierung Druck ↔ Schnitt")}</span>
+                <button class="btn small-btn" onclick={addCalibrationSheet} disabled={plotter.busy} title={t("Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite")}>{t("Testbogen")}</button>
               </div>
               <div class="calib-row">
                 <label>X <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dx} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
                 <label>Y <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dy} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
               </div>
-              <p class="hint">Schnitt liegt zu weit rechts → X verringern; zu weit unten → Y verringern. Beim Testbogen ist der weiße Rand dann ringsum gleich (2 mm).</p>
+              <p class="hint">{t("Schnitt liegt zu weit rechts → X verringern; zu weit unten → Y verringern. Beim Testbogen ist der weiße Rand dann ringsum gleich (2 mm).")}</p>
             </div>
             <p class="info-text">
-              <Icon name="sparkle" size={13} /> Print & Cut: Bedruckten Bogen oben links auf die Matte legen. Die Passermarken werden vor dem Schnitt automatisch gesucht.
+              <Icon name="sparkle" size={13} /> {t("Print & Cut: Bedruckten Bogen oben links auf die Matte legen. Die Passermarken werden vor dem Schnitt automatisch gesucht.")}
             </p>
           {/if}
         </section>
@@ -718,32 +792,52 @@
             </div>
             <div class="actions">
               <button class="btn outline" disabled={plotter.phase === "cancelling"} onclick={() => plotter.pause(plotter.phase !== "paused")}>
-                {plotter.phase === "paused" ? "Fortsetzen" : "Pause"}
+                {plotter.phase === "paused" ? t("Fortsetzen") : t("Pause")}
               </button>
-              <button class="btn outline danger grow" disabled={plotter.phase === "cancelling"} onclick={() => plotter.cancel()}><Icon name="x" /> Abbrechen</button>
+              <button class="btn outline danger grow" disabled={plotter.phase === "cancelling"} onclick={() => plotter.cancel()}><Icon name="x" /> {t("Abbrechen")}</button>
             </div>
           {:else}
             {#if reg}
               <div class="test">
-                <span>Marken bei {reg.originX} / {reg.originY} mm, Abstand {fmt(reg.width)} × {fmt(reg.length)} mm</span>
-                <button class="btn outline" disabled={!ready} onclick={testMarks} title="Sucht nur die Passermarken, ohne zu schneiden">Marken testen</button>
+                <span>{t("Marken bei {x} / {y} mm, Abstand {w} × {h} mm", { x: reg.originX, y: reg.originY, w: fmt(reg.width), h: fmt(reg.length) })}</span>
+                <button class="btn outline" disabled={!ready} onclick={testMarks} title={t("Sucht nur die Passermarken, ohne zu schneiden")}>{t("Marken testen")}</button>
               </div>
             {/if}
             <div class="test">
-              <span>Testschnitt bei</span>
+              <span>{t("Testschnitt bei")}</span>
               <input class="field num" type="number" min="0" max={area.w - 10} bind:value={testX} />
               <span>×</span>
               <input class="field num" type="number" min="0" max={area.h - 10} bind:value={testY} />
               <span>mm</span>
               <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
             </div>
-            <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={startCut}>
-              <Icon name="scissors" /> {allPen ? "Zeichnen" : "Schneiden"}{tiling ? ` – Kachel ${tileIdx + 1}/${tiling.tiles.length}` : ""}
+            {#if resume}
+              {@const p = resume.point}
+              <div class="resume">
+                <div class="calib-head">
+                  <span>{t("Unterbrochener Schnitt")}</span>
+                  <button class="btn small-btn" onclick={() => (plotter.resume = null)} title={t("Nicht weiterschneiden")}>{t("Verwerfen")}</button>
+                </div>
+                <p class="hint">
+                  {jobGroups.length > 1 ? `${t("Schritt {n}", { n: p.pass + 1 })} (${t(jobGroups[p.pass]?.name ?? "")}), ` : ""}{t("Pfad {a} von {b}.", { a: Math.min(p.stroke + 1, p.strokes), b: p.strokes })}
+                  {t("Matte und Material nicht verschieben.")}
+                </p>
+                <div class="calib-row">
+                  <span>{t("Weiter ab Pfad")}</span>
+                  <button class="btn icon mini" onclick={() => (back = Math.min(p.stroke, back + 1))} disabled={resumeFrom === 0} aria-label={t("Einen Pfad früher")}>−</button>
+                  <b>{resumeFrom + 1}</b>
+                  <button class="btn icon mini" onclick={() => (back = Math.max(0, back - 1))} disabled={back === 0} aria-label={t("Einen Pfad später")}>+</button>
+                </div>
+                <button class="btn outline" disabled={!ready} onclick={() => startCut(true)}><Icon name="scissors" /> {t("Weiterschneiden")}</button>
+              </div>
+            {/if}
+            <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={() => startCut()}>
+              <Icon name="scissors" /> {allPen ? t("Zeichnen") : t("Schneiden")}{tiling ? ` – ${t("Kachel {a}/{b}", { a: tileIdx + 1, b: tiling.tiles.length })}` : ""}
             </button>
             {#if !plotter.status.connected}
-              <p class="hint center">Plotter per USB anschließen und einschalten.</p>
+              <p class="hint center">{t("Plotter per USB anschließen und einschalten.")}</p>
             {:else if plotter.status.state === "unloaded"}
-              <p class="hint center">Matte einlegen und am Gerät die Lade-Taste drücken.</p>
+              <p class="hint center">{t("Matte einlegen und am Gerät die Lade-Taste drücken.")}</p>
             {/if}
           {/if}
         </div>
@@ -1035,6 +1129,22 @@
   }
   .mirror-mode .hint {
     margin-top: 6px;
+  }
+  .resume {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--warn);
+    background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  }
+  .resume .hint {
+    margin: 0;
+  }
+  .resume .calib-row {
+    align-items: center;
+    margin-top: 0;
   }
   .blade {
     display: flex;

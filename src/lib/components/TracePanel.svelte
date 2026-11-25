@@ -4,6 +4,7 @@
   import { center, rotate, uid } from "../geometry";
   import type { ImageObj, PathObj, TraceMode } from "../types";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
@@ -126,7 +127,7 @@
       return {
         id: uid(),
         type: "path",
-        name: r.layers.length > 1 ? `${img.name} · Farbe ${i + 1}` : kind === "centerline" ? `${img.name} · Linien` : `${img.name} · Kontur`,
+        name: r.layers.length > 1 ? `${img.name} · ${t("Farbe {n}", { n: i + 1 })}` : kind === "centerline" ? `${img.name} · ${t("Linien")}` : `${img.name} · ${t("Kontur")}`,
         d: l.d,
         bbox: l.bbox,
         color: kind === "multiColor" ? l.color : kind === "centerline" ? "#30a46c" : "#e5484d",
@@ -147,7 +148,7 @@
       const o = editor.byId(img.id);
       if (o) o.visible = false;
     }
-    editor.toast(`${contours} Konturen übernommen`, "ok");
+    editor.toast(t("{n} Konturen übernommen", { n: contours }), "ok");
     editor.rightTab = "object";
   }
 
@@ -160,8 +161,8 @@
 {#if !target || !asset}
   <div class="empty">
     <div class="empty-icon"><Icon name="wand" size={28} stroke={1.5} /></div>
-    <p><strong>Bild auswählen zum Tracen</strong></p>
-    <p class="muted">Importiere ein Foto, eine Zeichnung oder ein Logo und wähle es auf der Arbeitsfläche aus.</p>
+    <p><strong>{t("Bild auswählen zum Tracen")}</strong></p>
+    <p class="muted">{t("Importiere ein Foto, eine Zeichnung oder ein Logo und wähle es auf der Arbeitsfläche aus.")}</p>
   </div>
   <PixScanSection img={null} />
 {:else}
@@ -175,7 +176,7 @@
     </div>
 
     <section>
-      <h3 class="section-title">Modus</h3>
+      <h3 class="section-title">{t("Modus")}</h3>
       <Segmented
         value={kind}
         onchange={setKind}
@@ -203,14 +204,14 @@
           />
           <Toggle label="Invertieren (helle Bereiche)" bind:checked={threshold.invert} />
           {#if kind === "centerline"}
-            <p class="muted">Ergebnis sind offene Linien (grün = mit dem Stift zeichnen). „Flecken entfernen“ verwirft kurze Linien.</p>
+            <p class="muted">{t("Ergebnis sind offene Linien (grün = mit dem Stift zeichnen). „Flecken entfernen“ verwirft kurze Linien.")}</p>
           {/if}
         {:else if kind === "colorKey"}
           <div class="color-row">
             <span class="swatch" style:background={hex}></span>
             <input class="field mono" value={hex} readonly />
-            <button class="btn outline" class:active={!!editor.picking} onclick={pickColor} title="Farbe im Bild aufnehmen">
-              <Icon name="pipette" /> Pipette
+            <button class="btn outline" class:active={!!editor.picking} onclick={pickColor} title={t("Farbe im Bild aufnehmen")}>
+              <Icon name="pipette" /> {t("Pipette")}
             </button>
           </div>
           <Slider label="Toleranz" bind:value={colorKey.tolerance} min={1} max={60} unit=" %" />
@@ -225,35 +226,35 @@
             </div>
           {/if}
         {:else}
-          <p class="muted">Zeichnet den Umriss aller nicht transparenten Pixel – perfekt für freigestellte Sticker-Motive.</p>
+          <p class="muted">{t("Zeichnet den Umriss aller nicht transparenten Pixel – perfekt für freigestellte Sticker-Motive.")}</p>
         {/if}
       </div>
     </section>
 
     <section>
-      <h3 class="section-title">Foto einer Zeichnung</h3>
+      <h3 class="section-title">{t("Foto einer Zeichnung")}</h3>
       {#if perspective.objId && !perspective.custom}
         <p class="muted">
-          {perspective.detected ? "Blatt erkannt – Ecken bei Bedarf nachziehen." : "Kein Blatt erkannt – die vier Punkte auf die Ecken ziehen."}
+          {perspective.detected ? t("Blatt erkannt – Ecken bei Bedarf nachziehen.") : t("Kein Blatt erkannt – die vier Punkte auf die Ecken ziehen.")}
         </p>
         <div class="controls">
           <label class="select-row">
-            <span>Format</span>
-            <select class="field" bind:value={perspective.paper} title="Mit Papierformat wird das Bild in Originalgröße angelegt">
-              {#each Object.entries(PAPERS) as [id, p]}<option value={id}>{p.label}</option>{/each}
+            <span>{t("Format")}</span>
+            <select class="field" bind:value={perspective.paper} title={t("Mit Papierformat wird das Bild in Originalgröße angelegt")}>
+              {#each Object.entries(PAPERS) as [id, p]}<option value={id}>{t(p.label)}</option>{/each}
             </select>
           </label>
         </div>
         <div class="brush-row persp-actions">
-          <button class="btn outline" onclick={() => perspective.cancel()} disabled={perspective.busy}>Abbrechen</button>
+          <button class="btn outline" onclick={() => perspective.cancel()} disabled={perspective.busy}>{t("Abbrechen")}</button>
           <button class="btn primary grow" onclick={() => perspective.apply()} disabled={perspective.busy}>
-            <Icon name="check" /> Entzerren
+            <Icon name="check" /> {t("Entzerren")}
           </button>
         </div>
       {:else}
         <div class="brush-row">
-          <button class="btn outline" onclick={() => target && perspective.start(target)} disabled={perspective.busy} title="Schräg fotografiertes Blatt gerade ziehen">
-            Perspektive korrigieren
+          <button class="btn outline" onclick={() => target && perspective.start(target)} disabled={perspective.busy} title={t("Schräg fotografiertes Blatt gerade ziehen")}>
+            {t("Perspektive korrigieren")}
           </button>
         </div>
       {/if}
@@ -265,24 +266,24 @@
     <PixScanSection img={target} />
 
     <section>
-      <h3 class="section-title">Bild bereinigen</h3>
+      <h3 class="section-title">{t("Bild bereinigen")}</h3>
       <div class="brush-row">
-        <button class="btn outline" class:active={brush.mode === "erase"} onclick={() => brush.toggle("erase")} title="Flecken und Störungen wegradieren (wird transparent)">Radierer</button>
-        <button class="btn outline" class:active={brush.mode === "paint"} onclick={() => brush.toggle("paint")} title="Lücken schließen, Linien ergänzen">Pinsel</button>
+        <button class="btn outline" class:active={brush.mode === "erase"} onclick={() => brush.toggle("erase")} title={t("Flecken und Störungen wegradieren (wird transparent)")}>{t("Radierer")}</button>
+        <button class="btn outline" class:active={brush.mode === "paint"} onclick={() => brush.toggle("paint")} title={t("Lücken schließen, Linien ergänzen")}>{t("Pinsel")}</button>
         {#if brush.mode === "paint"}
-          <input type="color" bind:value={brush.color} title="Pinselfarbe" />
+          <input type="color" bind:value={brush.color} title={t("Pinselfarbe")} />
         {/if}
       </div>
       {#if brush.mode}
         <div class="controls">
           <Slider label="Größe" bind:value={brush.size} min={0.5} max={20} step={0.5} unit=" mm" />
-          <p class="muted">Auf dem Bild malen – jeder Strich wird sofort übernommen und neu getraced. Rückgängig mit <kbd>Strg</kbd>+<kbd>Z</kbd>.</p>
+          <p class="muted">{t("Auf dem Bild malen – jeder Strich wird sofort übernommen und neu getraced. Rückgängig mit")} <kbd>{t("Strg")}</kbd>+<kbd>Z</kbd>.</p>
         </div>
       {/if}
     </section>
 
     <section>
-      <h3 class="section-title">Bild vorbereiten</h3>
+      <h3 class="section-title">{t("Bild vorbereiten")}</h3>
       <div class="controls">
         <Slider label="Helligkeit" bind:value={p.brightness} min={-100} max={100} />
         <Slider label="Kontrast" bind:value={p.contrast} min={-100} max={100} />
@@ -291,7 +292,7 @@
     </section>
 
     <section>
-      <h3 class="section-title">Kontur</h3>
+      <h3 class="section-title">{t("Kontur")}</h3>
       <div class="controls">
         <Slider label="Glättung" bind:value={p.smoothness} min={0} max={100} hint="Niedrig = folgt jeder Ecke, hoch = runde, ruhige Kurven" />
         <Slider label="Flecken entfernen" bind:value={p.despeckle} min={0} max={2000} step={4} unit=" px²" hint="Kleinere Formen werden verworfen" />
@@ -299,12 +300,12 @@
         <Toggle label="Nur Außenkontur" bind:checked={p.outerOnly} hint="Löcher füllen – ergibt eine geschlossene Silhouette" />
         <Toggle label="Kurven (statt Ecken)" bind:checked={p.curves} />
         <label class="select-row">
-          <span>Auflösung</span>
+          <span>{t("Auflösung")}</span>
           <select class="field" bind:value={p.maxSize}>
-            <option value={1000}>Schnell (1000 px)</option>
-            <option value={2000}>Normal (2000 px)</option>
-            <option value={4000}>Fein (4000 px)</option>
-            <option value={0}>Original</option>
+            <option value={1000}>{t("Schnell (1000 px)")}</option>
+            <option value={2000}>{t("Normal (2000 px)")}</option>
+            <option value={4000}>{t("Fein (4000 px)")}</option>
+            <option value={0}>{t("Original")}</option>
           </select>
         </label>
       </div>
@@ -313,19 +314,19 @@
     <div class="footer">
       <div class="stats">
         {#if editor.tracing}
-          <span class="dot busy"></span> Berechne …
+          <span class="dot busy"></span> {t("Berechne …")}
         {:else if preview}
           <span class="dot"></span>
-          {preview.result.layers.length} {preview.result.layers.length === 1 ? "Ebene" : "Ebenen"} · {contours} Konturen · {preview.ms} ms
+          {preview.result.layers.length === 1 ? t("1 Ebene") : t("{n} Ebenen", { n: preview.result.layers.length })} · {t("{n} Konturen", { n: contours })} · {preview.ms} ms
         {:else}
           –
         {/if}
       </div>
       <Toggle label="Bild danach ausblenden" bind:checked={hideImage} />
       <div class="actions">
-        <button class="btn outline" onclick={reset}>Zurücksetzen</button>
+        <button class="btn outline" onclick={reset}>{t("Zurücksetzen")}</button>
         <button class="btn primary grow" disabled={!preview || contours === 0} onclick={apply}>
-          <Icon name="check" /> Übernehmen
+          <Icon name="check" /> {t("Übernehmen")}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api, inApp, type UpdateInfo } from "./api";
 import { editor } from "./editor.svelte";
 import { confirmClose } from "./io.svelte";
+import { t } from "./i18n.svelte";
 
 const AUTO_KEY = "schnittwerk.updateAuto";
 const LAST_KEY = "schnittwerk.updateLast";
@@ -62,7 +63,7 @@ class UpdateStore {
         localStorage.setItem(LAST_KEY, String(Date.now()));
       } catch {}
       this.phase = "idle";
-      if (!quiet && !this.info.newer) editor.toast(`Schnittwerk ${this.info.current} ist aktuell.`, "ok");
+      if (!quiet && !this.info.newer) editor.toast(t("Schnittwerk {v} ist aktuell.", { v: this.info.current }), "ok");
       if (!quiet && this.info.newer) this.dialogOpen = true;
     } catch (e) {
       this.phase = quiet ? "idle" : "error";

@@ -3,6 +3,7 @@
   import { inApp } from "./lib/api";
   import { customMat, editor, matKindOf, MATS, PAGES, rollMat, ROLL_MAX, type PageName } from "./lib/editor.svelte";
   import { fmt } from "./lib/geometry";
+  import { t } from "./lib/i18n.svelte";
   import { confirmClose, copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
   import { wizardUi } from "./lib/wizard.svelte";
   import NewProjectWizard from "./lib/components/NewProjectWizard.svelte";
@@ -44,7 +45,7 @@
 
   // ---------- window title ----------
   $effect(() => {
-    const name = editor.filePath?.split("/").pop() ?? "Unbenannt";
+    const name = editor.filePath?.split("/").pop() ?? t("Unbenannt");
     document.title = `${editor.dirty ? "• " : ""}${name} – Schnittwerk`;
   });
 
@@ -63,7 +64,7 @@
       if (r || wizardUi.atStart) wizardUi.open = true;
     });
     if (!inApp) {
-      editor.toast("Browser-Vorschau: Dateizugriff und Tracen nur in der Desktop-App.", "info");
+      editor.toast(t("Browser-Vorschau: Dateizugriff und Tracen nur in der Desktop-App."), "info");
       return;
     }
     let unlisten: (() => void) | undefined;
@@ -82,10 +83,10 @@
     });
     import("@tauri-apps/api/webview").then(async ({ getCurrentWebview }) => {
       unlisten = await getCurrentWebview().onDragDropEvent((ev) => {
-        const t = ev.payload.type;
-        if (t === "enter" || t === "over") dropping = true;
-        else if (t === "leave") dropping = false;
-        else if (t === "drop") {
+        const kind = ev.payload.type;
+        if (kind === "enter" || kind === "over") dropping = true;
+        else if (kind === "leave") dropping = false;
+        else if (kind === "drop") {
           dropping = false;
           importPaths(ev.payload.paths);
         }
@@ -235,7 +236,7 @@
   function setMatSize(key: "w" | "h", raw: string) {
     const v = parseFloat(raw.replace(",", "."));
     if (!Number.isFinite(v)) return;
-    editor.mat = matKind === "roll" ? rollMat(v) : customMat(key === "w" ? v : editor.mat.w, key === "h" ? v : editor.mat.h, editor.mat.roll);
+    editor.mat = matKind === "roll" ? rollMat(v) : customMat(key === "w" ? v : editor.mat.w, key === "h" ? v : editor.mat.h, editor.mat.roll, editor.mat.cut);
     editor.dirty = true;
     editor.fitMat();
   }
@@ -245,48 +246,48 @@
 
 <div class="app">
   <header>
-    <button class="brand" title="Startseite: neues Projekt, zuletzt geöffnet" onclick={newProject}>
+    <button class="brand" title={t("Startseite: neues Projekt, zuletzt geöffnet")} onclick={newProject}>
       <span class="logo"><Icon name="scissors" size={16} stroke={2.2} /></span>
       <span class="title">Schnittwerk</span>
     </button>
 
     <div class="group">
-      <button class="btn icon" title="Neu (Strg+N)" onclick={newProject}><Icon name="filePlus" /></button>
-      <button class="btn icon" title="Neu aus Vorlage (Strg+Umschalt+N)" onclick={() => (templatesUi.open = true)}><Icon name="layers" /></button>
-      <button class="btn icon" title="Öffnen (Strg+O)" onclick={openDialog}><Icon name="folder" /></button>
-      <button class="btn icon" title="Speichern (Strg+S)" onclick={() => saveProject()}><Icon name="save" /></button>
+      <button class="btn icon" title={t("Neu (Strg+N)")} onclick={newProject}><Icon name="filePlus" /></button>
+      <button class="btn icon" title={t("Neu aus Vorlage (Strg+Umschalt+N)")} onclick={() => (templatesUi.open = true)}><Icon name="layers" /></button>
+      <button class="btn icon" title={t("Öffnen (Strg+O)")} onclick={openDialog}><Icon name="folder" /></button>
+      <button class="btn icon" title={t("Speichern (Strg+S)")} onclick={() => saveProject()}><Icon name="save" /></button>
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn outline" title="Bild oder SVG importieren (Strg+I)" onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">Importieren</span></button>
-      <button class="btn" title="Schnittlinien als SVG exportieren (Strg+E)" onclick={exportSvg}><Icon name="download" /> <span class="lbl">SVG</span></button>
+      <button class="btn outline" title={t("Bild oder SVG importieren (Strg+I)")} onclick={importDialog}><Icon name="imagePlus" /> <span class="lbl">{t("Importieren")}</span></button>
+      <button class="btn" title={t("Schnittlinien als SVG exportieren (Strg+E)")} onclick={exportSvg}><Icon name="download" /> <span class="lbl">SVG</span></button>
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn icon" title="Rückgängig (Strg+Z)" disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
-      <button class="btn icon" title="Wiederholen (Strg+Y)" disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
+      <button class="btn icon" title={t("Rückgängig (Strg+Z)")} disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
+      <button class="btn icon" title={t("Wiederholen (Strg+Y)")} disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn" class:active={editor.gridSnap} title="Raster: beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)" onclick={() => (editor.gridSnap = !editor.gridSnap)}>
-        <Icon name="grid" /> Raster
+      <button class="btn" class:active={editor.gridSnap} title={t("Raster: beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)")} onclick={() => (editor.gridSnap = !editor.gridSnap)}>
+        <Icon name="grid" /> {t("Raster")}
       </button>
       {#if editor.gridSnap}
-        <select class="hsel" title="Rasterweite beim Verschieben" value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
+        <select class="hsel" title={t("Rasterweite beim Verschieben")} value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
           {#each [0.5, 1, 2, 5, 10] as g}<option value={g}>{fmt(g)} mm</option>{/each}
         </select>
-        <select class="hsel" title="Winkelschritt beim Drehen" value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
+        <select class="hsel" title={t("Winkelschritt beim Drehen")} value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
           {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
         </select>
       {/if}
     </div>
     <span class="divider"></span>
     <div class="group">
-      <button class="btn" class:active={editor.printCut.enabled} title="Print & Cut: Seite mit Passermarken zum Drucken und Ausschneiden" onclick={() => editor.setPrintCut(!editor.printCut.enabled)}>
+      <button class="btn" class:active={editor.printCut.enabled} title={t("Print & Cut: Seite mit Passermarken zum Drucken und Ausschneiden")} onclick={() => editor.setPrintCut(!editor.printCut.enabled)}>
         <Icon name="sticker" /> Print & Cut
       </button>
       {#if editor.printCut.enabled}
-        <select class="hsel" title="Papierformat" value={editor.printCut.page} onchange={(e) => editor.setPrintCut(true, e.currentTarget.value as PageName)}>
+        <select class="hsel" title={t("Papierformat")} value={editor.printCut.page} onchange={(e) => editor.setPrintCut(true, e.currentTarget.value as PageName)}>
           {#each Object.keys(PAGES) as p}<option value={p}>{p}</option>{/each}
         </select>
       {/if}
@@ -295,27 +296,27 @@
     <div class="spacer"></div>
 
     <div class="group">
-      <button class="btn icon lbl" title="Verkleinern" onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
-      <button class="btn zoom" title="Matte einpassen (Strg+0)" onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
-      <button class="btn icon lbl" title="Vergrößern" onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
-      <button class="btn icon" class:active={editor.showGrid} title="Raster" onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
-      <button class="btn icon" class:active={editor.snap} title="Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht." onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
-      <button class="btn icon" title="Design wechseln" onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
+      <button class="btn icon lbl" title={t("Verkleinern")} onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
+      <button class="btn zoom" title={t("Matte einpassen (Strg+0)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
+      <button class="btn icon lbl" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
+      <button class="btn icon" class:active={editor.showGrid} title={t("Raster anzeigen")} onclick={() => (editor.showGrid = !editor.showGrid)}><Icon name="grid" /></button>
+      <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
+      <button class="btn icon" title={t("Design wechseln")} onclick={() => (theme = isDark ? "light" : "dark")}><Icon name={isDark ? "sun" : "moon"} /></button>
     </div>
     <span class="divider"></span>
     {#if updater.available}
-      <button class="btn update" title="Schnittwerk {updater.info?.latest} ist verfügbar" onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
+      <button class="btn update" title={t("Schnittwerk {v} ist verfügbar", { v: updater.info?.latest ?? "" })} onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
     {/if}
     <DeviceMenu />
-    <button class="btn outline" title="Für Print & Cut drucken (Strg+P)" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">Drucken</span></button>
-    <button class="btn primary" title="Schneiden-Dialog öffnen (Strg+Enter)" onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> Schneiden</button>
+    <button class="btn outline" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">{t("Drucken")}</span></button>
+    <button class="btn primary" title={t("Schneiden-Dialog öffnen (Strg+Enter)")} onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
   </header>
 
   <main>
     <div class="rail">
-      {#each TOOLS as t}
-        <button class="btn icon tool" class:active={editor.tool === t.id} title={t.key ? `${t.label} (${t.key})` : t.label} onclick={() => (editor.tool = t.id)}>
-          <Icon name={t.icon} size={18} />
+      {#each TOOLS as tool}
+        <button class="btn icon tool" class:active={editor.tool === tool.id} title={tool.key ? `${t(tool.label)} (${tool.key})` : t(tool.label)} onclick={() => (editor.tool = tool.id)}>
+          <Icon name={tool.icon} size={18} />
         </button>
       {/each}
     </div>
@@ -325,7 +326,7 @@
 
     {#if dropping}
       <div class="drop">
-        <div class="drop-card"><Icon name="imagePlus" size={28} /> Datei loslassen zum Importieren</div>
+        <div class="drop-card"><Icon name="imagePlus" size={28} /> {t("Datei loslassen zum Importieren")}</div>
       </div>
     {/if}
   </main>
@@ -336,24 +337,24 @@
     </span>
     <span>
       {#if editor.selected.length === 1}
-        {editor.selected[0].name} · {fmt(editor.selected[0].w)} × {fmt(editor.selected[0].h)} mm
+        {t(editor.selected[0].name)} · {fmt(editor.selected[0].w)} × {fmt(editor.selected[0].h)} mm
       {:else if editor.selected.length > 1}
-        {editor.selected.length} Objekte ausgewählt
+        {t("{n} Objekte ausgewählt", { n: editor.selected.length })}
       {/if}
     </span>
     <span class="spacer"></span>
     {#if !editor.printCut.enabled}
       <label class="mat">
-        Fläche
+        {t("Fläche")}
         <select value={matKind === "roll" ? "roll" : matKind === "custom" ? "custom" : editor.mat.name} onchange={(e) => pickMat(e.currentTarget.value)}>
-          {#each MATS as m}<option value={m.name}>{m.name}</option>{/each}
-          <option value="roll">Rolle ohne Matte</option>
-          <option value="custom">Eigene Größe (Kacheln)</option>
+          {#each MATS as m}<option value={m.name}>{t(m.name)}</option>{/each}
+          <option value="roll">{t("Rolle ohne Matte")}</option>
+          <option value="custom">{t("Eigene Größe (Kacheln)")}</option>
         </select>
       </label>
       {#if matKind === "roll"}
-        <label class="mat" title="Länge der Folie, die geschnitten wird">
-          Länge
+        <label class="mat" title={t("Länge der Folie, die geschnitten wird")}>
+          {t("Länge")}
           <input class="size" type="number" min="50" max={ROLL_MAX} step="10" value={Math.round(editor.mat.h)} onchange={(e) => setMatSize("h", e.currentTarget.value)} /> mm
         </label>
       {:else if matKind === "custom"}
@@ -383,10 +384,10 @@
   {/if}
 
   <div class="toasts">
-    {#each editor.toasts as t (t.id)}
-      <div class="toast {t.kind}">
-        <Icon name={t.kind === "error" ? "x" : t.kind === "ok" ? "check" : "sparkle"} size={14} />
-        {t.text}
+    {#each editor.toasts as toast (toast.id)}
+      <div class="toast {toast.kind}">
+        <Icon name={toast.kind === "error" ? "x" : toast.kind === "ok" ? "check" : "sparkle"} size={14} />
+        {toast.text}
       </div>
     {/each}
   </div>

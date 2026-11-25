@@ -5,6 +5,7 @@
   import { layerToPath } from "../place";
   import type { ImageObj, StickerParams } from "../types";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
@@ -107,13 +108,13 @@
     const group = img.group ?? uid();
     const r = preview.result;
     const contour = layerToPath(img, r.width, r.height, r.layers[0], {
-      name: `${img.name} · Anschneiden`,
+      name: `${img.name} · ${t("Anschneiden")}`,
       color: KISS,
       printFill: colored ? borderColor : null,
       group,
     });
     const backing = r.layers[1]
-      ? layerToPath(img, r.width, r.height, r.layers[1], { name: `${img.name} · Durchschneiden`, color: THROUGH, group })
+      ? layerToPath(img, r.width, r.height, r.layers[1], { name: `${img.name} · ${t("Durchschneiden")}`, color: THROUGH, group })
       : null;
     editor.checkpoint();
     const idx = editor.objects.findIndex((o) => o.id === img.id);
@@ -140,8 +141,8 @@
 {#if !target || !asset}
   <div class="empty">
     <div class="empty-icon"><Icon name="sparkle" size={28} stroke={1.5} /></div>
-    <p><strong>Motiv auswählen</strong></p>
-    <p class="muted">Wähle ein importiertes Bild aus. Es bekommt eine Schnittkontur mit Rand – fertig für Print & Cut.</p>
+    <p><strong>{t("Motiv auswählen")}</strong></p>
+    <p class="muted">{t("Wähle ein importiertes Bild aus. Es bekommt eine Schnittkontur mit Rand – fertig für Print & Cut.")}</p>
   </div>
 {:else}
   <div class="panel">
@@ -149,14 +150,14 @@
       <div class="banner">
         <Icon name="sparkle" />
         <div>
-          <strong>Print & Cut ist aus.</strong> Für Sticker die Seite mit Passermarken einschalten.
-          <button class="btn outline small" onclick={() => editor.setPrintCut(true)}>Print & Cut aktivieren</button>
+          <strong>{t("Print & Cut ist aus.")}</strong> {t("Für Sticker die Seite mit Passermarken einschalten.")}
+          <button class="btn outline small" onclick={() => editor.setPrintCut(true)}>{t("Print & Cut aktivieren")}</button>
         </div>
       </div>
     {/if}
 
     <section>
-      <h3 class="section-title">Motiv freistellen</h3>
+      <h3 class="section-title">{t("Motiv freistellen")}</h3>
       <Segmented
         value={maskKind}
         onchange={(v) => (maskKind = v)}
@@ -174,7 +175,7 @@
     </section>
 
     <section>
-      <h3 class="section-title">Kontur</h3>
+      <h3 class="section-title">{t("Kontur")}</h3>
       <div class="controls">
         <Slider label="Rand" bind:value={marginMm} min={0} max={10} step={0.5} unit=" mm" hint="Abstand der Schnittlinie zum Motiv" />
         <Slider label="Glättung" bind:value={smoothness} min={0} max={100} />
@@ -185,7 +186,7 @@
         {/if}
         {#if colored}
           <label class="color-row">
-            <span>Randfarbe</span>
+            <span>{t("Randfarbe")}</span>
             <input type="color" bind:value={borderColor} />
             <span class="mono">{borderColor}</span>
           </label>
@@ -194,7 +195,7 @@
     </section>
 
     <section>
-      <h3 class="section-title">Schneiden</h3>
+      <h3 class="section-title">{t("Schneiden")}</h3>
       <div class="controls">
         <Toggle
           label="Einzeln ausschneiden"
@@ -204,11 +205,11 @@
         {#if dieCut}
           <Slider label="Trägerrand" bind:value={backingMm} min={1} max={6} step={0.5} unit=" mm" hint="Abstand der Durchschnitt-Linie zur Sticker-Kontur" />
           <p class="legend">
-            <span class="sw" style:background={KISS}></span> anschneiden – nur die Stickerfolie
-            <br /><span class="sw" style:background={THROUGH}></span> durchschneiden – samt Trägerpapier
+            <span class="sw" style:background={KISS}></span> {t("anschneiden – nur die Stickerfolie")}
+            <br /><span class="sw" style:background={THROUGH}></span> {t("durchschneiden – samt Trägerpapier")}
           </p>
         {:else}
-          <p class="legend"><span class="sw" style:background={KISS}></span> nur anschneiden – die Sticker bleiben auf dem Bogen</p>
+          <p class="legend"><span class="sw" style:background={KISS}></span> {t("nur anschneiden – die Sticker bleiben auf dem Bogen")}</p>
         {/if}
       </div>
     </section>
@@ -216,19 +217,18 @@
     <div class="footer">
       <div class="stats">
         {#if editor.tracing}
-          <span class="dot busy"></span> Berechne …
+          <span class="dot busy"></span> {t("Berechne …")}
         {:else if preview}
           <span class="dot"></span>
-          {preview.result.layers[0]?.contours ?? 0}
-          {(preview.result.layers[0]?.contours ?? 0) === 1 ? "Kontur" : "Konturen"} · {preview.ms} ms
+          {(preview.result.layers[0]?.contours ?? 0) === 1 ? t("1 Kontur") : t("{n} Konturen", { n: preview.result.layers[0]?.contours ?? 0 })} · {preview.ms} ms
         {:else}
           –
         {/if}
       </div>
       {#if preview && (preview.result.layers[0]?.contours ?? 0) > 1}
-        <p class="hint">Mehrere Teile – größerer Rand verbindet sie zu einem Sticker.</p>
+        <p class="hint">{t("Mehrere Teile – größerer Rand verbindet sie zu einem Sticker.")}</p>
       {/if}
-      <button class="btn primary grow" disabled={!preview?.result.layers.length || applying} onclick={apply}><Icon name="check" /> {applying ? "Erzeuge Bleed …" : "Kontur übernehmen"}</button>
+      <button class="btn primary grow" disabled={!preview?.result.layers.length || applying} onclick={apply}><Icon name="check" /> {applying ? t("Erzeuge Bleed …") : t("Kontur übernehmen")}</button>
     </div>
   </div>
 {/if}

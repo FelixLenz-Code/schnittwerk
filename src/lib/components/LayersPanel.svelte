@@ -1,6 +1,7 @@
 <script lang="ts">
   import { editor } from "../editor.svelte";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
 
   const items = $derived([...editor.objects].reverse());
 
@@ -16,7 +17,7 @@
 </script>
 
 {#if !items.length}
-  <div class="empty muted">Noch keine Objekte.</div>
+  <div class="empty muted">{t("Noch keine Objekte.")}</div>
 {:else}
   <ul>
     {#each items as o (o.id)}
@@ -27,11 +28,11 @@
           {:else}
             <span class="chip" style:border-color={o.color}><Icon name="scissors" size={12} /></span>
           {/if}
-          <span class="label">{o.name}</span>
+          <span class="label">{t(o.name)}</span>
         </button>
         <button
           class="btn icon"
-          title={o.visible ? "Ausblenden" : "Einblenden"}
+          title={o.visible ? t("Ausblenden") : t("Einblenden")}
           onclick={() => {
             editor.checkpoint();
             o.visible = !o.visible;
@@ -41,7 +42,7 @@
         <button
           class="btn icon"
           class:active={o.locked}
-          title={o.locked ? "Entsperren" : "Sperren"}
+          title={o.locked ? t("Entsperren") : t("Sperren")}
           onclick={() => {
             editor.checkpoint();
             o.locked = !o.locked;

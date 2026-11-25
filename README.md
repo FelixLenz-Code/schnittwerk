@@ -43,9 +43,8 @@ brauchst dafür weder Silhouette Studio noch Windows.
   erprobt. Bei Bluetooth gilt das nur, wenn das Gerät Bluetooth hat.
 - **Nur erkannt**: Ältere Modelle nutzen andere Befehle. Schnittwerk meldet sie,
   schneidet aber (noch) nicht mit ihnen.
-- **Cameo 4 und 5**: Bisher gibt es nur die 8″ × 12″-Matte der Portrait. Breitere
-  Flächen gehen über „Rolle ohne Matte“ oder „Eigene Größe“ mit Kacheln. Eine
-  12″-Matte ist noch nicht eingebaut.
+- **Cameo 4 und 5**: Die 12″ × 12″- und 12″ × 24″-Matten sind eingebaut, aber noch
+  nicht an einer Cameo getestet.
 - Andere Hersteller (Cricut, Brother usw.) werden nicht unterstützt.
 
 Wer ein nicht getestetes Gerät hat: Rückmeldung als
@@ -126,7 +125,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
-- Matten für Portrait 3 (8″ × 12″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
+- Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar auf der Startseite)
+- Matten für Portrait 3 (8″ × 12″) und Cameo (12″ × 12″, 12″ × 24″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen
 - Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
 - Raster beim Verschieben (0,5–10 mm) und Winkelschritte beim Drehen (1–90°), standardmäßig an
@@ -163,6 +163,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   Geschwindigkeit, Durchgänge, Überschnitt
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
 - Vorschau der Schnittreihenfolge, Fortschritt, Pause und Abbrechen
+- Geschätzte Schnittzeit vorher und Restzeit während des Schnitts (lernt mit jedem fertigen Schnitt dazu)
+- Nach einem Abbruch oder Verbindungsfehler an der unterbrochenen Stelle weiterschneiden
 - Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
 - Testschnitt, Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
 - Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)

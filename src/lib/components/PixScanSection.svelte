@@ -4,6 +4,7 @@
   import { pixscan } from "../pixscan.svelte";
   import type { ImageObj } from "../types";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
 
   let { img }: { img: ImageObj | null } = $props();
 
@@ -23,64 +24,63 @@
 </script>
 
 <section>
-  <h3 class="section-title">PixScan-Matte</h3>
+  <h3 class="section-title">{t("PixScan-Matte")}</h3>
   {#if corners}
-    <p class="muted">Die vier Punkte auf die Ecken des schwarzen Innenrahmens ziehen. Der gefüllte Punkt gehört an die Ecke beim großen Quadrat.</p>
+    <p class="muted">{t("Die vier Punkte auf die Ecken des schwarzen Innenrahmens ziehen. Der gefüllte Punkt gehört an die Ecke beim großen Quadrat.")}</p>
     <div class="row gap">
-      <button class="btn outline" onclick={() => perspective.cancel()} disabled={perspective.busy}>Abbrechen</button>
-      <button class="btn outline" onclick={() => perspective.rotate()} disabled={perspective.busy} title="Gefüllten Punkt an die nächste Ecke setzen">Ecke 1 weiter</button>
-      <button class="btn primary grow" onclick={() => perspective.apply()} disabled={perspective.busy}><Icon name="check" /> Ausrichten</button>
+      <button class="btn outline" onclick={() => perspective.cancel()} disabled={perspective.busy}>{t("Abbrechen")}</button>
+      <button class="btn outline" onclick={() => perspective.rotate()} disabled={perspective.busy} title={t("Gefüllten Punkt an die nächste Ecke setzen")}>{t("Ecke 1 weiter")}</button>
+      <button class="btn primary grow" onclick={() => perspective.apply()} disabled={perspective.busy}><Icon name="check" /> {t("Ausrichten")}</button>
     </div>
   {:else if live && placed}
-    <p class="muted">Das Foto liegt in Originalgröße dort, wo der Plotter schneidet. Motiv tracen oder Schnittlinien darauf zeichnen und ganz normal schneiden.</p>
+    <p class="muted">{t("Das Foto liegt in Originalgröße dort, wo der Plotter schneidet. Motiv tracen oder Schnittlinien darauf zeichnen und ganz normal schneiden.")}</p>
     <div class="row gap">
-      <button class="btn outline" onclick={() => live && pixscan.turn(live)} disabled={pixscan.busy || !pixscan.canEdit(live)} title="Falls die Matte verkehrt herum erkannt wurde">Um 180° drehen</button>
-      <button class="btn outline" onclick={() => live && pixscan.editCorners(live)} disabled={pixscan.busy || !pixscan.canEdit(live)} title="Erkannte Rahmenecken von Hand nachziehen">Ecken anpassen</button>
+      <button class="btn outline" onclick={() => live && pixscan.turn(live)} disabled={pixscan.busy || !pixscan.canEdit(live)} title={t("Falls die Matte verkehrt herum erkannt wurde")}>{t("Um 180° drehen")}</button>
+      <button class="btn outline" onclick={() => live && pixscan.editCorners(live)} disabled={pixscan.busy || !pixscan.canEdit(live)} title={t("Erkannte Rahmenecken von Hand nachziehen")}>{t("Ecken anpassen")}</button>
     </div>
     <details bind:open={showCalib}>
-      <summary>Kalibrieren mit diesem Foto</summary>
-      <p class="muted">Foto verschieben, bis die gezeichneten Kreuze genau unter den grünen Testkreuzen liegen. Dann übernehmen.</p>
+      <summary>{t("Kalibrieren mit diesem Foto")}</summary>
+      <p class="muted">{t("Foto verschieben, bis die gezeichneten Kreuze genau unter den grünen Testkreuzen liegen. Dann übernehmen.")}</p>
       <div class="nudge">
         <span></span>
-        <button class="btn outline" onclick={() => live && pixscan.nudge(live, 0, -step)} aria-label="Nach oben">↑</button>
+        <button class="btn outline" onclick={() => live && pixscan.nudge(live, 0, -step)} aria-label={t("Nach oben")}>↑</button>
         <span></span>
-        <button class="btn outline" onclick={() => live && pixscan.nudge(live, -step, 0)} aria-label="Nach links">←</button>
-        <select class="field" bind:value={step} title="Schrittweite">
+        <button class="btn outline" onclick={() => live && pixscan.nudge(live, -step, 0)} aria-label={t("Nach links")}>←</button>
+        <select class="field" bind:value={step} title={t("Schrittweite")}>
           <option value={0.1}>0,1 mm</option>
           <option value={0.2}>0,2 mm</option>
           <option value={0.5}>0,5 mm</option>
           <option value={1}>1 mm</option>
         </select>
-        <button class="btn outline" onclick={() => live && pixscan.nudge(live, step, 0)} aria-label="Nach rechts">→</button>
+        <button class="btn outline" onclick={() => live && pixscan.nudge(live, step, 0)} aria-label={t("Nach rechts")}>→</button>
         <span></span>
-        <button class="btn outline" onclick={() => live && pixscan.nudge(live, 0, step)} aria-label="Nach unten">↓</button>
+        <button class="btn outline" onclick={() => live && pixscan.nudge(live, 0, step)} aria-label={t("Nach unten")}>↓</button>
         <span></span>
       </div>
       {#if shift}
-        <p class="muted center">Verschoben: X {f(shift.dx)} mm · Y {f(shift.dy)} mm</p>
+        <p class="muted center">{t("Verschoben: X {x} mm · Y {y} mm", { x: f(shift.dx), y: f(shift.dy) })}</p>
       {/if}
       <button class="btn primary wide" onclick={() => live && pixscan.applyCalibration(live)} disabled={!moved}>
-        <Icon name="check" /> Kalibrierung übernehmen
+        <Icon name="check" /> {t("Kalibrierung übernehmen")}
       </button>
     </details>
   {:else if live}
-    <p class="muted">Foto der PixScan-Matte mit Material darauf: Rahmen erkennen, gerade ziehen und in Originalgröße auf die Matte legen.</p>
+    <p class="muted">{t("Foto der PixScan-Matte mit Material darauf: Rahmen erkennen, gerade ziehen und in Originalgröße auf die Matte legen.")}</p>
     <div class="row">
       <button class="btn outline" onclick={() => live && pixscan.align(live)} disabled={pixscan.busy}>
-        {pixscan.busy ? "Suche Rahmen …" : "Als PixScan-Foto ausrichten"}
+        {pixscan.busy ? t("Suche Rahmen …") : t("Als PixScan-Foto ausrichten")}
       </button>
     </div>
   {/if}
 
   <details class="calib">
-    <summary>Kalibrierung</summary>
+    <summary>{t("Kalibrierung")}</summary>
     <p class="muted">
-      Einmalig: Papier auf die PixScan-Matte legen, Testkreuze anlegen und mit dem Stift zeichnen. Dann die Matte fotografieren, das Foto ausrichten und
-      unter „Kalibrieren mit diesem Foto“ angleichen.
+      {t("Einmalig: Papier auf die PixScan-Matte legen, Testkreuze anlegen und mit dem Stift zeichnen. Dann die Matte fotografieren, das Foto ausrichten und unter „Kalibrieren mit diesem Foto“ angleichen.")}
     </p>
-    <button class="btn outline wide" onclick={() => pixscan.addTestCrosses()}>Testkreuze anlegen</button>
+    <button class="btn outline wide" onclick={() => pixscan.addTestCrosses()}>{t("Testkreuze anlegen")}</button>
     <div class="offset">
-      <span>Rahmen auf der Matte</span>
+      <span>{t("Rahmen auf der Matte")}</span>
       <label>X <input class="field num" type="number" step="0.1" bind:value={pixscan.offset.x} onchange={() => pixscan.save()} /> mm</label>
       <label>Y <input class="field num" type="number" step="0.1" bind:value={pixscan.offset.y} onchange={() => pixscan.save()} /> mm</label>
     </div>

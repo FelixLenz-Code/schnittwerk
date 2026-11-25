@@ -2,6 +2,7 @@
   import { editor, regBracketPath } from "../editor.svelte";
   import { aabb, boxTransform, center, corners, fmt, fromLocal, rotate, toLocal, type AABB } from "../geometry";
   import type { PathObj, ShapeTool, Vec2 } from "../types";
+  import { t } from "../i18n.svelte";
   import { defaultSpec, makeFreehand, makeLine, makeShape, naturalAspect, refreshShape, shapePath } from "../shapes";
   import { createText } from "../text.svelte";
   import { brush } from "../brush.svelte";
@@ -953,10 +954,10 @@
     </g>
     <!-- Drag a guide out of a ruler -->
     <rect data-ruler="h" x={RULER} y="0" width={Math.max(0, editor.viewport.w - RULER)} height={RULER} fill="transparent" style:cursor="row-resize">
-      <title>Ziehen für eine Hilfslinie</title>
+      <title>{t("Ziehen für eine Hilfslinie")}</title>
     </rect>
     <rect data-ruler="v" x="0" y={RULER} width={RULER} height={Math.max(0, editor.viewport.h - RULER)} fill="transparent" style:cursor="col-resize">
-      <title>Ziehen für eine Hilfslinie</title>
+      <title>{t("Ziehen für eine Hilfslinie")}</title>
     </rect>
   </svg>
 
@@ -973,7 +974,7 @@
           <!-- svelte-ignore a11y_autofocus -->
           <input bind:value={dimValue} autofocus onkeydown={(e) => { if (e.key === "Enter") commitDim(); else if (e.key === "Escape") dimEdit = null; e.stopPropagation(); }} onblur={commitDim} />
         {:else if dims.editable}
-          <button title="Breite eingeben" onclick={() => startDimEdit("w")}>{fmt(wv, 1)} mm</button>
+          <button title={t("Breite eingeben")} onclick={() => startDimEdit("w")}>{fmt(wv, 1)} mm</button>
         {:else}
           {fmt(wv, 1)} mm
         {/if}
@@ -983,7 +984,7 @@
           <!-- svelte-ignore a11y_autofocus -->
           <input bind:value={dimValue} autofocus onkeydown={(e) => { if (e.key === "Enter") commitDim(); else if (e.key === "Escape") dimEdit = null; e.stopPropagation(); }} onblur={commitDim} />
         {:else if dims.editable}
-          <button title="Höhe eingeben" onclick={() => startDimEdit("h")}>{fmt(hv, 1)} mm</button>
+          <button title={t("Höhe eingeben")} onclick={() => startDimEdit("h")}>{fmt(hv, 1)} mm</button>
         {:else}
           {fmt(hv, 1)} mm
         {/if}
@@ -992,14 +993,14 @@
   {/if}
 
   {#if editor.picking}
-    <div class="hint">Klicke auf eine Farbe im Bild · <kbd>Esc</kbd> zum Abbrechen</div>
+    <div class="hint">{t("Klicke auf eine Farbe im Bild")} · <kbd>Esc</kbd> {t("zum Abbrechen")}</div>
   {:else if nodes.objId}
-    <div class="hint">Knoten ziehen · Doppelklick auf die Linie = neuer Knoten · <kbd>Entf</kbd> löscht · <kbd>Esc</kbd> fertig</div>
+    <div class="hint">{t("Knoten ziehen · Doppelklick auf die Linie = neuer Knoten")} · <kbd>{t("Entf")}</kbd> {t("löscht")} · <kbd>Esc</kbd> {t("fertig")}</div>
   {:else if perspective.objId}
     {#if perspective.custom}
-      <div class="hint">Punkte auf die Ecken des schwarzen Rahmens ziehen · gefüllter Punkt an die Ecke beim großen Quadrat</div>
+      <div class="hint">{t("Punkte auf die Ecken des schwarzen Rahmens ziehen · gefüllter Punkt an die Ecke beim großen Quadrat")}</div>
     {:else}
-      <div class="hint">Die vier Punkte auf die Ecken des Blatts ziehen · rechts „Entzerren“</div>
+      <div class="hint">{t("Die vier Punkte auf die Ecken des Blatts ziehen · rechts „Entzerren“")}</div>
     {/if}
   {/if}
 </div>

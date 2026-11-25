@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use schnittwerk_core::cut::{self, CutPlan, PathInput, PathOptions};
 use schnittwerk_core::gpgl::{self, CutSettings, RegMarks};
-use schnittwerk_plotter::{Outcome, Plotter, State};
+use schnittwerk_plotter::{Outcome, Phase, Plotter, State};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State as TauriState};
 
@@ -187,6 +187,43 @@ pub struct CutRequest {
     /// Roll media: push the media out to this position (mm) at the end.
     #[serde(default)]
     feed: Option<f64>,
+    /// Continue an interrupted job: skip what was already cut.
+    #[serde(default)]
+    resume: Option<ResumePoint>,
+}
+
+/// Where an interrupted job can continue: pass (index among the passes that
+/// have lines) and the first stroke of it that was not (surely) cut.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumePoint {
+    pass: usize,
+    stroke: usize,
+    /// Strokes in that pass (for the display).
+    #[serde(default)]
+    strokes: usize,
+}
+
+/// Bytes the cutter may have buffered but not cut when the connection broke.
+const DEVICE_BUFFER_BYTES: usize = 4096;
+
+/// Strokes of a pass that are completely cut when `sent` plot commands were
+/// sent. After a cancel the device has finished everything sent (`exact`);
+/// after an error up to a buffer full may be lost, so step back that far.
+fn strokes_done(plot: &[String], sent: usize, exact: bool) -> usize {
+    let mut idx = sent.min(plot.len());
+    if !exact {
+        let mut bytes = 0;
+        while idx > 0 && bytes < DEVICE_BUFFER_BYTES {
+            idx -= 1;
+            bytes += plot[idx].len() + 1;
+        }
+    }
+    // Every stroke starts with a move (M); the one containing `idx` is
+    // complete only if the next command starts a new stroke.
+    let started = plot[..idx].iter().filter(|c| c.starts_with('M')).count();
+    let current_open = idx < plot.len() && !plot[idx].starts_with('M') && started > 0;
+    started - usize::from(current_open)
 }
 
 #[derive(Deserialize)]
@@ -217,6 +254,8 @@ struct Finished {
     /// done | cancelled | error
     status: String,
     message: Option<String>,
+    /// Cancelled or failed after something was cut: where to continue.
+    resume: Option<ResumePoint>,
 }
 
 #[derive(Serialize)]
@@ -232,6 +271,8 @@ fn start_job(
     groups: Vec<(Vec<Vec<kurbo::Point>>, CutSettings)>,
     reg: Option<RegMarks>,
     feed: Option<f64>,
+    // Resumed job: index of its first pass and first stroke in the original job.
+    base: (usize, usize),
 ) -> Result<Started, String> {
     if groups.iter().all(|g| g.0.is_empty()) && reg.is_none() {
         return Err("Keine Schnittlinien vorhanden.".into());
@@ -257,6 +298,8 @@ fn start_job(
     std::thread::spawn(move || {
         let app2 = app.clone();
         let app3 = app.clone();
+        // Last reported position: (pass, plot commands sent in it).
+        let mut pos: Option<(usize, usize)> = None;
         let result = plotter.run_job(
             &job,
             &cancel,
@@ -264,14 +307,32 @@ fn start_job(
             |done, total| {
                 let _ = app2.emit("cut-progress", Progress { done, total });
             },
-            |phase| {
-                let _ = app3.emit("cut-phase", phase);
+            |phase| match phase {
+                Phase::Sent { pass, commands } => pos = Some((pass, commands)),
+                p => {
+                    if let Phase::Pass(i) = p {
+                        pos = Some((i, 0));
+                    }
+                    let _ = app3.emit("cut-phase", p);
+                }
             },
         );
+        let resume = |exact: bool| -> Option<ResumePoint> {
+            let (pass, sent) = pos?;
+            let plot = &job.passes.get(pass)?.plot;
+            let total = plot.iter().filter(|c| c.starts_with('M')).count();
+            let done = strokes_done(plot, sent, exact);
+            if pass == 0 && done == 0 && base == (0, 0) {
+                return None; // nothing cut yet: simply start again
+            }
+            // Indices in the original job (a resumed job starts mid-way).
+            let offset = if pass == 0 { base.1 } else { 0 };
+            Some(ResumePoint { pass: base.0 + pass, stroke: offset + done, strokes: offset + total })
+        };
         let fin = match result {
-            Ok(Outcome::Done) => Finished { status: "done".into(), message: None },
-            Ok(Outcome::Cancelled) => Finished { status: "cancelled".into(), message: None },
-            Err(e) => Finished { status: "error".into(), message: Some(e.to_string()) },
+            Ok(Outcome::Done) => Finished { status: "done".into(), message: None, resume: None },
+            Ok(Outcome::Cancelled) => Finished { status: "cancelled".into(), message: None, resume: resume(true) },
+            Err(e) => Finished { status: "error".into(), message: Some(e.to_string()), resume: resume(false) },
         };
         let mgr = tauri::Manager::state::<PlotterManager>(&app);
         if fin.status == "error" {
@@ -292,19 +353,37 @@ pub async fn cut_start(app: AppHandle, req: CutRequest, mgr: TauriState<'_, Plot
             groups.push((strokes, g.settings));
         }
     }
-    start_job(app, &mgr, groups, req.regmarks, req.feed)
+    let mut base = (0, 0);
+    if let Some(r) = req.resume {
+        let (pass, stroke) = (r.pass.min(groups.len()), r.stroke);
+        groups.drain(..pass);
+        base = (pass, 0);
+        if let Some(first) = groups.first_mut() {
+            if stroke >= first.0.len() {
+                groups.remove(0);
+                base = (pass + 1, 0);
+            } else {
+                first.0.drain(..stroke);
+                base = (pass, stroke);
+            }
+        }
+        if groups.is_empty() {
+            return Err("Es ist nichts mehr zu schneiden – der Auftrag war schon fertig.".into());
+        }
+    }
+    start_job(app, &mgr, groups, req.regmarks, req.feed, base)
 }
 
 /// Cuts the small test pattern (10 mm square + triangle) at (x, y) mm.
 #[tauri::command]
 pub async fn cut_test(app: AppHandle, x: f64, y: f64, settings: CutSettings, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
-    start_job(app, &mgr, vec![(gpgl::test_pattern(x, y), settings)], None, None)
+    start_job(app, &mgr, vec![(gpgl::test_pattern(x, y), settings)], None, None, (0, 0))
 }
 
 /// Only searches the registration marks (no cutting) – for diagnosis.
 #[tauri::command]
 pub async fn cut_regtest(app: AppHandle, regmarks: RegMarks, settings: CutSettings, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
-    start_job(app, &mgr, vec![(vec![], settings)], Some(regmarks), None)
+    start_job(app, &mgr, vec![(vec![], settings)], Some(regmarks), None, (0, 0))
 }
 
 #[tauri::command]
@@ -315,4 +394,31 @@ pub fn cut_pause(paused: bool, mgr: TauriState<'_, PlotterManager>) {
 #[tauri::command]
 pub fn cut_cancel(mgr: TauriState<'_, PlotterManager>) {
     mgr.cancel.store(true, Ordering::SeqCst);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strokes_done;
+
+    fn plot() -> Vec<String> {
+        // Three strokes: M D D | M D | M D D D
+        ["M0,0", "D1,1", "D2,2", "M5,5", "D6,6", "M9,9", "D9,10", "D9,11", "D9,12"].iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn exact_position_after_cancel() {
+        let p = plot();
+        assert_eq!(strokes_done(&p, 0, true), 0);
+        assert_eq!(strokes_done(&p, 2, true), 0, "first stroke not finished");
+        assert_eq!(strokes_done(&p, 3, true), 1, "first stroke finished");
+        assert_eq!(strokes_done(&p, 5, true), 2);
+        assert_eq!(strokes_done(&p, 9, true), 3);
+    }
+
+    #[test]
+    fn steps_back_after_an_error() {
+        let p = plot();
+        // The whole tiny job fits into the device buffer: start again.
+        assert_eq!(strokes_done(&p, 9, false), 0);
+    }
 }

@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { api, inApp } from "./api";
 import { editor, matKindOf, type Mat } from "./editor.svelte";
+import { t } from "./i18n.svelte";
 import type { MatKind, PathInput, PathObj, PlotterStatus } from "./types";
 
 type Phase = "idle" | "cutting" | "paused" | "cancelling";
@@ -24,6 +25,7 @@ export function pathMatrix(o: PathObj, mirrorWidth: number | null, shift?: { dx:
 
 /** Cutting-mat setting the device gets for a work area. */
 export function matKindFor(m: Mat): MatKind {
+  if (m.cut) return m.cut;
   const k = matKindOf(m);
   // Large designs are cut tile by tile on the mat.
   if (k === "mat" || (k === "custom" && !m.roll)) return "portrait8x12";
@@ -31,6 +33,23 @@ export function matKindFor(m: Mat): MatKind {
 }
 
 const BLADE_KEY = "schnittwerk.blade";
+const TIME_KEY = "schnittwerk.timeFactor";
+
+function loadTimeFactor(): number {
+  try {
+    const f = parseFloat(localStorage.getItem(TIME_KEY) ?? "");
+    return Number.isFinite(f) && f > 0 ? f : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Where an interrupted job continues (indices among the passes with lines). */
+export interface ResumePoint {
+  pass: number;
+  stroke: number;
+  strokes: number;
+}
 
 /** Cut distance of the current blade (wear counter). */
 export interface BladeLife {
@@ -142,7 +161,17 @@ class PlotterStore {
   draining = $state(false);
   /** Passes of the running job as sent (colour + material name), fixed at start. */
   job = $state<{ color: string; name: string }[]>([]);
-  lastResult = $state<{ status: string; message: string | null } | null>(null);
+  lastResult = $state<{ status: string; message: string | null; resume?: ResumePoint | null } | null>(null);
+
+  /** Interrupted job that can be continued: `key` identifies its cut data. */
+  resume = $state<{ key: string; point: ResumePoint } | null>(null);
+  /** Key of the running job (see `resume`). */
+  #jobKey: string | null = null;
+
+  /** Measured / estimated cut time (learns from finished jobs). */
+  timeFactor = $state(loadTimeFactor());
+  /** Running job: start (ms), raw estimate (s), time spent paused (ms). */
+  timing = $state<{ start: number; estimate: number; paused: number; pausedAt: number | null } | null>(null);
 
   #timer: ReturnType<typeof setInterval> | null = null;
 
@@ -164,7 +193,15 @@ class PlotterStore {
     listen<{ done: number; total: number }>("cut-progress", (e) => {
       this.progress = e.payload;
     });
-    listen<{ status: string; message: string | null }>("cut-finished", (e) => {
+    listen<{ status: string; message: string | null; resume: ResumePoint | null }>("cut-finished", (e) => {
+      this.#learnTime(e.payload.status === "done");
+      // Interrupted after something was cut: offer to continue there.
+      if (e.payload.resume && this.#jobKey && !this.regtest) {
+        this.resume = { key: this.#jobKey, point: e.payload.resume };
+      } else if (e.payload.status === "done") {
+        this.resume = null;
+      }
+      this.#jobKey = null;
       // Blade wear: the whole job when done, otherwise the part sent so far.
       const share = e.payload.status === "done" ? 1 : this.progress.total ? this.progress.done / this.progress.total : 0;
       if (this.#jobBladeMm > 0 && share > 0) {
@@ -172,7 +209,7 @@ class PlotterStore {
         this.blade.mm += this.#jobBladeMm * share;
         this.blade.jobs += 1;
         this.saveBlade();
-        if (!wasWorn && this.bladeWorn) editor.toast(`Das Messer hat ${Math.round(this.blade.mm / 1000)} m geschnitten – Zeit zum Prüfen oder Wechseln.`, "error");
+        if (!wasWorn && this.bladeWorn) editor.toast(t("Das Messer hat {m} m geschnitten – Zeit zum Prüfen oder Wechseln.", { m: Math.round(this.blade.mm / 1000) }), "error");
       }
       this.#jobBladeMm = 0;
       this.phase = "idle";
@@ -205,7 +242,7 @@ class PlotterStore {
     api
       .bleConnect(known.id)
       .then((name) => {
-        editor.toast(`${name} automatisch per Bluetooth verbunden`, "ok");
+        editor.toast(t("{name} automatisch per Bluetooth verbunden", { name }), "ok");
         return this.poll();
       })
       .catch(() => {
@@ -223,6 +260,27 @@ class PlotterStore {
   async pause(paused: boolean) {
     await api.cutPause(paused);
     this.phase = paused ? "paused" : "cutting";
+    const t = this.timing;
+    if (t) {
+      if (paused) t.pausedAt = Date.now();
+      else if (t.pausedAt) {
+        t.paused += Date.now() - t.pausedAt;
+        t.pausedAt = null;
+      }
+    }
+  }
+
+  /** Corrects the time factor with a finished job (paused jobs too, minus the pause). */
+  #learnTime(done: boolean) {
+    const t = this.timing;
+    this.timing = null;
+    if (!done || !t || t.estimate < 20) return;
+    const actual = (Date.now() - t.start - t.paused - (t.pausedAt ? Date.now() - t.pausedAt : 0)) / 1000;
+    const ratio = Math.min(4, Math.max(0.25, actual / t.estimate));
+    this.timeFactor = Math.min(4, Math.max(0.25, this.timeFactor * 0.6 + ratio * 0.4));
+    try {
+      localStorage.setItem(TIME_KEY, String(this.timeFactor));
+    } catch {}
   }
 
   async cancel() {
@@ -230,9 +288,15 @@ class PlotterStore {
     await api.cutCancel();
   }
 
-  /** `bladeMm` = length cut with the blade in this job (wear counter). */
-  begin(job: { color: string; name: string }[] = [], bladeMm = 0) {
+  /**
+   * `bladeMm` = length cut with the blade (wear counter), `estimate` = raw
+   * time estimate in seconds, `key` = identity of the cut data (to continue
+   * after an interruption).
+   */
+  begin(job: { color: string; name: string }[] = [], bladeMm = 0, estimate = 0, key: string | null = null) {
     this.#jobBladeMm = bladeMm;
+    this.#jobKey = key;
+    this.timing = estimate > 0 ? { start: Date.now(), estimate, paused: 0, pausedAt: null } : null;
     this.job = job;
     this.phase = "cutting";
     this.progress = { done: 0, total: 0 };

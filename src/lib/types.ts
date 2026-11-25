@@ -121,7 +121,7 @@ export interface ImportedVector {
 // ---- cutting ----
 
 export type ToolKind = "blade" | "pen";
-export type MatKind = "portrait8x12" | "portrait8_5x12" | "none";
+export type MatKind = "portrait8x12" | "portrait8_5x12" | "cameo12x12" | "cameo12x24" | "none";
 
 export interface CutSettings {
   tool: ToolKind;

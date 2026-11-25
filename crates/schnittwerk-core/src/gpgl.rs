@@ -32,6 +32,10 @@ pub enum MatKind {
     Portrait8x12,
     /// Cutting mat 8.5″ × 12″ (Portrait).
     Portrait8_5x12,
+    /// Cutting mat 12″ × 12″ (Cameo).
+    Cameo12x12,
+    /// Cutting mat 12″ × 24″ (Cameo).
+    Cameo12x24,
     /// Media without a mat.
     None,
 }
@@ -42,6 +46,9 @@ impl MatKind {
         match self {
             MatKind::Portrait8x12 => (3, Some((8.0, 12.0))),
             MatKind::Portrait8_5x12 => (11, Some((8.5, 12.0))),
+            // Mat numbers as used by inkscape-silhouette / Silhouette Studio.
+            MatKind::Cameo12x12 => (1, Some((12.0, 12.0))),
+            MatKind::Cameo12x24 => (2, Some((12.0, 24.0))),
             MatKind::None => (0, None),
         }
     }
@@ -141,7 +148,10 @@ impl Job {
 /// Media set-up: mat type and cuttable area.
 pub fn media_commands(mat: MatKind, limits: DeviceLimits) -> Vec<String> {
     let (tg, size) = mat.params();
-    let (w_mm, l_mm) = size.map(|(w, l)| (w * 25.4, l * 25.4)).unwrap_or((limits.width_mm, limits.length_mm));
+    // A mat wider than the device (12″ mat in a Portrait) is limited to the
+    // device width; the 8″ mat stays exactly 8″ even on a 203 mm device.
+    let fit = |w: f64| if w > limits.width_mm + 1.0 { limits.width_mm } else { w };
+    let (w_mm, l_mm) = size.map(|(w, l)| (fit(w * 25.4), l * 25.4)).unwrap_or((limits.width_mm, limits.length_mm));
     vec![format!("TG{tg}"), "FN0".into(), "TB50,0".into(), "\\0,0".into(), format!("Z{},{}", su(l_mm), su(w_mm))]
 }
 
@@ -371,6 +381,17 @@ mod tests {
         // Media set-up only once.
         assert_eq!(job.setup.iter().filter(|c| c.starts_with("TG")).count(), 1);
         assert!(!job.passes[1].tool.iter().any(|c| c.starts_with("FN") || c.starts_with("TG")));
+    }
+
+    #[test]
+    fn cameo_mats() {
+        let cameo4 = DeviceLimits { width_mm: 304.8, length_mm: 3000.0 };
+        let s = CutSettings { mat: MatKind::Cameo12x24, ..Default::default() };
+        let c = setup_commands(&s, cameo4);
+        assert_eq!(&c[..5], &["TG2", "FN0", "TB50,0", "\\0,0", "Z12192,6096"]);
+        // A 12″ mat in a Portrait is limited to the device width.
+        let c = setup_commands(&CutSettings { mat: MatKind::Cameo12x12, ..Default::default() }, PORTRAIT3);
+        assert_eq!(c[4], "Z6096,4060");
     }
 
     #[test]

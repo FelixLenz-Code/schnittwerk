@@ -36,7 +36,8 @@ cut – SVG, DXF oder Schnittwerk-Projekt (.schnitt) schneiden:
   --material ID          Material für alle Linien (siehe materials)
   --material FARBE=ID    Material je Schnittfarbe im Projekt, z. B. '#e5484d=sticker-matt'
   --pressure N --speed N --depth N --passes N   Werte des Materials überschreiben
-  --mat 8x12|8.5x12|none Schneidematte (Standard: 8x12, Print & Cut: none)
+  --mat 8x12|8.5x12|12x12|12x24|none
+                         Schneidematte (Standard: 8x12, Print & Cut: none)
   --mirror               spiegeln (Flexfolie)
   --offset DX,DY         Feinjustierung Druck ↔ Schnitt in mm (Print & Cut)
   --ble ID               per Bluetooth statt USB (ID aus scan)
@@ -241,6 +242,9 @@ struct Project {
 
 #[derive(Deserialize)]
 struct ProjectMat {
+    /// Cutting mat of the work area (newer project files).
+    #[serde(default)]
+    cut: Option<MatKind>,
     name: String,
     w: f64,
 }
@@ -360,7 +364,7 @@ fn load_groups(path: &str, args: &Args) -> Result<(Vec<Group>, Option<RegMarks>,
         // Lighter passes first so the sheet holds together while kiss-cutting.
         let sev = |m: &Material| if m.tool == Tool::Pen { -1 } else { m.depth as i32 * 10 + m.pressure as i32 + m.passes as i32 * 5 };
         groups.sort_by_key(|g| sev(g.mat));
-        let mat = if p.mat.name.starts_with("Portrait 3") { MatKind::Portrait8x12 } else { MatKind::None };
+        let mat = p.mat.cut.unwrap_or(if p.mat.name.starts_with("Portrait 3") { MatKind::Portrait8x12 } else { MatKind::None });
         return Ok((groups, reg, mat));
     }
     let v = match ext.as_str() {
@@ -381,8 +385,10 @@ fn cut_file(args: &Args) -> Result<(), String> {
         None => project_mat,
         Some("8x12") => MatKind::Portrait8x12,
         Some("8.5x12") => MatKind::Portrait8_5x12,
+        Some("12x12") => MatKind::Cameo12x12,
+        Some("12x24") => MatKind::Cameo12x24,
         Some("none") | Some("ohne") => MatKind::None,
-        Some(m) => return Err(format!("--mat {m}: 8x12, 8.5x12 oder none")),
+        Some(m) => return Err(format!("--mat {m}: 8x12, 8.5x12, 12x12, 12x24 oder none")),
     };
     let over = |name: &str, max: u8| -> Result<Option<u8>, String> { Ok(args.num::<u8>(name)?.map(|v| v.clamp(1, max))) };
     let (p_over, s_over, d_over, n_over) = (over("--pressure", 33)?, over("--speed", 30)?, over("--depth", 10)?, over("--passes", 5)?);
@@ -466,6 +472,7 @@ fn cut_file(args: &Args) -> Result<(), String> {
                 Phase::Cutting => {}
                 Phase::Pass(i) => eprintln!("\n  Schritt {}/{n}", i + 1),
                 Phase::Draining(i) => eprint!("\r  Schritt {}/{n}: Plotter schneidet den Rest …", i + 1),
+                Phase::Sent { .. } => {}
             },
         )
         .map_err(|e| e.to_string())?;

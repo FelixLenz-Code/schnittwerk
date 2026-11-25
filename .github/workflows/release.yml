@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.3.6 && git push origin v0.3.6
+#   git tag v0.4.0 && git push origin v0.4.0
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release
@@ -47,7 +47,9 @@ jobs:
       - run: npm ci
 
       - name: Tests
-        run: cargo test -p schnittwerk-core --release
+        run: |
+          cargo test -p schnittwerk-core --release
+          python3 scripts/i18n-keys.py
 
       - name: .deb bauen
         run: npm run tauri build

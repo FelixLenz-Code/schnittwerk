@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string">
+  import { t } from "../i18n.svelte";
   let {
     options,
     value,
@@ -14,8 +15,8 @@
       role="radio"
       aria-checked={o.value === value}
       class:on={o.value === value}
-      title={o.hint}
-      onclick={() => onchange(o.value)}>{o.label}</button
+      title={o.hint ? t(o.hint) : undefined}
+      onclick={() => onchange(o.value)}>{t(o.label)}</button
     >
   {/each}
 </div>

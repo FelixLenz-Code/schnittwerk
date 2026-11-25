@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../i18n.svelte";
   let {
     label,
     checked = $bindable(),
@@ -8,8 +9,8 @@
   }: { label: string; checked: boolean; hint?: string; disabled?: boolean; onchange?: (v: boolean) => void } = $props();
 </script>
 
-<label class="toggle" class:disabled title={hint}>
-  <span>{label}</span>
+<label class="toggle" class:disabled title={hint ? t(hint) : undefined}>
+  <span>{t(label)}</span>
   <input type="checkbox" bind:checked {disabled} onchange={() => onchange?.(checked)} />
   <span class="track"><span class="thumb"></span></span>
 </label>

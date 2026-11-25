@@ -2,6 +2,7 @@
   import { fmt } from "../geometry";
   import { updater } from "../update.svelte";
   import Icon from "./Icon.svelte";
+  import { t, tMsg } from "../i18n.svelte";
 
   const info = $derived(updater.info);
   const busy = $derived(updater.phase === "downloading" || updater.phase === "installing");
@@ -27,56 +28,56 @@
 <div class="backdrop" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
   <div class="dialog" role="dialog" aria-modal="true" aria-label="Update">
     <header>
-      <h2><Icon name="download" size={18} /> Update auf Schnittwerk {info?.latest}</h2>
-      <button class="btn icon" onclick={close} disabled={busy} aria-label="Schließen"><Icon name="x" /></button>
+      <h2><Icon name="download" size={18} /> {t("Update auf Schnittwerk {v}", { v: info?.latest ?? "" })}</h2>
+      <button class="btn icon" onclick={close} disabled={busy} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
 
     {#if info}
       <div class="body">
-        <p class="versions">Installiert: <b>{info.current}</b> → neu: <b>{info.latest}</b></p>
+        <p class="versions">{t("Installiert:")} <b>{info.current}</b> → {t("neu:")} <b>{info.latest}</b></p>
         {#if notes}
           <div class="notes">{notes}</div>
         {:else}
-          <p class="hint">Was neu ist, steht auf der Release-Seite.</p>
+          <p class="hint">{t("Was neu ist, steht auf der Release-Seite.")}</p>
         {/if}
 
         {#if updater.phase === "downloading"}
           <div class="progress">
             <div class="bar"><div style:width="{pct}%"></div></div>
-            <span>Lade herunter … {mb(updater.progress.done)} / {mb(updater.progress.total)} MB</span>
+            <span>{t("Lade herunter … {a} / {b} MB", { a: mb(updater.progress.done), b: mb(updater.progress.total) })}</span>
           </div>
         {:else if updater.phase === "installing"}
           <div class="progress">
             <div class="bar working"><div style:width="100%"></div></div>
-            <span>{info.kind === "deb" ? "Installiere … (bitte Passwort eingeben)" : "Installiere …"}</span>
+            <span>{info.kind === "deb" ? t("Installiere … (bitte Passwort eingeben)") : t("Installiere …")}</span>
           </div>
         {:else if updater.phase === "installed"}
-          <p class="ok"><Icon name="check" size={14} /> Version {info.latest} ist installiert. Nach dem Neustart läuft die neue Version.</p>
+          <p class="ok"><Icon name="check" size={14} /> {t("Version {v} ist installiert. Nach dem Neustart läuft die neue Version.", { v: info.latest })}</p>
         {:else if updater.phase === "error"}
-          <p class="err">{updater.error}</p>
+          <p class="err">{tMsg(updater.error ?? "")}</p>
         {/if}
 
         {#if info.kind === "manual"}
-          <p class="hint">Diese Schnittwerk-Kopie wurde nicht als .deb oder Flatpak installiert und kann sich nicht selbst aktualisieren. Die neue Version gibt es auf der Release-Seite.</p>
+          <p class="hint">{t("Diese Schnittwerk-Kopie wurde nicht als .deb oder Flatpak installiert und kann sich nicht selbst aktualisieren. Die neue Version gibt es auf der Release-Seite.")}</p>
         {:else if !info.asset}
-          <p class="hint">Dieses Release enthält kein passendes Paket ({info.kind === "deb" ? ".deb" : "Flatpak"}). Bitte über die Release-Seite aktualisieren.</p>
+          <p class="hint">{t("Dieses Release enthält kein passendes Paket ({p}). Bitte über die Release-Seite aktualisieren.", { p: info.kind === "deb" ? ".deb" : "Flatpak" })}</p>
         {:else if info.kind === "deb" && updater.phase !== "installed"}
-          <p class="hint">Zum Installieren fragt das System nach deinem Passwort.</p>
+          <p class="hint">{t("Zum Installieren fragt das System nach deinem Passwort.")}</p>
         {/if}
       </div>
 
       <footer>
-        <button class="btn" onclick={() => updater.openPage()}>Release-Seite</button>
+        <button class="btn" onclick={() => updater.openPage()}>{t("Release-Seite")}</button>
         <span class="spacer"></span>
         {#if updater.phase === "installed"}
-          <button class="btn primary" onclick={() => updater.restart()}>Jetzt neu starten</button>
+          <button class="btn primary" onclick={() => updater.restart()}>{t("Jetzt neu starten")}</button>
         {:else if info.asset && info.kind !== "manual"}
-          <button class="btn outline" onclick={close} disabled={busy}>Später</button>
+          <button class="btn outline" onclick={close} disabled={busy}>{t("Später")}</button>
           <button class="btn primary" onclick={() => updater.install()} disabled={busy}>
-            <Icon name="download" /> {updater.phase === "error" ? "Erneut versuchen" : "Jetzt aktualisieren"}
+            <Icon name="download" /> {updater.phase === "error" ? t("Erneut versuchen") : t("Jetzt aktualisieren")}
           </button>
         {:else}
-          <button class="btn outline" onclick={close}>Schließen</button>
+          <button class="btn outline" onclick={close}>{t("Schließen")}</button>
         {/if}
       </footer>
     {/if}

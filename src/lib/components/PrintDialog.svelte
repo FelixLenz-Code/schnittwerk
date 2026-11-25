@@ -4,6 +4,7 @@
   import { api } from "../api";
   import { editor, PAGES } from "../editor.svelte";
   import { plotter } from "../plotter.svelte";
+  import { t } from "../i18n.svelte";
   import { renderPage } from "../print";
   import Icon from "./Icon.svelte";
 
@@ -43,7 +44,7 @@
     try {
       const png = await renderPage(300);
       await api.printPage(png, editor.mat.w, editor.mat.h, page.media, toPdf ? null : printer || null, path);
-      editor.toast(toPdf ? "PDF gespeichert" : "An den Drucker gesendet", "ok");
+      editor.toast(toPdf ? t("PDF gespeichert") : t("An den Drucker gesendet"), "ok");
       plotter.printOpen = false;
     } catch (e) {
       editor.error(e);
@@ -60,16 +61,16 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
 
 <div class="backdrop" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Drucken">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Drucken")}>
     <header>
-      <h2><Icon name="printer" size={18} /> Drucken</h2>
-      <button class="btn icon" onclick={close} aria-label="Schließen"><Icon name="x" /></button>
+      <h2><Icon name="printer" size={18} /> {t("Drucken")}</h2>
+      <button class="btn icon" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
 
     {#if !editor.printCut.enabled}
       <div class="body single">
-        <p>Zum Drucken für Print & Cut wird die Seite mit Passermarken benötigt.</p>
-        <button class="btn primary" onclick={() => editor.setPrintCut(true)}>Print & Cut aktivieren</button>
+        <p>{t("Zum Drucken für Print & Cut wird die Seite mit Passermarken benötigt.")}</p>
+        <button class="btn primary" onclick={() => editor.setPrintCut(true)}>{t("Print & Cut aktivieren")}</button>
       </div>
     {:else}
       <div class="body">
@@ -77,44 +78,44 @@
           {#if preview}
             <img src={preview} alt="Druckvorschau" />
           {:else}
-            <div class="ph">Vorschau …</div>
+            <div class="ph">{t("Vorschau …")}</div>
           {/if}
         </div>
         <div class="side">
           <label class="field-row">
-            <span>Drucker</span>
+            <span>{t("Drucker")}</span>
             <select class="field" bind:value={printer}>
               {#each printers as p}<option value={p}>{p}</option>{/each}
-              {#if !printers.length}<option value="">Kein Drucker gefunden</option>{/if}
+              {#if !printers.length}<option value="">{t("Kein Drucker gefunden")}</option>{/if}
             </select>
           </label>
           <div class="insets">
-            <span>Abstand der Passermarken zum Papierrand</span>
+            <span>{t("Abstand der Passermarken zum Papierrand")}</span>
             <div class="inset-row">
-              <label>links/rechts <input class="field num" type="number" min="5" max="40" step="1" bind:value={editor.printCut.insetX} /> mm</label>
-              <label>oben/unten <input class="field num" type="number" min="5" max="40" step="1" bind:value={editor.printCut.insetY} /> mm</label>
+              <label>{t("links/rechts")} <input class="field num" type="number" min="5" max="40" step="1" bind:value={editor.printCut.insetX} /> mm</label>
+              <label>{t("oben/unten")} <input class="field num" type="number" min="5" max="40" step="1" bind:value={editor.printCut.insetY} /> mm</label>
             </div>
           </div>
           <div class="facts">
-            <div><span>Papier</span><b>{editor.printCut.page} ({page.w} × {page.h} mm)</b></div>
-            <div><span>Auflösung</span><b>300 dpi</b></div>
-            <div><span>Skalierung</span><b>aus (100 %)</b></div>
+            <div><span>{t("Papier")}</span><b>{editor.printCut.page} ({page.w} × {page.h} mm)</b></div>
+            <div><span>{t("Auflösung")}</span><b>300 dpi</b></div>
+            <div><span>{t("Skalierung")}</span><b>{t("aus (100 %)")}</b></div>
           </div>
           <p class="note">
-            Wichtig: In Druckdialogen niemals „An Seite anpassen“ wählen – sonst passen Druck und Schnitt nicht zusammen. Schnittwerk schaltet die Skalierung beim Drucken automatisch ab.
+            {t("Wichtig: In Druckdialogen niemals „An Seite anpassen“ wählen – sonst passen Druck und Schnitt nicht zusammen. Schnittwerk schaltet die Skalierung beim Drucken automatisch ab.")}
           </p>
           {#if !hasPrintable}
-            <p class="warn">Auf der Seite ist nichts zum Drucken – es würden nur die Passermarken gedruckt.</p>
+            <p class="warn">{t("Auf der Seite ist nichts zum Drucken – es würden nur die Passermarken gedruckt.")}</p>
           {/if}
           <div class="actions">
             <button class="btn outline" disabled={!!busy} onclick={() => doPrint(true)}>
-              <Icon name="download" /> {busy === "pdf" ? "Erstelle PDF …" : "Als PDF"}
+              <Icon name="download" /> {busy === "pdf" ? t("Erstelle PDF …") : t("Als PDF")}
             </button>
             <button class="btn primary grow" disabled={!!busy || !printers.length} onclick={() => doPrint(false)}>
-              <Icon name="printer" /> {busy === "print" ? "Sende …" : "Drucken"}
+              <Icon name="printer" /> {busy === "print" ? t("Sende …") : t("Drucken")}
             </button>
           </div>
-          <p class="hint">Danach den Bogen oben links auf die Matte legen, laden und im Schneiden-Dialog starten.</p>
+          <p class="hint">{t("Danach den Bogen oben links auf die Matte legen, laden und im Schneiden-Dialog starten.")}</p>
         </div>
       </div>
     {/if}

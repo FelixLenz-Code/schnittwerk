@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../i18n.svelte";
   let {
     label,
     value = $bindable(),
@@ -26,9 +27,9 @@
   const pct = $derived(((value - min) / (max - min)) * 100);
 </script>
 
-<label class="slider" class:disabled title={hint}>
+<label class="slider" class:disabled title={hint ? t(hint) : undefined}>
   <span class="row">
-    <span class="label">{label}</span>
+    <span class="label">{t(label)}</span>
     <span class="value">{display ?? `${value}${unit}`}</span>
   </span>
   <input type="range" {min} {max} {step} {disabled} bind:value style:--pct="{pct}%" oninput={() => oninput?.(value)} />

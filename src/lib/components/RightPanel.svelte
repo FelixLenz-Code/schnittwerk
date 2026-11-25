@@ -1,6 +1,7 @@
 <script lang="ts">
   import { editor } from "../editor.svelte";
   import Icon from "./Icon.svelte";
+  import { t } from "../i18n.svelte";
   import LayersPanel from "./LayersPanel.svelte";
   import PropertiesPanel from "./PropertiesPanel.svelte";
   import TracePanel from "./TracePanel.svelte";
@@ -16,11 +17,11 @@
 
 <aside>
   <nav>
-    {#each tabs as t}
-      <button class:on={editor.rightTab === t.id} onclick={() => (editor.rightTab = t.id)}>
-        <Icon name={t.icon} size={14} />
-        {t.label}
-        {#if t.id === "layers" && editor.objects.length}
+    {#each tabs as tab}
+      <button class:on={editor.rightTab === tab.id} onclick={() => (editor.rightTab = tab.id)}>
+        <Icon name={tab.icon} size={14} />
+        {t(tab.label)}
+        {#if tab.id === "layers" && editor.objects.length}
           <span class="count">{editor.objects.length}</span>
         {/if}
       </button>

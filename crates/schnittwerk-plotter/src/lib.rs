@@ -164,6 +164,9 @@ pub enum Phase {
     /// All data of pass n is in the device; it is still working through its
     /// buffer (sending runs ahead of cutting).
     Draining(usize),
+    /// So many plot commands of pass `pass` have been sent (after every
+    /// packet) – where to continue after a cancel or an error.
+    Sent { pass: usize, commands: usize },
 }
 
 impl Plotter {
@@ -404,6 +407,7 @@ impl Plotter {
                 on_phase(Phase::Pass(pi));
             }
             self.send(&pass.tool)?;
+            let mut sent = 0usize;
             // Stream packets back to back: USB flow control keeps the device
             // buffer full, so the cutter never runs dry between packets.
             // Pause/cancel take effect once the device has worked through
@@ -421,6 +425,8 @@ impl Plotter {
                 }
                 self.write_plot(chunk)?;
                 done += 1;
+                sent += chunk.iter().filter(|&&b| b == ETX).count();
+                on_phase(Phase::Sent { pass: pi, commands: sent });
                 progress(done, total);
             }
             on_phase(Phase::Draining(pi));
