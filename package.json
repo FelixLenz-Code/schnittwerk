@@ -2,7 +2,7 @@
   "name": "schnittwerk",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,7 @@
     "@tsconfig/svelte": "^5.0.4",
     "svelte": "^5.40.0",
     "svelte-check": "^4.3.0",
-    "typescript": "^5.9.0",
+    "typescript": "^6.0.3",
     "vite": "^8.0.0"
   }
 }
