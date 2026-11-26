@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.7.0 && git push origin v0.7.0
+#   git tag v0.7.1 && git push origin v0.7.1
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release
@@ -17,7 +17,7 @@ jobs:
   deb:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Version prüfen
         if: startsWith(github.ref, 'refs/tags/')
@@ -39,7 +39,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -54,7 +54,7 @@ jobs:
       - name: .deb bauen
         run: npm run tauri build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: schnittwerk-deb
           path: target/release/bundle/deb/*.deb
@@ -65,9 +65,9 @@ jobs:
     needs: deb
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: schnittwerk-deb
           path: deb
@@ -87,7 +87,7 @@ jobs:
           flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
             repo ../../Schnittwerk.flatpak de.schnittwerk.Schnittwerk
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: schnittwerk-flatpak
           path: Schnittwerk.flatpak
@@ -97,9 +97,9 @@ jobs:
     needs: [deb, flatpak]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
