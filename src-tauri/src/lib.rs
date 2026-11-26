@@ -49,6 +49,31 @@ pub(crate) fn shared_temp_dir() -> std::path::PathBuf {
     std::env::temp_dir()
 }
 
+/// A fresh directory below `shared_temp_dir()` that only this process
+/// created. /tmp is shared by all users: a fixed name (e.g. with the pid)
+/// could be prepared by someone else with a symlink or a swapped file.
+/// `mode` 0o700 = private; 0o755 when another account must read the files
+/// (apt's download user).
+pub(crate) fn private_temp_dir(prefix: &str, mode: u32) -> Result<std::path::PathBuf, String> {
+    use std::os::unix::fs::DirBuilderExt;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let base = shared_temp_dir();
+    let mut last_err = None;
+    for _ in 0..32 {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = base.join(format!("{prefix}-{}-{nanos:x}-{n}", std::process::id()));
+        // `create` (not `create_dir_all`) fails if the path already exists.
+        match std::fs::DirBuilder::new().mode(mode).create(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => last_err = Some(e),
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err(last_err.map(|e| e.to_string()).unwrap_or_default())
+}
+
 fn file_stem(path: &str) -> String {
     Path::new(path).file_stem().and_then(|s| s.to_str()).unwrap_or("Bild").to_string()
 }
@@ -307,9 +332,14 @@ enum PdfContent {
 #[tauri::command]
 async fn import_pdf(path: String, page: Option<u32>, store: State<'_, ImageStore>) -> Result<PdfContent, String> {
     let page = page.unwrap_or(1).max(1).to_string();
-    let dir = shared_temp_dir().join(format!("schnittwerk-pdf-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let run = |args: &[&str]| -> Result<(), String> {
+    let dir = private_temp_dir("schnittwerk-pdf", 0o700)?;
+    let result = import_pdf_in(&dir, &path, &page, &store);
+    let _ = std::fs::remove_dir_all(&dir);
+    result
+}
+
+fn import_pdf_in(dir: &Path, path: &str, page: &str, store: &ImageStore) -> Result<PdfContent, String> {
+    let run =|args: &[&str]| -> Result<(), String> {
         let out = host_command("pdftocairo")
             .args(args)
             .output()
@@ -323,20 +353,18 @@ async fn import_pdf(path: String, page: Option<u32>, store: State<'_, ImageStore
     let svg = dir.join("page.svg");
     let svg_s = svg.to_string_lossy().to_string();
     // Exact 1:1 geometry: no fitting to a paper size, no centring.
-    run(&["-svg", "-origpagesizes", "-noshrink", "-nocenter", "-f", &page, "-l", &page, &path, &svg_s])?;
+    run(&["-svg", "-origpagesizes", "-noshrink", "-nocenter", "-f", page, "-l", page, path, &svg_s])?;
     if let Ok(bytes) = std::fs::read(&svg) {
         if let Ok(vector) = schnittwerk_core::import_svg(&bytes) {
-            let _ = std::fs::remove_dir_all(&dir);
-            return Ok(PdfContent::Vector { vector: NamedVector { name: file_stem(&path), vector } });
+            return Ok(PdfContent::Vector { vector: NamedVector { name: file_stem(path), vector } });
         }
     }
     // No vector paths: render the page.
     let base = dir.join("page");
     let base_s = base.to_string_lossy().to_string();
-    run(&["-png", "-r", "300", "-singlefile", "-f", &page, "-l", &page, &path, &base_s])?;
+    run(&["-png", "-r", "300", "-singlefile", "-f", page, "-l", page, path, &base_s])?;
     let png = std::fs::read(dir.join("page.png")).map_err(|e| e.to_string())?;
-    let _ = std::fs::remove_dir_all(&dir);
-    Ok(PdfContent::Image { info: register_image(&store, png, file_stem(&path))? })
+    Ok(PdfContent::Image { info: register_image(store, png, file_stem(path))? })
 }
 
 #[tauri::command]

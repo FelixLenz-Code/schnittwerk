@@ -85,23 +85,30 @@ pub async fn print_page(
         if let Some(path) = save_path {
             return std::fs::write(&path, pdf).map_err(|e| format!("{path}: {e}"));
         }
-        let file = crate::shared_temp_dir().join(format!("schnittwerk-{}.pdf", std::process::id()));
-        std::fs::write(&file, pdf).map_err(|e| e.to_string())?;
-        let mut cmd = crate::host_command("lp");
-        if let Some(p) = printer.filter(|p| !p.is_empty()) {
-            cmd.args(["-d", &p]);
-        }
-        cmd.args(["-t", "Schnittwerk Print & Cut", "-o", &format!("media={media}"), "-o", "print-scaling=none", "-o", "fit-to-page=false"]);
-        cmd.arg(&file);
-        let out = cmd.output().map_err(|e| format!("lp konnte nicht gestartet werden: {e}"))?;
-        if out.status.success() {
-            Ok(())
-        } else {
-            Err(format!("Drucken fehlgeschlagen: {}", String::from_utf8_lossy(&out.stderr).trim()))
-        }
+        let dir = crate::private_temp_dir("schnittwerk-print", 0o700)?;
+        let file = dir.join("print.pdf");
+        let result = std::fs::write(&file, pdf).map_err(|e| e.to_string()).and_then(|_| send_to_cups(&file, printer, &media));
+        // lp has handed the job to CUPS when it returns.
+        let _ = std::fs::remove_dir_all(&dir);
+        result
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+fn send_to_cups(file: &std::path::Path, printer: Option<String>, media: &str) -> Result<(), String> {
+    let mut cmd = crate::host_command("lp");
+    if let Some(p) = printer.filter(|p| !p.is_empty()) {
+        cmd.args(["-d", &p]);
+    }
+    cmd.args(["-t", "Schnittwerk Print & Cut", "-o", &format!("media={media}"), "-o", "print-scaling=none", "-o", "fit-to-page=false"]);
+    cmd.arg(file);
+    let out = cmd.output().map_err(|e| format!("lp konnte nicht gestartet werden: {e}"))?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(format!("Drucken fehlgeschlagen: {}", String::from_utf8_lossy(&out.stderr).trim()))
+    }
 }
 
 #[cfg(test)]

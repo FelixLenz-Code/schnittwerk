@@ -1,6 +1,6 @@
 import { api } from "./api";
 import { editor } from "./editor.svelte";
-import { i18n, t } from "./i18n.svelte";
+import { decimalComma, t } from "./i18n.svelte";
 import { uid } from "./geometry";
 import { perspective } from "./perspective.svelte";
 import type { ImageObj, PathObj } from "./types";
@@ -168,6 +168,6 @@ class PixScanStore {
 }
 
 const round = (v: number) => Math.round(v * 100) / 100;
-const fmt = (v: number) => (i18n.lang === "de" ? v.toFixed(2).replace(".", ",") : v.toFixed(2));
+const fmt = (v: number) => (decimalComma() ? v.toFixed(2).replace(".", ",") : v.toFixed(2));
 
 export const pixscan = new PixScanStore();

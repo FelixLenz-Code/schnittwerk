@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Lists the German UI texts of the frontend and checks src/lib/en.ts.
+"""Lists the German UI texts of the frontend and checks the dictionaries
+(src/lib/en.ts, fr.ts, es.ts, nl.ts).
 
-  python3 scripts/i18n-keys.py          # missing English entries
+  python3 scripts/i18n-keys.py          # missing entries per language
   python3 scripts/i18n-keys.py --all    # all keys
 """
 import glob, json, re, sys
@@ -21,7 +22,7 @@ GERMAN = re.compile(r'[äöüßÄÖÜ]|\b(der|die|das|und|nicht|mit|für|ein|ein
 def keys():
     out = set()
     for f in glob.glob('src/**/*.svelte', recursive=True) + glob.glob('src/**/*.ts', recursive=True):
-        if f.endswith('en.ts'):
+        if f.endswith(tuple(f'/{l}.ts' for l in LANGS) + ('i18n.svelte.ts',)):
             continue
         s = open(f, encoding='utf-8').read()
         for p in PATTERNS:
@@ -36,8 +37,10 @@ def keys():
                 out.add(json.loads('"' + g + '"'))
     return out
 
-def dictionary():
-    s = open('src/lib/en.ts', encoding='utf-8').read()
+LANGS = ['en', 'fr', 'es', 'nl']
+
+def dictionary(lang):
+    s = open(f'src/lib/{lang}.ts', encoding='utf-8').read().split('_PATTERNS')[0]
     out = set()
     for m in re.finditer(r'^\s*(?:' + STR + r'|([^\s:"/]+))\s*:', s, re.M):
         out.add(json.loads('"' + m.group(1) + '"') if m.group(1) is not None else m.group(2))
@@ -51,7 +54,12 @@ if __name__ == '__main__':
     if '--all' in sys.argv:
         print('\n'.join(sorted(k)))
     else:
-        missing = sorted(k - dictionary())
-        print('\n'.join(missing))
-        print(f'{len(missing)} von {len(k)} ohne englischen Text', file=sys.stderr)
-        sys.exit(1 if missing else 0)
+        bad = False
+        for lang in LANGS:
+            missing = sorted(k - dictionary(lang))
+            if missing:
+                print(f'--- {lang}')
+                print('\n'.join(missing))
+            print(f'{lang}: {len(missing)} von {len(k)} ohne Übersetzung', file=sys.stderr)
+            bad = bad or bool(missing)
+        sys.exit(1 if bad else 0)

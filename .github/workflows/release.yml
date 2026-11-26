@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.6.1 && git push origin v0.6.1
+#   git tag v0.7.0 && git push origin v0.7.0
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release
@@ -111,7 +111,7 @@ jobs:
           v="${GITHUB_REF_NAME#v}"
           # Änderungen = Text der Commit-Nachricht des Tags (ohne Signaturzeilen).
           # Das Update-Fenster der App zeigt genau diesen Abschnitt.
-          changes=$(git log -1 --format=%b "$GITHUB_SHA" | grep -v -i '^co-authored-by:' | sed -e '/./,$!d')
+          changes=$(git log -1 --format=%b "$GITHUB_SHA" | grep -v -i -E '^(co-authored-by|claude-session):' | sed -e '/./,$!d')
           cd dist
           # Feste Namen für die Ein-Befehl-Installation (…/releases/latest/download/…).
           cp "Schnittwerk_${v}_amd64.deb" Schnittwerk_amd64.deb

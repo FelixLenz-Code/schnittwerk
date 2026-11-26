@@ -1,6 +1,9 @@
 <script lang="ts">
   // Help tab: searchable built-in documentation.
-  import { DOCS_DE, DOCS_EN, renderDoc } from "../docs";
+  import { DOCS_DE, DOCS_EN, renderDoc, type DocSection } from "../docs";
+  import { DOCS_FR } from "../fr";
+  import { DOCS_ES } from "../es";
+  import { DOCS_NL } from "../nl";
   import { i18n, t } from "../i18n.svelte";
   import { startTour } from "../tour.svelte";
   import { ui } from "../ui.svelte";
@@ -21,7 +24,8 @@
     tick().then(() => document.getElementById(`help-${id}`)?.scrollIntoView({ block: "start" }));
   });
 
-  const docs = $derived(i18n.lang === "en" ? DOCS_EN : DOCS_DE);
+  const DOCS: Record<string, DocSection[]> = { de: DOCS_DE, en: DOCS_EN, fr: DOCS_FR, es: DOCS_ES, nl: DOCS_NL };
+  const docs = $derived(DOCS[i18n.lang] ?? DOCS_EN);
   const hits = $derived.by(() => {
     const q = query.trim().toLowerCase();
     if (!q) return docs;

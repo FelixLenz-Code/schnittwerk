@@ -2,7 +2,7 @@
   // Settings collected in one place (most of them also live elsewhere).
   import { editor } from "../editor.svelte";
   import { fmt } from "../geometry";
-  import { i18n, setLang, t } from "../i18n.svelte";
+  import { i18n, LANGS, setLang, t, type Lang } from "../i18n.svelte";
   import { plotter } from "../plotter.svelte";
   import { setTheme, ui, type Theme } from "../ui.svelte";
   import { updater } from "../update.svelte";
@@ -27,9 +27,10 @@
         <h3 class="section-title">{t("Oberfläche")}</h3>
         <div class="row">
           <span>{t("Sprache")}</span>
-          <select class="field" value={i18n.lang} onchange={(e) => setLang(e.currentTarget.value as "de" | "en")}>
-            <option value="de">Deutsch</option>
-            <option value="en">English</option>
+          <select class="field" value={i18n.lang} onchange={(e) => setLang(e.currentTarget.value as Lang)}>
+            {#each LANGS as l (l.id)}
+              <option value={l.id}>{l.name}</option>
+            {/each}
           </select>
         </div>
         <div class="row">

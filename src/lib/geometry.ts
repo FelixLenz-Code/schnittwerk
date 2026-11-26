@@ -81,6 +81,9 @@ export function fmt(v: number, digits = 1): string {
   return (Math.round(v * 10 ** digits) / 10 ** digits).toLocaleString(locale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
+    // No thousands separator: "1.500" (de/nl) or "1 500" (fr) in an input
+    // field would be read back as 1.5 or 1.
+    useGrouping: false,
   });
 }
 

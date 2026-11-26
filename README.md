@@ -125,9 +125,9 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
-- Oberfläche auf Deutsch oder Englisch (folgt dem System, umschaltbar unter Datei → Einstellungen)
+- Oberfläche auf Deutsch, Englisch, Französisch, Spanisch oder Niederländisch (folgt dem System, umschaltbar unter Datei → Einstellungen)
 - Menüleiste (Datei, Bearbeiten, Objekt, Ansicht, Plotter, Hilfe) mit Tastaturbedienung und Einstellungen-Dialog
-- Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (Deutsch/Englisch)
+- Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (in allen fünf Sprachen)
 - Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche im Objekt-Tab
 - Matten für Portrait 3 (8″ × 12″) und Cameo (12″ × 12″, 12″ × 24″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen

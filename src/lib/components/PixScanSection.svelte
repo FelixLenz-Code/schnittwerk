@@ -4,7 +4,7 @@
   import { pixscan } from "../pixscan.svelte";
   import type { ImageObj } from "../types";
   import Icon from "./Icon.svelte";
-  import { t } from "../i18n.svelte";
+  import { decimalComma, t } from "../i18n.svelte";
 
   let { img }: { img: ImageObj | null } = $props();
 
@@ -20,7 +20,7 @@
   const shift = $derived(live ? pixscan.shift(live) : null);
   const moved = $derived(!!shift && (Math.abs(shift.dx) > 0.001 || Math.abs(shift.dy) > 0.001));
   const corners = $derived(!!live && perspective.objId === live.id && !!perspective.custom);
-  const f = (v: number) => (v >= 0 ? "+" : "") + v.toFixed(2).replace(".", ",");
+  const f = (v: number) => (v >= 0 ? "+" : "") + (decimalComma() ? v.toFixed(2).replace(".", ",") : v.toFixed(2));
 </script>
 
 <section>

@@ -145,17 +145,27 @@ struct Progress {
     total: u64,
 }
 
-/// Downloads the asset and checks its SHA-256 (when GitHub reports one).
+/// Only packages of Schnittwerk's own releases are installed.
+fn valid_asset(asset: &Asset) -> bool {
+    let prefix = format!("https://github.com/{REPO}/releases/download/");
+    !asset.name.is_empty()
+        && !asset.name.contains('/')
+        && !asset.name.contains("..")
+        && asset.url.starts_with(&prefix)
+        && asset.digest.as_deref().is_some_and(|d| d.starts_with("sha256:"))
+}
+
+/// Downloads the asset into `dir` (fresh, created by this process) and
+/// checks its SHA-256.
 fn download(app: &AppHandle, asset: &Asset, dir: &Path) -> Result<PathBuf, String> {
-    if asset.name.contains('/') || asset.name.contains("..") || !asset.url.starts_with("https://github.com/") {
+    if !valid_asset(asset) {
         return Err("Ungültige Datei im Release.".into());
     }
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let path = dir.join(&asset.name);
     let resp = agent().get(&asset.url).call().map_err(|e| format!("Download fehlgeschlagen: {e}"))?;
     let total = resp.header("Content-Length").and_then(|v| v.parse().ok()).unwrap_or(asset.size);
     let mut reader = resp.into_reader();
-    let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|e| e.to_string())?;
     let mut hasher = Sha256::new();
     let mut buf = vec![0u8; 64 * 1024];
     let mut done = 0u64;
@@ -209,31 +219,35 @@ fn run(mut cmd: std::process::Command, what: &str) -> Result<(), String> {
     Err(format!("Installation fehlgeschlagen: {msg}"))
 }
 
-fn install_blocking(app: &AppHandle, asset: &Asset) -> Result<(), String> {
-    match install_kind() {
-        InstallKind::Deb => {
-            // /tmp: readable for apt's download user, so apt does not warn.
-            let file = download(app, asset, &std::env::temp_dir().join("schnittwerk-update"))?;
-            let _ = app.emit("update-progress", Progress { phase: "install", done: 0, total: 0 });
+fn install_blocking(app: &AppHandle, requested: &Asset) -> Result<(), String> {
+    // The package is looked up again here instead of trusting the UI: only
+    // the asset of the latest release that fits this installation is used.
+    let info = check_blocking()?;
+    let asset = info.asset.filter(|a| a.name == requested.name).ok_or("Ungültige Datei im Release.")?;
+    let (dir, mode) = match install_kind() {
+        // Readable for apt's download user (_apt), so apt does not warn;
+        // only this user can change the directory.
+        InstallKind::Deb => ("schnittwerk-update", 0o755),
+        // The cache directory has the same path inside and outside the sandbox.
+        InstallKind::Flatpak => ("schnittwerk-update", 0o700),
+        InstallKind::Manual => return Err("Diese Installation kann sich nicht selbst aktualisieren.".into()),
+    };
+    let dir = crate::private_temp_dir(dir, mode)?;
+    let result = download(app, &asset, &dir).and_then(|file| {
+        let _ = app.emit("update-progress", Progress { phase: "install", done: 0, total: 0 });
+        if install_kind() == InstallKind::Deb {
             // The system's password dialog (polkit) asks for permission.
             let mut cmd = std::process::Command::new("pkexec");
             cmd.args(["apt-get", "install", "-y", "--allow-downgrades"]).arg(&file);
-            let r = run(cmd, "pkexec");
-            let _ = std::fs::remove_file(&file);
-            r
-        }
-        InstallKind::Flatpak => {
-            // The cache directory has the same path inside and outside the sandbox.
-            let file = download(app, asset, &crate::shared_temp_dir().join("update"))?;
-            let _ = app.emit("update-progress", Progress { phase: "install", done: 0, total: 0 });
+            run(cmd, "pkexec")
+        } else {
             let mut cmd = crate::host_command("flatpak");
             cmd.args(["install", flatpak_installation(), "-y", "--noninteractive", "--reinstall"]).arg(&file);
-            let r = run(cmd, "flatpak");
-            let _ = std::fs::remove_file(&file);
-            r
+            run(cmd, "flatpak")
         }
-        InstallKind::Manual => Err("Diese Installation kann sich nicht selbst aktualisieren.".into()),
-    }
+    });
+    let _ = std::fs::remove_dir_all(&dir);
+    result
 }
 
 #[tauri::command]
@@ -283,5 +297,19 @@ mod tests {
         assert_eq!(pick_asset(&assets, "0.4.0", InstallKind::Deb).unwrap().name, "Schnittwerk_0.4.0_amd64.deb");
         assert_eq!(pick_asset(&assets, "0.4.0", InstallKind::Flatpak).unwrap().name, "Schnittwerk.flatpak");
         assert!(pick_asset(&assets, "0.4.0", InstallKind::Manual).is_none());
+    }
+
+    #[test]
+    fn only_own_release_assets_with_checksum_are_valid() {
+        let ok = Asset {
+            name: "Schnittwerk_0.7.0_amd64.deb".into(),
+            url: format!("https://github.com/{REPO}/releases/download/v0.7.0/Schnittwerk_0.7.0_amd64.deb"),
+            size: 1,
+            digest: Some("sha256:00".into()),
+        };
+        assert!(valid_asset(&ok));
+        assert!(!valid_asset(&Asset { url: "https://github.com/someone/else/releases/download/x.deb".into(), ..ok.clone() }));
+        assert!(!valid_asset(&Asset { digest: None, ..ok.clone() }));
+        assert!(!valid_asset(&Asset { name: "../x.deb".into(), ..ok.clone() }));
     }
 }

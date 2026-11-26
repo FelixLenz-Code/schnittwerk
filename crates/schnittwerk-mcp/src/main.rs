@@ -136,6 +136,19 @@ fn with_ext(p: &Path, ext: &str) -> PathBuf {
     p.with_extension(ext)
 }
 
+/// Target file chosen by the client. Only files with the expected extension
+/// are written – a tool call (possibly steered by text the AI read
+/// somewhere) must not be able to overwrite e.g. ~/.bashrc.
+fn output_path(a: &Value, ext: &str, default: PathBuf) -> Result<PathBuf, String> {
+    let Some(p) = arg_str(a, "output_path") else { return Ok(default) };
+    let p = PathBuf::from(p);
+    if p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case(ext)) {
+        Ok(p)
+    } else {
+        Err(format!("output_path muss auf .{ext} enden"))
+    }
+}
+
 fn mm(v: f64) -> String {
     format!("{:.1}", v).replace('.', ",")
 }
@@ -187,7 +200,7 @@ fn trace_image(a: &Value) -> Result<String, String> {
     let width_mm = arg_f64(a, "width_mm").unwrap_or(r.width as f64 * 25.4 / 150.0);
     let s = width_mm / r.width as f64;
     let (w, h) = (r.width as f64 * s, r.height as f64 * s);
-    let out = arg_str(a, "output_path").map(PathBuf::from).unwrap_or_else(|| with_ext(Path::new(path), "svg"));
+    let out = output_path(a, "svg", with_ext(Path::new(path), "svg"))?;
     let mut svg = format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w:.3}mm\" height=\"{h:.3}mm\" viewBox=\"0 0 {w:.3} {h:.3}\">\n"
     );
@@ -404,7 +417,7 @@ fn sticker_sheet(a: &Value) -> Result<String, String> {
     });
     let first = Path::new(&specs[0].0);
     let default_out = if motifs.len() > 1 { first.with_file_name("Sticker-Bogen.schnitt") } else { with_ext(first, "schnitt") };
-    let out = arg_str(a, "output_path").map(PathBuf::from).unwrap_or(default_out);
+    let out = output_path(a, "schnitt", default_out)?;
     std::fs::write(&out, serde_json::to_string(&project).unwrap()).map_err(|e| format!("{}: {e}", out.display()))?;
     let detail = motifs
         .iter()
@@ -542,6 +555,8 @@ mod tests {
         let svg = dir.join("sq.svg");
         std::fs::write(&svg, r#"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100"><rect x="10" y="10" width="20" height="20"/></svg>"#).unwrap();
         let r = cut_svg(&json!({ "svg_path": svg.to_str().unwrap() })).unwrap();
+        assert!(output_path(&json!({ "output_path": "/tmp/x/.bashrc" }), "svg", PathBuf::new()).is_err());
+        assert!(output_path(&json!({ "output_path": "/tmp/x/a.SVG" }), "svg", PathBuf::new()).is_ok());
         assert!(r.starts_with("Vorschau"), "{r}");
         assert!(r.contains("1 Pfade"), "{r}");
     }
