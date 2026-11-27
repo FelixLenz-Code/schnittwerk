@@ -26,7 +26,6 @@
   import TemplatesDialog from "./lib/components/TemplatesDialog.svelte";
   import MenuBar from "./lib/components/MenuBar.svelte";
   import SurfacePicker from "./lib/components/SurfacePicker.svelte";
-  import MaterialChip from "./lib/components/MaterialChip.svelte";
   import SettingsDialog from "./lib/components/SettingsDialog.svelte";
   import AboutDialog from "./lib/components/AboutDialog.svelte";
   import MaterialsDialog from "./lib/components/MaterialsDialog.svelte";
@@ -262,7 +261,6 @@
       <button class="btn update" title={t("Schnittwerk {v} ist verfügbar", { v: updater.info?.latest ?? "" })} onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
     {/if}
     <DeviceMenu />
-    <MaterialChip />
     {#if editor.printCut.enabled}
       <button class="btn outline" data-tour="print" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> {t("Drucken")}</button>
     {/if}

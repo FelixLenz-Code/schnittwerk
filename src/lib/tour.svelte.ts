@@ -27,7 +27,7 @@ export const TOUR_STEPS: TourStep[] = [
   { target: "tools", title: "Werkzeuge", text: "Auswählen, Formen, Linien, Freihand und Text. Rechtsklick auf ein Objekt zeigt die häufigsten Aktionen." },
   { target: "undo", title: "Rückgängig", text: "Macht Schritte rückgängig oder wiederholt sie. Der Tooltip nennt den Schritt, zum Beispiel „Rückgängig: Verschieben“." },
   { target: "area", title: "Matte und Papier", text: "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive." },
-  { target: "tabs", title: "Rechte Seite", text: "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen." },
+  { target: "tabs", title: "Rechte Seite", text: "Zeigt immer, was zur Auswahl passt: Werkzeuge für den ganzen Bogen, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen." },
   { target: "view", title: "Ansicht", text: "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein." },
   { target: "device", title: "Plotter", text: "Zeigt, ob der Plotter verbunden ist. Hier verbindest du per Bluetooth und siehst den Messer-Zähler." },
   { target: "print", title: "Drucken", text: "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF." },

@@ -979,7 +979,6 @@ export const EN: Record<string, string> = {
   "Schneidematte": "Cutting mat",
   "Papier ohne Matte": "Paper without mat",
   "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "What are you cutting on? Mat, paper, Print & Cut with registration marks, roll without mat or a custom size for large designs.",
-  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Always shows what fits the selection: the mat when nothing is selected, otherwise the object. For pictures, this is where you go on to tracing or stickers. The layers are at the bottom.",
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Snapping to the grid and guides, plus zoom. Clicking the percentage fits the mat.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Appears with Print & Cut: prints the page with registration marks without scaling or saves it as a PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Guides you through the cut step by step: cutter and mat, material, a test cut at a spot of your choice, then cut.",
@@ -1023,7 +1022,6 @@ export const EN: Record<string, string> = {
   "{n} Objekte in der Gruppe": "{n} objects in the group",
   "getestet": "tested",
   "eigen": "own",
-  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Own materials appear for selection when cutting and next to the cut button. Changes are saved right away.",
   "Materialien …": "Materials …",
   // ---- zoom, real size (0.8.3) ----
   "Bildschirm für 1:1": "Screen for 1:1",
@@ -1052,6 +1050,8 @@ export const EN: Record<string, string> = {
   "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Actual size: 1 mm on screen = 1 mm in reality (Ctrl+1)",
   "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Arrow keys ← → fine-tune (coarser with Shift). Each screen is calibrated separately.",
   "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} is not calibrated yet – 1:1 and the percentage are only approximate here.",
+  "Eigene Materialien erscheinen im Schneiden-Dialog zur Auswahl. Änderungen werden sofort gespeichert.": "Own materials appear for selection in the cut dialog. Changes are saved right away.",
+  "Zeigt immer, was zur Auswahl passt: Werkzeuge für den ganzen Bogen, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Always shows what fits the selection: tools for the whole sheet when nothing is selected, otherwise the object. For pictures, this is where you go on to tracing or stickers. The layers are at the bottom.",
 };
 
 /** Backend messages with a variable part: $1 … is translated again. */

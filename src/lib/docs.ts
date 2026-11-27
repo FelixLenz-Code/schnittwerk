@@ -15,7 +15,7 @@ export const DOCS_DE: DocSection[] = [
     text: `Beim Start öffnet sich die **Startseite** (auch über einen Klick auf „Schnittwerk“ oben links). Dort wählst du, was du machen möchtest – Sticker, Vinyl, Flexfolie, Papier, Stift oder ein großes Motiv. Schnittwerk stellt dann Material, Matte und Seite passend ein.
 
 - Bilder und Vektoren über **Importieren** (\`Strg+I\`) laden oder einfach auf die Arbeitsfläche ziehen.
-- Die rechte Seite zeigt immer, was zur Auswahl passt. Bei einem Bild gibt es dort zwei Wege: **In Schnittlinien umwandeln** (Tracen) oder **Als Sticker**. Ist nichts ausgewählt, stehen dort die Matte und Werkzeuge für den ganzen Bogen.
+- Die rechte Seite zeigt immer, was zur Auswahl passt. Bei einem Bild gibt es dort zwei Wege: **In Schnittlinien umwandeln** (Tracen) oder **Als Sticker**. Ist nichts ausgewählt, stehen dort Werkzeuge für den ganzen Bogen.
 - Mit **Schneiden** (\`Strg+Enter\`) geht es zum Plotter.
 - Die **Menüleiste** ganz oben enthält alle Funktionen – auch per Tastatur mit \`Alt\` und dem unterstrichenen Buchstaben. Unter **Datei → Einstellungen** stehen Sprache, Design, Raster und mehr.
 - Oben links auf der Arbeitsfläche wählst du, **worauf du schneidest**: Matte, Papier, Print & Cut, Rolle oder eine eigene Größe.
@@ -64,7 +64,7 @@ Der Dialog führt in vier Schritten durch den Schnitt:
 - **Schneiden**: Zusammenfassung prüfen und los.
 - **Testreihe**: ein Raster aus Quadraten – je Zeile eine Messertiefe, je Spalte ein Druck. Für jedes Material gibt es passende Vorschläge (Empfohlen, Feinabstimmung, nur Druck, nur Messertiefe); die Werte lassen sich auch selbst eintippen. Danach das sauberste Quadrat anklicken, Tiefe und Druck werden übernommen.
 - **Ebenen** (unten rechts): Doppelklick oder \`F2\` benennt um, Ziehen ändert die Reihenfolge, Rechtsklick zeigt Duplizieren, Löschen, Gruppieren und mehr. Gruppen (z. B. ein Sticker aus Bild und Konturen) lassen sich auf- und zuklappen.
-- **Material**: Neben dem Schneiden-Knopf steht das Material des Projekts und lässt sich direkt wechseln. War der Testschnitt gut und die Werte wurden angepasst, bietet Schnittwerk an, sie als eigenes Material zu speichern. Eigene Materialien verwaltest du unter **Plotter → Materialien …**.
+- **Material**: Das Material wählst du im Schneiden-Dialog; Schnittwerk merkt es sich für das Projekt. War der Testschnitt gut und die Werte wurden angepasst, bietet Schnittwerk an, sie als eigenes Material zu speichern. Eigene Materialien verwaltest du unter **Plotter → Materialien …**.
 - **Simulation**: zeigt vorher in Schnittreihenfolge, was der Plotter macht.
 - Die **Dauer** wird geschätzt und mit jedem Schnitt genauer.
 - Nach **Abbruch** oder Verbindungsfehler erscheint **Weiterschneiden** – der Schnitt geht dort weiter, wo er unterbrochen wurde. Matte dabei nicht bewegen.
@@ -146,7 +146,7 @@ export const DOCS_EN: DocSection[] = [
     text: `At start the **start page** opens (also by clicking “Schnittwerk” at the top left). Choose what you want to make – stickers, vinyl, heat transfer vinyl, paper, pen or a large design. Schnittwerk then sets material, mat and page accordingly.
 
 - Load pictures and vectors with **Import** (\`Ctrl+I\`) or drop them onto the work area.
-- The right side always shows what fits the selection. For a picture there are two ways: **Turn into cut lines** (tracing) or **As a sticker**. With nothing selected it shows the mat and tools for the whole sheet.
+- The right side always shows what fits the selection. For a picture there are two ways: **Turn into cut lines** (tracing) or **As a sticker**. With nothing selected it shows tools for the whole sheet.
 - **Cut** (\`Ctrl+Enter\`) takes you to the cutter.
 - The **menu bar** at the very top holds every function – also by keyboard with \`Alt\` and the underlined letter. **File → Settings** has language, theme, grid and more.
 - At the top left of the work area you choose **what you are cutting on**: mat, paper, Print & Cut, roll or a custom size.
@@ -193,7 +193,7 @@ The dialog guides you through the cut in four steps: **Prepare** (cutter, mat, m
 - **Test cut** (recommended): click a free spot of the material in the preview and cut a small square. Schnittwerk then asks how it looks – with “Not quite through” or “Too deep” the values are adjusted and the next test goes next to it.
 - **Test series**: a grid of squares – one blade depth per row, one force per column. Each material has suitable suggestions (recommended, fine tuning, force only, blade depth only); the values can also be typed in. Then click the cleanest square and depth and force are applied.
 - **Layers** (bottom right): double-click or \`F2\` renames, dragging changes the order, right-click offers duplicate, delete, group and more. Groups (e.g. a sticker made of picture and outlines) can be expanded and collapsed.
-- **Material**: the project's material is shown next to the cut button and can be changed there. If the test cut was good and the values were adjusted, Schnittwerk offers to save them as your own material. Manage your own materials under **Cutter → Materials …**.
+- **Material**: choose the material in the cut dialog; Schnittwerk remembers it for the project. If the test cut was good and the values were adjusted, Schnittwerk offers to save them as your own material. Manage your own materials under **Cutter → Materials …**.
 - **Simulation**: shows beforehand, in cutting order, what the cutter will do.
 - The **duration** is estimated and gets more accurate with every cut.
 - After **cancelling** or a connection error, **Continue cutting** appears – the cut resumes where it stopped. Do not move the mat.

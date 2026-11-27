@@ -1,13 +1,10 @@
 <script lang="ts">
   // "What am I working on?" – mat, paper, print & cut page, roll or a free
-  // size, in one place. `chip` = button with a popover (on the canvas),
-  // `inline` = the full list (side panel when nothing is selected).
+  // size, in one place: a chip with a popover at the top left of the canvas.
   import { customMat, editor, matKindOf, MATS, PAGES, rollMat, ROLL_MAX, type PageName } from "../editor.svelte";
   import { fmt } from "../geometry";
   import { t } from "../i18n.svelte";
   import Icon from "./Icon.svelte";
-
-  let { variant = "chip" }: { variant?: "chip" | "inline" } = $props();
 
   let open = $state(false);
   let root = $state<HTMLElement>();
@@ -101,10 +98,7 @@
   {/each}
 {/snippet}
 
-{#if variant === "inline"}
-  <div class="inline">{@render list()}</div>
-{:else}
-  <div class="chip-wrap" bind:this={root} data-tour="area">
+<div class="chip-wrap" bind:this={root} data-tour="area">
     <button class="chip" class:open onclick={() => (open = !open)} title={t("Worauf arbeitest du? Matte, Papier, Print & Cut oder Rolle")} aria-haspopup="menu" aria-expanded={open}>
       <Icon name={icon} size={14} />
       <span>{label}</span>
@@ -114,7 +108,6 @@
       <div class="pop" role="menu">{@render list()}</div>
     {/if}
   </div>
-{/if}
 
 <style>
   .chip-wrap {
@@ -171,7 +164,6 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
-  .inline .group-title:first-child,
   .pop .group-title:first-child {
     padding-top: 2px;
   }

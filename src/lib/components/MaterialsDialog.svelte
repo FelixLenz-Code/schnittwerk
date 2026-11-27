@@ -17,7 +17,7 @@
       <button class="btn icon" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
     <div class="body">
-      <p class="intro">{t("Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.")}</p>
+      <p class="intro">{t("Eigene Materialien erscheinen im Schneiden-Dialog zur Auswahl. Änderungen werden sofort gespeichert.")}</p>
       <MaterialsEditor />
     </div>
     <footer>

@@ -981,7 +981,6 @@ export const NL: Record<string, string> = {
   "Schneidematte": "Snijmat",
   "Papier ohne Matte": "Papier zonder mat",
   "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Waarop snijd je? Mat, papier, Print & Cut met registratiemarkeringen, rol zonder mat of een eigen formaat voor grote motieven.",
-  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Toont altijd wat bij de selectie past: de mat als er niets geselecteerd is, anders het object. Bij afbeeldingen ga je hier verder naar overtrekken of sticker. Onderaan staan de lagen.",
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Uitlijnen op raster en hulplijnen, plus zoom. Een klik op het percentage past de mat in beeld.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Verschijnt bij Print & Cut: print de pagina met registratiemarkeringen zonder schalen of bewaart hem als PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Leidt je stap voor stap door het snijden: plotter en mat, materiaal, een testsnede op een plek naar keuze en dan snijden.",
@@ -1025,7 +1024,6 @@ export const NL: Record<string, string> = {
   "{n} Objekte in der Gruppe": "{n} objecten in de groep",
   "getestet": "getest",
   "eigen": "eigen",
-  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Eigen materialen verschijnen bij het snijden en naast de snijknop. Wijzigingen worden direct opgeslagen.",
   "Materialien …": "Materialen …",
   // ---- zoom, real size (0.8.3) ----
   "Bildschirm für 1:1": "Scherm voor 1:1",
@@ -1054,6 +1052,8 @@ export const NL: Record<string, string> = {
   "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Ware grootte: 1 mm op het scherm = 1 mm in het echt (Ctrl+1)",
   "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Pijltjestoetsen ← → stellen fijn in (grover met Shift). Elk scherm wordt apart gekalibreerd.",
   "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} is nog niet gekalibreerd – 1:1 en het percentage kloppen hier maar ongeveer.",
+  "Eigene Materialien erscheinen im Schneiden-Dialog zur Auswahl. Änderungen werden sofort gespeichert.": "Eigen materialen verschijnen in het snijvenster. Wijzigingen worden direct opgeslagen.",
+  "Zeigt immer, was zur Auswahl passt: Werkzeuge für den ganzen Bogen, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Toont altijd wat bij de selectie past: gereedschap voor het hele vel als er niets geselecteerd is, anders het object. Bij afbeeldingen ga je hier verder naar overtrekken of sticker. Onderaan staan de lagen.",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -1088,7 +1088,7 @@ export const DOCS_NL: DocSection[] = [
     text: `Bij het starten opent de **startpagina** (ook via een klik op ‘Schnittwerk’ linksboven). Kies wat je wilt maken – stickers, vinyl, flexfolie, papier, pen of een groot ontwerp. Schnittwerk stelt dan materiaal, mat en pagina passend in.
 
 - Laad afbeeldingen en vectoren via **Importeren** (\`Ctrl+I\`) of sleep ze naar het werkgebied.
-- De rechterkant toont altijd wat bij de selectie past. Bij een afbeelding zijn er twee wegen: **Omzetten in snijlijnen** (overtrekken) of **Als sticker**. Zonder selectie staan daar de mat en gereedschap voor het hele vel.
+- De rechterkant toont altijd wat bij de selectie past. Bij een afbeelding zijn er twee wegen: **Omzetten in snijlijnen** (overtrekken) of **Als sticker**. Zonder selectie staat daar gereedschap voor het hele vel.
 - **Snijden** (\`Ctrl+Enter\`) brengt je naar de plotter.
 - De **menubalk** helemaal bovenaan bevat alle functies – ook via het toetsenbord met \`Alt\` en de onderstreepte letter. Onder **Bestand → Instellingen** staan taal, thema, raster en meer.
 
@@ -1132,7 +1132,7 @@ Het venster leidt je in vier stappen door het snijden: **Voorbereiden** (plotter
 - **Testsnede** (aanbevolen): klik in het voorbeeld op een vrije plek van het materiaal en snijd een klein vierkant. Daarna vraagt Schnittwerk hoe het eruitziet – bij ‘Niet helemaal door’ of ‘Te diep’ worden de waarden aangepast en komt de volgende test ernaast.
 - **Testreeks**: een raster van vierkanten – per rij één mesdiepte, per kolom één druk. Voor elk materiaal zijn er passende voorstellen (aanbevolen, fijnafstemming, alleen druk, alleen mesdiepte); de waarden kun je ook zelf intypen. Klik daarna op het netste vierkant en diepte en druk worden overgenomen.
 - **Lagen** (rechtsonder): dubbelklik of \`F2\` om te hernoemen, slepen om de volgorde te wijzigen, rechtsklik voor dupliceren, verwijderen, groeperen en meer. Groepen (bijv. een sticker met afbeelding en contouren) klap je in en uit.
-- **Materiaal**: het materiaal van het project staat naast de snijknop en is daar direct te wisselen. Was de testsnede goed en zijn de waarden aangepast, dan biedt Schnittwerk aan ze als eigen materiaal op te slaan. Eigen materialen beheer je onder **Plotter → Materialen …**.
+- **Materiaal**: kies het materiaal in het snijvenster; Schnittwerk onthoudt het voor het project. Was de testsnede goed en zijn de waarden aangepast, dan biedt Schnittwerk aan ze als eigen materiaal op te slaan. Eigen materialen beheer je onder **Plotter → Materialen …**.
 - **Simulatie**: toont vooraf, in snijvolgorde, wat de plotter gaat doen.
 - De **duur** wordt geschat en wordt met elke snede nauwkeuriger.
 - Na **annuleren** of een verbindingsfout verschijnt **Verder snijden** – het snijden gaat verder waar het stopte. Verschuif de mat niet.

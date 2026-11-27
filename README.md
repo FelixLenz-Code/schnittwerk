@@ -123,7 +123,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte.
   Ein Klick auf „Schnittwerk“ oben links führt jederzeit zurück zu dieser Startseite.
   Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
-- Rechte Seite folgt der Auswahl: ohne Auswahl Matte und Werkzeuge für den ganzen Bogen, bei Bildern
+- Rechte Seite folgt der Auswahl: ohne Auswahl Werkzeuge für den ganzen Bogen, bei Bildern
   zwei Wege (in Schnittlinien umwandeln oder Sticker), danach Vorschläge für den nächsten Schritt;
   Ebenen einklappbar darunter
 - Matte, Papier, Print & Cut, Rolle oder eigene Größe über einen Schalter oben links auf der Arbeitsfläche
@@ -171,8 +171,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 ### Schneiden
 - USB und Bluetooth LE (mit automatischem Wiederverbinden)
 - Materialbibliothek mit Vorlagen und eigenen Profilen: Messertiefe (AutoBlade), Druck,
-  Geschwindigkeit, Durchgänge, Überschnitt; eigene Materialien unter Plotter → Materialien,
-  Material des Projekts neben dem Schneiden-Knopf, gute Testwerte direkt als Material speichern
+  Geschwindigkeit, Durchgänge, Überschnitt; eigene Materialien unter Plotter → Materialien; gute Testwerte direkt als
+  Material speichern
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
 - Vorschau der Schnittreihenfolge mit animierter Simulation, Fortschritt, Pause und Abbrechen
 - Benachrichtigung und Ton, wenn ein Schnitt fertig ist

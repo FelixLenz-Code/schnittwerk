@@ -981,7 +981,6 @@ export const ES: Record<string, string> = {
   "Schneidematte": "Base de corte",
   "Papier ohne Matte": "Papel sin base",
   "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "¿Sobre qué cortas? Base, papel, Print & Cut con marcas de registro, rollo sin base o un tamaño propio para diseños grandes.",
-  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Muestra siempre lo que corresponde a la selección: la base si no hay nada seleccionado y, si no, el objeto. Con imágenes, desde aquí pasas a vectorizar o a pegatina. Las capas están abajo.",
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Ajuste a la cuadrícula y a las guías, además del zoom. Un clic en el porcentaje encaja la base.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Aparece con Print & Cut: imprime la página con marcas de registro sin escalar o la guarda como PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Te guía paso a paso: plóter y base, material, corte de prueba en el lugar que elijas y después el corte.",
@@ -1025,7 +1024,6 @@ export const ES: Record<string, string> = {
   "{n} Objekte in der Gruppe": "{n} objetos en el grupo",
   "getestet": "probado",
   "eigen": "propio",
-  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Los materiales propios aparecen para elegir al cortar y junto al botón Cortar. Los cambios se guardan al momento.",
   "Materialien …": "Materiales …",
   // ---- zoom, real size (0.8.3) ----
   "Bildschirm für 1:1": "Pantalla para 1:1",
@@ -1054,6 +1052,8 @@ export const ES: Record<string, string> = {
   "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Tamaño real: 1 mm en pantalla = 1 mm de verdad (Ctrl+1)",
   "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Las flechas ← → ajustan con precisión (más grueso con Mayús). Cada pantalla se calibra por separado.",
   "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} aún no está calibrada: aquí 1:1 y el porcentaje solo son aproximados.",
+  "Eigene Materialien erscheinen im Schneiden-Dialog zur Auswahl. Änderungen werden sofort gespeichert.": "Los materiales propios aparecen para elegir en el diálogo de corte. Los cambios se guardan al momento.",
+  "Zeigt immer, was zur Auswahl passt: Werkzeuge für den ganzen Bogen, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Muestra siempre lo que corresponde a la selección: herramientas para toda la hoja si no hay nada seleccionado y, si no, el objeto. Con imágenes, desde aquí pasas a vectorizar o a pegatina. Las capas están abajo.",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -1088,7 +1088,7 @@ export const DOCS_ES: DocSection[] = [
     text: `Al iniciar se abre la **página de inicio** (también con un clic en «Schnittwerk» arriba a la izquierda). Elige qué quieres hacer – pegatinas, vinilo, vinilo textil, papel, bolígrafo o un diseño grande. Schnittwerk ajusta entonces el material, la base y la página.
 
 - Carga imágenes y vectores con **Importar** (\`Ctrl+I\`) o arrástralos al área de trabajo.
-- La parte derecha muestra siempre lo que corresponde a la selección. Con una imagen hay dos caminos: **Convertir en líneas de corte** (vectorizar) o **Como pegatina**. Sin selección, muestra la base y herramientas para toda la hoja.
+- La parte derecha muestra siempre lo que corresponde a la selección. Con una imagen hay dos caminos: **Convertir en líneas de corte** (vectorizar) o **Como pegatina**. Sin selección, muestra herramientas para toda la hoja.
 - **Cortar** (\`Ctrl+Intro\`) te lleva al plotter.
 - La **barra de menús** de arriba del todo contiene todas las funciones – también con el teclado usando \`Alt\` y la letra subrayada. En **Archivo → Ajustes** están el idioma, el tema, la cuadrícula y más.
 
@@ -1132,7 +1132,7 @@ El diálogo te guía en cuatro pasos: **Preparar** (plóter, base, espejo), **Ma
 - **Corte de prueba** (recomendado): haz clic en un sitio libre del material en la vista previa y corta un pequeño cuadrado. Después Schnittwerk pregunta qué tal ha quedado; con «No corta del todo» o «Demasiado profundo» se ajustan los valores y la siguiente prueba va al lado.
 - **Serie de prueba**: una cuadrícula de cuadrados – una profundidad de cuchilla por fila y una presión por columna. Cada material tiene sugerencias adecuadas (recomendado, ajuste fino, solo presión, solo profundidad); los valores también se pueden escribir. Después haz clic en el cuadrado más limpio y se aplican profundidad y presión.
 - **Capas** (abajo a la derecha): doble clic o \`F2\` para renombrar, arrastrar para cambiar el orden, clic derecho para duplicar, eliminar, agrupar y más. Los grupos (p. ej. una pegatina con imagen y contornos) se pueden desplegar y plegar.
-- **Material**: el material del proyecto aparece junto al botón Cortar y se puede cambiar ahí. Si el corte de prueba salió bien y se ajustaron los valores, Schnittwerk ofrece guardarlos como material propio. Gestiona tus materiales en **Plotter → Materiales …**.
+- **Material**: elige el material en el diálogo de corte; Schnittwerk lo recuerda para el proyecto. Si el corte de prueba salió bien y se ajustaron los valores, Schnittwerk ofrece guardarlos como material propio. Gestiona tus materiales en **Plotter → Materiales …**.
 - **Simulación**: muestra de antemano, en orden de corte, lo que hará el plotter.
 - La **duración** se estima y se vuelve más precisa con cada corte.
 - Tras **cancelar** o un error de conexión aparece **Continuar el corte** – el corte sigue donde se detuvo. No muevas la base.

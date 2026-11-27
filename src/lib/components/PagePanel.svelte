@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Side panel when nothing is selected: the work surface and tools that act
-  // on the whole sheet.
+  // Side panel when nothing is selected: tools that act on the whole sheet.
+  // (Mat / paper is chosen with the switch at the top left of the canvas.)
   import { addWeeding, frameSelection, nestSelection } from "../actions";
   import { editor } from "../editor.svelte";
   import { t } from "../i18n.svelte";
@@ -8,7 +8,6 @@
   import Icon from "./Icon.svelte";
   import PixScanSection from "./PixScanSection.svelte";
   import Section from "./Section.svelte";
-  import SurfacePicker from "./SurfacePicker.svelte";
 
   const visible = $derived(editor.objects.filter((o) => o.visible && !o.locked));
   const hasPaths = $derived(visible.some((o) => o.type === "path" && o.cut !== false));
@@ -26,10 +25,6 @@
     }
   }
 </script>
-
-<Section id="surface" title={t("Worauf schneidest du?")}>
-  <SurfacePicker variant="inline" />
-</Section>
 
 {#if visible.length}
   <Section id="sheet" title={t("Für den ganzen Bogen")}>

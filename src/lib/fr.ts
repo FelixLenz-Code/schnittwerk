@@ -981,7 +981,6 @@ export const FR: Record<string, string> = {
   "Schneidematte": "Tapis de découpe",
   "Papier ohne Matte": "Papier sans tapis",
   "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Sur quoi découpez-vous ? Tapis, papier, Print & Cut avec repères, rouleau sans tapis ou une taille libre pour les grands motifs.",
-  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Affiche toujours ce qui correspond à la sélection : le tapis si rien n'est sélectionné, sinon l'objet. Pour les images, c'est d'ici qu'on passe à la vectorisation ou au sticker. Les calques sont en bas.",
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Aimantation à la grille et aux repères, plus le zoom. Un clic sur le pourcentage ajuste le tapis.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Apparaît avec Print & Cut : imprime la page avec repères sans mise à l'échelle ou l'enregistre en PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Vous guide pas à pas : plotter et tapis, matériau, test de coupe à l'endroit de votre choix, puis découpe.",
@@ -1025,7 +1024,6 @@ export const FR: Record<string, string> = {
   "{n} Objekte in der Gruppe": "{n} objets dans le groupe",
   "getestet": "testé",
   "eigen": "perso",
-  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Les matériaux personnalisés sont proposés lors de la découpe et à côté du bouton Découper. Les modifications sont enregistrées immédiatement.",
   "Materialien …": "Matériaux …",
   // ---- zoom, real size (0.8.3) ----
   "Bildschirm für 1:1": "Écran pour le 1:1",
@@ -1054,6 +1052,8 @@ export const FR: Record<string, string> = {
   "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Taille réelle : 1 mm à l'écran = 1 mm en vrai (Ctrl+1)",
   "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Les flèches ← → règlent finement (plus grossièrement avec Maj). Chaque écran est calibré séparément.",
   "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} n'est pas encore calibré – le 1:1 et le pourcentage ne sont qu'approximatifs ici.",
+  "Eigene Materialien erscheinen im Schneiden-Dialog zur Auswahl. Änderungen werden sofort gespeichert.": "Les matériaux personnalisés sont proposés dans la fenêtre de découpe. Les modifications sont enregistrées immédiatement.",
+  "Zeigt immer, was zur Auswahl passt: Werkzeuge für den ganzen Bogen, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Affiche toujours ce qui correspond à la sélection : les outils pour toute la feuille si rien n'est sélectionné, sinon l'objet. Pour les images, c'est d'ici qu'on passe à la vectorisation ou au sticker. Les calques sont en bas.",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -1088,7 +1088,7 @@ export const DOCS_FR: DocSection[] = [
     text: `Au démarrage, la **page d'accueil** s'ouvre (aussi en cliquant sur « Schnittwerk » en haut à gauche). Choisissez ce que vous voulez créer – stickers, vinyle, flex thermocollant, papier, stylo ou grand motif. Schnittwerk règle alors le matériau, le tapis et la page.
 
 - Chargez images et vecteurs avec **Importer** (\`Ctrl+I\`) ou glissez-les sur la zone de travail.
-- Le côté droit montre toujours ce qui correspond à la sélection. Pour une image, deux voies : **Convertir en lignes de découpe** (vectoriser) ou **En sticker**. Sans sélection, il affiche le tapis et les outils pour toute la feuille.
+- Le côté droit montre toujours ce qui correspond à la sélection. Pour une image, deux voies : **Convertir en lignes de découpe** (vectoriser) ou **En sticker**. Sans sélection, il affiche les outils pour toute la feuille.
 - **Découper** (\`Ctrl+Entrée\`) mène à la machine.
 - La **barre de menus** tout en haut contient toutes les fonctions – aussi au clavier avec \`Alt\` et la lettre soulignée. **Fichier → Paramètres** regroupe langue, thème, grille et plus.
 
@@ -1132,7 +1132,7 @@ La fenêtre guide la découpe en quatre étapes : **Préparer** (plotter, tapis,
 - **Test de coupe** (recommandé) : cliquez sur un endroit libre du matériau dans l'aperçu et découpez un petit carré. Schnittwerk demande ensuite le résultat – avec « Pas tout à fait coupé » ou « Trop profond », les valeurs sont ajustées et le test suivant se place à côté.
 - **Série de test** : une grille de carrés – une profondeur de lame par ligne, une pression par colonne. Chaque matériau a des suggestions adaptées (recommandé, réglage fin, pression seule, profondeur seule) ; les valeurs peuvent aussi être saisies. Cliquez ensuite sur le carré le plus net : profondeur et pression sont appliquées.
 - **Calques** (en bas à droite) : double-clic ou \`F2\` pour renommer, glisser pour changer l'ordre, clic droit pour dupliquer, supprimer, grouper et plus. Les groupes (p. ex. un sticker avec image et contours) se déplient et se replient.
-- **Matériau** : le matériau du projet est affiché à côté du bouton Découper et s'y change directement. Si le test de coupe était bon et que les valeurs ont été ajustées, Schnittwerk propose de les enregistrer comme matériau personnalisé. Gérez vos matériaux sous **Machine → Matériaux …**.
+- **Matériau** : choisissez le matériau dans la fenêtre de découpe ; Schnittwerk le retient pour le projet. Si le test de coupe était bon et que les valeurs ont été ajustées, Schnittwerk propose de les enregistrer comme matériau personnalisé. Gérez vos matériaux sous **Machine → Matériaux …**.
 - **Simulation** : montre à l'avance, dans l'ordre de découpe, ce que fera la machine.
 - La **durée** est estimée et devient plus précise à chaque découpe.
 - Après une **annulation** ou une erreur de connexion, **Reprendre la découpe** apparaît – la découpe reprend là où elle s'est arrêtée. Ne déplacez pas le tapis.
