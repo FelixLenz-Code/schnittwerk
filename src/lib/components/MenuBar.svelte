@@ -12,6 +12,7 @@
   import { startTour } from "../tour.svelte";
   import { setTheme, ui } from "../ui.svelte";
   import { updater } from "../update.svelte";
+  import { noteRealSizeUse, openCalibration, screen } from "../screen.svelte";
   import { wizardUi } from "../wizard.svelte";
   import type { PathObj } from "../types";
   import Icon from "./Icon.svelte";
@@ -38,7 +39,7 @@
   const sel = () => editor.selected.length;
   /** A dialog covers the window – the menu stays closed. */
   const modalOpen = () =>
-    plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen;
+    plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen || screen.dialogOpen;
   const ctrl = () => t("Strg");
 
   async function quit() {
@@ -190,7 +191,8 @@
         return [
           { label: "Vergrößern", keys: `${ctrl()}++`, action: () => editor.zoomBy(1.25) },
           { label: "Verkleinern", keys: `${ctrl()}+−`, action: () => editor.zoomBy(0.8) },
-          { label: "Originalgröße (1:1)", keys: `${ctrl()}+1`, action: () => editor.setZoomPercent(100) },
+          { label: "Originalgröße (1:1)", keys: `${ctrl()}+1`, action: () => { editor.setZoomPercent(100); noteRealSizeUse(); } },
+          { label: "Bildschirm kalibrieren …", action: openCalibration },
           { label: "Matte einpassen", keys: `${ctrl()}+0`, action: () => editor.fitMat() },
           { label: "Auswahl einpassen", keys: `${ctrl()}+2`, action: () => editor.fitSelection() },
           "sep",

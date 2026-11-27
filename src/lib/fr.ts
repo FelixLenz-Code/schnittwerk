@@ -1041,6 +1041,19 @@ export const FR: Record<string, string> = {
   "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom en pourcentage de la taille réelle – saisir un nombre puis Entrée",
   "{v} Pixel pro mm": "{v} pixels par mm",
   "kalibriert ({d} dpi)": "calibré ({d} dpi)",
+  // ---- calibration per screen (0.8.4) ----
+  "Anderer Bildschirm erkannt": "Autre écran détecté",
+  "Bildschirm kalibrieren": "Calibrer l'écran",
+  "Bildschirm kalibrieren …": "Calibrer l'écran …",
+  "Bildschirm kalibriert – 100 % entspricht jetzt der echten Größe.": "Écran calibré – 100 % correspond maintenant à la taille réelle.",
+  "Bildschirm noch nicht kalibriert": "Écran pas encore calibré",
+  "Damit 1:1 wirklich der echten Größe entspricht, einmal mit einer Bankkarte kalibrieren.": "Pour que le 1:1 corresponde vraiment à la taille réelle, calibrez une fois avec une carte bancaire.",
+  "Gilt für: {m}": "S'applique à : {m}",
+  "Jetzt kalibrieren": "Calibrer maintenant",
+  "Originalgröße (Strg+1) – dieser Bildschirm ist noch nicht kalibriert: Ansicht → Bildschirm kalibrieren": "Taille réelle (Ctrl+1) – cet écran n'est pas encore calibré : Affichage → Calibrer l'écran",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Taille réelle : 1 mm à l'écran = 1 mm en vrai (Ctrl+1)",
+  "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Les flèches ← → règlent finement (plus grossièrement avec Maj). Chaque écran est calibré séparément.",
+  "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} n'est pas encore calibré – le 1:1 et le pourcentage ne sont qu'approximatifs ici.",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -1175,7 +1188,7 @@ Le même menu affiche le **compteur de lame** : distance découpée depuis le de
 - \`Ctrl+Z\` / \`Ctrl+Y\` annuler / rétablir (l'info-bulle nomme l'étape)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` copier / couper / coller
 - \`Ctrl+D\` dupliquer, \`Suppr\` supprimer, \`Ctrl+G\` grouper
-- \`Ctrl+0\` ajuster au tapis, \`Ctrl+2\` ajuster à la sélection, \`Ctrl+1\` taille réelle (1:1), molette = zoom ; le zoom peut aussi être saisi en bas à droite. Pour un vrai 1:1, calibrez l'écran dans **Fichier → Paramètres**.
+- \`Ctrl+0\` ajuster au tapis, \`Ctrl+2\` ajuster à la sélection, \`Ctrl+1\` taille réelle (1:1), molette = zoom ; le zoom peut aussi être saisi en bas à droite. Pour un vrai 1:1, calibrez l'écran avec une carte bancaire dans **Affichage → Calibrer l'écran** – chaque écran est enregistré séparément.
 - \`Ctrl+S\` enregistrer, \`Ctrl+O\` ouvrir, \`Ctrl+N\` page d'accueil, \`Ctrl+I\` importer
 - \`Ctrl+Entrée\` découper, \`Ctrl+P\` imprimer, \`Ctrl+Q\` quitter
 - \`F1\` aide, \`Alt\`+lettre ouvre un menu

@@ -1039,6 +1039,19 @@ export const EN: Record<string, string> = {
   "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom in percent of the actual size – type a number and press Enter",
   "{v} Pixel pro mm": "{v} pixels per mm",
   "kalibriert ({d} dpi)": "calibrated ({d} dpi)",
+  // ---- calibration per screen (0.8.4) ----
+  "Anderer Bildschirm erkannt": "Different screen detected",
+  "Bildschirm kalibrieren": "Calibrate screen",
+  "Bildschirm kalibrieren …": "Calibrate screen …",
+  "Bildschirm kalibriert – 100 % entspricht jetzt der echten Größe.": "Screen calibrated – 100 % now matches the actual size.",
+  "Bildschirm noch nicht kalibriert": "Screen not calibrated yet",
+  "Damit 1:1 wirklich der echten Größe entspricht, einmal mit einer Bankkarte kalibrieren.": "To make 1:1 truly match the actual size, calibrate once with a bank card.",
+  "Gilt für: {m}": "Applies to: {m}",
+  "Jetzt kalibrieren": "Calibrate now",
+  "Originalgröße (Strg+1) – dieser Bildschirm ist noch nicht kalibriert: Ansicht → Bildschirm kalibrieren": "Actual size (Ctrl+1) – this screen is not calibrated yet: View → Calibrate screen",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Actual size: 1 mm on screen = 1 mm in reality (Ctrl+1)",
+  "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Arrow keys ← → fine-tune (coarser with Shift). Each screen is calibrated separately.",
+  "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} is not calibrated yet – 1:1 and the percentage are only approximate here.",
 };
 
 /** Backend messages with a variable part: $1 … is translated again. */

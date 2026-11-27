@@ -30,6 +30,8 @@
   import SettingsDialog from "./lib/components/SettingsDialog.svelte";
   import AboutDialog from "./lib/components/AboutDialog.svelte";
   import MaterialsDialog from "./lib/components/MaterialsDialog.svelte";
+  import CalibrationDialog from "./lib/components/CalibrationDialog.svelte";
+  import { dismissHint, noteRealSizeUse, openCalibration, screen, startScreenWatch } from "./lib/screen.svelte";
   import { ui } from "./lib/ui.svelte";
 
 
@@ -51,6 +53,7 @@
     requestAnimationFrame(() => editor.fitMat());
     plotter.start();
     startAutosave();
+    startScreenWatch();
     // Look for a new version a little after start (quietly, see update.svelte.ts).
     setTimeout(() => updater.autoCheck(), 4000);
     // Leftover unsaved work is offered in the assistant, which opens at
@@ -103,6 +106,12 @@
     return () => (live = false);
   });
 
+  /** 100 % = real size; points out a missing calibration. */
+  function realSize() {
+    editor.setZoomPercent(100);
+    noteRealSizeUse();
+  }
+
   /** Text in the zoom field while it is being edited. */
   let zoomEdit = $state<string | null>(null);
 
@@ -110,7 +119,7 @@
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen || screen.dialogOpen) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -157,7 +166,7 @@
         p: () => (plotter.printOpen = true),
         g: () => (e.shiftKey ? editor.ungroupSelected() : editor.groupSelected()),
         "0": () => editor.fitMat(),
-        "1": () => editor.setZoomPercent(100),
+        "1": () => realSize(),
         "2": () => editor.fitSelection(),
         q: () => import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().close()),
         "+": () => editor.zoomBy(1.25),
@@ -296,15 +305,31 @@
             }
           }}
           onblur={() => {
-            if (zoomEdit !== null) editor.setZoomPercent(parseFloat(zoomEdit.replace(",", ".")));
+            if (zoomEdit !== null && zoomEdit.trim() !== String(Math.round(editor.zoomPercent))) {
+              editor.setZoomPercent(parseFloat(zoomEdit.replace(",", ".")));
+              noteRealSizeUse();
+            }
             zoomEdit = null;
           }}
         />
         <button class="btn icon" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
         <span class="vdiv"></span>
-        <button class="btn real" title={t("Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.")} onclick={() => editor.setZoomPercent(100)}>1:1</button>
+        <button class="btn real" class:uncal={!screen.calibrated} title={screen.calibrated ? t("Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)") : t("Originalgröße (Strg+1) – dieser Bildschirm ist noch nicht kalibriert: Ansicht → Bildschirm kalibrieren")} onclick={realSize}>1:1</button>
         <button class="btn icon" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}><Icon name="fit" /></button>
       </div>
+      {#if screen.hint}
+        <div class="calib-hint" role="status">
+          <Icon name="fit" size={16} />
+          <div>
+            <strong>{screen.hint === "switch" ? t("Anderer Bildschirm erkannt") : t("Bildschirm noch nicht kalibriert")}</strong>
+            <span>{screen.hint === "switch" ? t("{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.", { m: screen.label }) : t("Damit 1:1 wirklich der echten Größe entspricht, einmal mit einer Bankkarte kalibrieren.")}</span>
+            <div class="calib-actions">
+              <button class="btn outline" onclick={dismissHint}>{t("Später")}</button>
+              <button class="btn primary" onclick={openCalibration}>{t("Jetzt kalibrieren")}</button>
+            </div>
+          </div>
+        </div>
+      {/if}
       {#if !editor.objects.length && !wizardUi.open && !dropping}
         <div class="empty">
           <div class="empty-card">
@@ -359,6 +384,9 @@
   {/if}
   {#if ui.materialsOpen}
     <MaterialsDialog />
+  {/if}
+  {#if screen.dialogOpen}
+    <CalibrationDialog />
   {/if}
   <Tour />
   {#if updater.dialogOpen}
@@ -518,9 +546,56 @@
     background: var(--panel-2);
   }
   .real {
+    position: relative;
     padding: 0 7px;
     font-size: 12px;
     font-weight: 600;
+  }
+  /* Small dot: real size is only approximate until calibrated. */
+  .real.uncal::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--warn);
+  }
+  .calib-hint {
+    position: absolute;
+    right: 14px;
+    bottom: 60px;
+    z-index: 6;
+    display: flex;
+    gap: 10px;
+    width: 300px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: var(--radius);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .calib-hint > :global(svg) {
+    flex: none;
+    margin-top: 1px;
+    color: var(--warn);
+  }
+  .calib-hint div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .calib-hint span {
+    color: var(--text-2);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .calib-actions {
+    flex-direction: row !important;
+    gap: 6px !important;
+    margin-top: 6px;
   }
   .empty {
     position: absolute;

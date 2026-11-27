@@ -120,7 +120,7 @@ Im selben Menü steht der **Messer-Zähler**: geschnittene Strecke seit dem letz
 - \`Strg+Z\` / \`Strg+Y\` Rückgängig / Wiederholen (der Tooltip nennt den Schritt)
 - \`Strg+C\` / \`Strg+X\` / \`Strg+V\` Kopieren / Ausschneiden / Einfügen
 - \`Strg+D\` Duplizieren, \`Entf\` Löschen, \`Strg+G\` Gruppieren
-- \`Strg+0\` Matte einpassen, \`Strg+2\` Auswahl einpassen, \`Strg+1\` Originalgröße (1:1), Mausrad = Zoom; unten rechts lässt sich der Zoom auch eintippen. Für echte 1:1-Größe den Bildschirm unter **Datei → Einstellungen** kalibrieren.
+- \`Strg+0\` Matte einpassen, \`Strg+2\` Auswahl einpassen, \`Strg+1\` Originalgröße (1:1), Mausrad = Zoom; unten rechts lässt sich der Zoom auch eintippen. Für echte 1:1-Größe den Bildschirm unter **Ansicht → Bildschirm kalibrieren** mit einer Bankkarte abgleichen – jeder Bildschirm wird einzeln gespeichert, Schnittwerk weist auf nicht kalibrierte Bildschirme hin.
 - \`Strg+S\` Speichern, \`Strg+O\` Öffnen, \`Strg+N\` Startseite, \`Strg+I\` Importieren
 - \`Strg+Enter\` Schneiden, \`Strg+P\` Drucken, \`Strg+Q\` Beenden
 - \`F1\` Hilfe, \`Alt\`+Buchstabe öffnet ein Menü
@@ -249,7 +249,7 @@ The same menu shows the **blade counter**: distance cut since the last blade cha
 - \`Ctrl+Z\` / \`Ctrl+Y\` undo / redo (the tooltip names the step)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` copy / cut / paste
 - \`Ctrl+D\` duplicate, \`Del\` delete, \`Ctrl+G\` group
-- \`Ctrl+0\` fit mat, \`Ctrl+2\` fit selection, \`Ctrl+1\` actual size (1:1), mouse wheel = zoom; the zoom can also be typed in at the bottom right. For true 1:1 size, calibrate the screen under **File → Settings**.
+- \`Ctrl+0\` fit mat, \`Ctrl+2\` fit selection, \`Ctrl+1\` actual size (1:1), mouse wheel = zoom; the zoom can also be typed in at the bottom right. For true 1:1 size, match the screen with a bank card under **View → Calibrate screen** – each screen is stored separately, and Schnittwerk points out uncalibrated screens.
 - \`Ctrl+S\` save, \`Ctrl+O\` open, \`Ctrl+N\` start page, \`Ctrl+I\` import
 - \`Ctrl+Enter\` cut, \`Ctrl+P\` print, \`Ctrl+Q\` quit
 - \`F1\` help, \`Alt\`+letter opens a menu

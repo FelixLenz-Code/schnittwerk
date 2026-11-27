@@ -139,7 +139,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Raster beim Verschieben (0,5–10 mm) und Winkelschritte beim Drehen (1–90°), standardmäßig an
 - Maße direkt am Objekt anzeigen und per Klick eingeben
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste;
-  Zoom in Prozent eintippbar, Originalgröße 1:1 mit Kalibrierung per Bankkarte
+  Zoom in Prozent eintippbar, Originalgröße 1:1 mit Kalibrierung per Bankkarte (je Bildschirm,
+  Hinweis bei nicht kalibrierten Bildschirmen)
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
 - Ausrichten, gleichmäßig verteilen, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
   (umbenennen per Doppelklick oder F2, Reihenfolge per Ziehen, Rechtsklick-Menü, Mini-Vorschau, Gruppen aufklappbar)
@@ -254,7 +255,7 @@ Werkzeuge: `plotter_status`, `list_materials`, `trace_image`, `sticker_sheet`, `
 | `Leertaste` + Ziehen, mittlere Maustaste | Ansicht verschieben |
 | Mausrad | Zoom (Shift = horizontal scrollen) |
 | `Strg+0` / `Strg+2` | Matte einpassen / Auswahl einpassen |
-| `Strg+1` | Originalgröße 1:1 (Bildschirm unter Einstellungen kalibrieren) |
+| `Strg+1` | Originalgröße 1:1 (Bildschirm unter Ansicht → Bildschirm kalibrieren) |
 | Rechtsklick | Menü mit den häufigsten Aktionen |
 | `Alt`+Buchstabe / `F1` / `Strg+Q` | Menü öffnen / Hilfe / Beenden |
 | `Strg+I` / `Strg+E` | Importieren / SVG exportieren |

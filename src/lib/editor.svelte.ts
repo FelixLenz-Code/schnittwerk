@@ -499,15 +499,15 @@ class Editor {
     this.zoomAt(factor, this.viewport.w / 2, this.viewport.h / 2);
   }
 
-  /** Screen pixels (CSS px) per real millimetre – 96 dpi until the screen
-   *  is calibrated in the settings. 100 % zoom = real size. */
-  #screenPxPerMm = $state(loadNum("screenPxPerMm", DEFAULT_PX_PER_MM));
+  /** Screen pixels (CSS px) per real millimetre of the current monitor –
+   *  96 dpi until it is calibrated (screen.svelte.ts keeps one value per
+   *  monitor). 100 % zoom = real size. */
+  #screenPxPerMm = $state(DEFAULT_PX_PER_MM);
   get screenPxPerMm() {
     return this.#screenPxPerMm;
   }
   set screenPxPerMm(v: number) {
     this.#screenPxPerMm = v;
-    saveNum("screenPxPerMm", v);
   }
 
   /** Zoom in percent of the real size. */

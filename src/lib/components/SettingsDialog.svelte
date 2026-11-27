@@ -10,7 +10,6 @@
   import Icon from "./Icon.svelte";
   import Segmented from "./Segmented.svelte";
   import Toggle from "./Toggle.svelte";
-  import ScreenCalibration from "./ScreenCalibration.svelte";
 
   const close = () => (ui.settingsOpen = false);
 </script>
@@ -62,7 +61,6 @@
             {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
           </select>
         </div>
-        <ScreenCalibration />
       </section>
       <section>
         <h3 class="section-title">{t("Plotter")}</h3>

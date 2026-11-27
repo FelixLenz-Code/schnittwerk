@@ -1041,6 +1041,19 @@ export const NL: Record<string, string> = {
   "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom in procent van de ware grootte – getal typen en Enter",
   "{v} Pixel pro mm": "{v} pixels per mm",
   "kalibriert ({d} dpi)": "gekalibreerd ({d} dpi)",
+  // ---- calibration per screen (0.8.4) ----
+  "Anderer Bildschirm erkannt": "Ander scherm herkend",
+  "Bildschirm kalibrieren": "Scherm kalibreren",
+  "Bildschirm kalibrieren …": "Scherm kalibreren …",
+  "Bildschirm kalibriert – 100 % entspricht jetzt der echten Größe.": "Scherm gekalibreerd – 100 % komt nu overeen met de ware grootte.",
+  "Bildschirm noch nicht kalibriert": "Scherm nog niet gekalibreerd",
+  "Damit 1:1 wirklich der echten Größe entspricht, einmal mit einer Bankkarte kalibrieren.": "Kalibreer één keer met een bankpas, zodat 1:1 echt overeenkomt met de ware grootte.",
+  "Gilt für: {m}": "Geldt voor: {m}",
+  "Jetzt kalibrieren": "Nu kalibreren",
+  "Originalgröße (Strg+1) – dieser Bildschirm ist noch nicht kalibriert: Ansicht → Bildschirm kalibrieren": "Ware grootte (Ctrl+1) – dit scherm is nog niet gekalibreerd: Beeld → Scherm kalibreren",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Ware grootte: 1 mm op het scherm = 1 mm in het echt (Ctrl+1)",
+  "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Pijltjestoetsen ← → stellen fijn in (grover met Shift). Elk scherm wordt apart gekalibreerd.",
+  "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} is nog niet gekalibreerd – 1:1 en het percentage kloppen hier maar ongeveer.",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -1175,7 +1188,7 @@ Hetzelfde menu toont de **messenteller**: gesneden afstand sinds de laatste mesw
 - \`Ctrl+Z\` / \`Ctrl+Y\` ongedaan maken / opnieuw (de tooltip noemt de stap)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` kopiëren / knippen / plakken
 - \`Ctrl+D\` dupliceren, \`Del\` verwijderen, \`Ctrl+G\` groeperen
-- \`Ctrl+0\` mat passend maken, \`Ctrl+2\` selectie passend maken, \`Ctrl+1\` ware grootte (1:1), muiswiel = zoom; rechtsonder kun je de zoom ook intypen. Voor echte 1:1 het scherm kalibreren onder **Bestand → Instellingen**.
+- \`Ctrl+0\` mat passend maken, \`Ctrl+2\` selectie passend maken, \`Ctrl+1\` ware grootte (1:1), muiswiel = zoom; rechtsonder kun je de zoom ook intypen. Voor echte 1:1 het scherm met een bankpas kalibreren onder **Beeld → Scherm kalibreren** – elk scherm wordt apart opgeslagen.
 - \`Ctrl+S\` opslaan, \`Ctrl+O\` openen, \`Ctrl+N\` startpagina, \`Ctrl+I\` importeren
 - \`Ctrl+Enter\` snijden, \`Ctrl+P\` printen, \`Ctrl+Q\` afsluiten
 - \`F1\` help, \`Alt\`+letter opent een menu

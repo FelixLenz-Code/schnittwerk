@@ -1041,6 +1041,19 @@ export const ES: Record<string, string> = {
   "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom en porcentaje del tamaño real: escribe un número y pulsa Intro",
   "{v} Pixel pro mm": "{v} píxeles por mm",
   "kalibriert ({d} dpi)": "calibrado ({d} dpi)",
+  // ---- calibration per screen (0.8.4) ----
+  "Anderer Bildschirm erkannt": "Otra pantalla detectada",
+  "Bildschirm kalibrieren": "Calibrar pantalla",
+  "Bildschirm kalibrieren …": "Calibrar pantalla …",
+  "Bildschirm kalibriert – 100 % entspricht jetzt der echten Größe.": "Pantalla calibrada: el 100 % corresponde ahora al tamaño real.",
+  "Bildschirm noch nicht kalibriert": "Pantalla aún sin calibrar",
+  "Damit 1:1 wirklich der echten Größe entspricht, einmal mit einer Bankkarte kalibrieren.": "Para que 1:1 corresponda de verdad al tamaño real, calibra una vez con una tarjeta bancaria.",
+  "Gilt für: {m}": "Se aplica a: {m}",
+  "Jetzt kalibrieren": "Calibrar ahora",
+  "Originalgröße (Strg+1) – dieser Bildschirm ist noch nicht kalibriert: Ansicht → Bildschirm kalibrieren": "Tamaño real (Ctrl+1): esta pantalla aún no está calibrada: Ver → Calibrar pantalla",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1)": "Tamaño real: 1 mm en pantalla = 1 mm de verdad (Ctrl+1)",
+  "Pfeiltasten ← → stellen fein ein (mit Umschalt gröber). Jeder Bildschirm wird einzeln kalibriert.": "Las flechas ← → ajustan con precisión (más grueso con Mayús). Cada pantalla se calibra por separado.",
+  "{m} ist noch nicht kalibriert – 1:1 und die Prozentzahl stimmen hier nur ungefähr.": "{m} aún no está calibrada: aquí 1:1 y el porcentaje solo son aproximados.",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -1175,7 +1188,7 @@ El mismo menú muestra el **contador de cuchilla**: distancia cortada desde el �
 - \`Ctrl+Z\` / \`Ctrl+Y\` deshacer / rehacer (la información emergente nombra el paso)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` copiar / cortar / pegar
 - \`Ctrl+D\` duplicar, \`Supr\` eliminar, \`Ctrl+G\` agrupar
-- \`Ctrl+0\` ajustar a la base, \`Ctrl+2\` ajustar a la selección, \`Ctrl+1\` tamaño real (1:1), rueda del ratón = zoom; abajo a la derecha también se puede escribir el zoom. Para un 1:1 real, calibra la pantalla en **Archivo → Ajustes**.
+- \`Ctrl+0\` ajustar a la base, \`Ctrl+2\` ajustar a la selección, \`Ctrl+1\` tamaño real (1:1), rueda del ratón = zoom; abajo a la derecha también se puede escribir el zoom. Para un 1:1 real, calibra la pantalla con una tarjeta bancaria en **Ver → Calibrar pantalla**; cada pantalla se guarda por separado.
 - \`Ctrl+S\` guardar, \`Ctrl+O\` abrir, \`Ctrl+N\` inicio, \`Ctrl+I\` importar
 - \`Ctrl+Intro\` cortar, \`Ctrl+P\` imprimir, \`Ctrl+Q\` salir
 - \`F1\` ayuda, \`Alt\`+letra abre un menú
