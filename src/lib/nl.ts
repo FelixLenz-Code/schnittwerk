@@ -985,6 +985,23 @@ export const NL: Record<string, string> = {
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Uitlijnen op raster en hulplijnen, plus zoom. Een klik op het percentage past de mat in beeld.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Verschijnt bij Print & Cut: print de pagina met registratiemarkeringen zonder schalen of bewaart hem als PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Leidt je stap voor stap door het snijden: plotter en mat, materiaal, een testsnede op een plek naar keuze en dan snijden.",
+  // ---- test grid, layers (0.8.1) ----
+  "Doppelklick: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Dubbelklik: hernoemen · Slepen: volgorde wijzigen · Rechtsklik: meer acties",
+  "Druck bleibt, mehrere Tiefen": "Druk blijft, meerdere diepten",
+  "Empfohlen": "Aanbevolen",
+  "Feinabstimmung": "Fijnafstemming",
+  "Höchstens {n} Quadrate auf einmal.": "Maximaal {n} vierkanten tegelijk.",
+  "Kleine Schritte um die aktuellen Werte": "Kleine stappen rond de huidige waarden",
+  "Mehrere Testquadrate mit verschiedenen Kombinationen aus Messertiefe und Druck": "Meerdere testvierkanten met verschillende combinaties van mesdiepte en druk",
+  "Messertiefe bleibt, fünf Druckstufen": "Mesdiepte blijft, vijf drukstappen",
+  "Messertiefe {d} und Druck {p} übernommen – zum Behalten das Material speichern.": "Mesdiepte {d} en druk {p} overgenomen – sla het materiaal op om ze te bewaren.",
+  "Nur Druck": "Alleen druk",
+  "Nur Messertiefe": "Alleen mesdiepte",
+  "Typischer Bereich für dieses Material": "Gebruikelijk bereik voor dit materiaal",
+  "Vorschläge für {m}": "Voorstellen voor {m}",
+  "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "Welk vierkant is het netst? Zo liggen ze op de mat:",
+  "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} vierkanten naast elkaar, druk neemt naar rechts toe.",
+  "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} vierkanten: per rij één mesdiepte (van boven), druk neemt naar rechts toe.",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -1061,7 +1078,8 @@ Ligt de snede net naast de print, corrigeer dat dan met het testvel onder **Fijn
 Het venster leidt je in vier stappen door het snijden: **Voorbereiden** (plotter, mat, spiegelen), **Materiaal**, **Testsnede** en **Snijden**.
 
 - **Testsnede** (aanbevolen): klik in het voorbeeld op een vrije plek van het materiaal en snijd een klein vierkant. Daarna vraagt Schnittwerk hoe het eruitziet – bij ‘Niet helemaal door’ of ‘Te diep’ worden de waarden aangepast en komt de volgende test ernaast.
-- **Testreeks**: meerdere vierkanten met oplopende druk of mesdiepte – klik daarna op het netste en de waarde wordt toegepast.
+- **Testreeks**: een raster van vierkanten – per rij één mesdiepte, per kolom één druk. Voor elk materiaal zijn er passende voorstellen (aanbevolen, fijnafstemming, alleen druk, alleen mesdiepte); de waarden kun je ook zelf intypen. Klik daarna op het netste vierkant en diepte en druk worden overgenomen.
+- **Lagen** (rechtsonder): dubbelklik om te hernoemen, slepen om de volgorde te wijzigen, rechtsklik voor dupliceren, verwijderen, groeperen en meer.
 - **Simulatie**: toont vooraf, in snijvolgorde, wat de plotter gaat doen.
 - De **duur** wordt geschat en wordt met elke snede nauwkeuriger.
 - Na **annuleren** of een verbindingsfout verschijnt **Verder snijden** – het snijden gaat verder waar het stopte. Verschuif de mat niet.

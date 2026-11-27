@@ -3,12 +3,18 @@ resolver = "2"
 members = ["crates/schnittwerk-core", "crates/schnittwerk-plotter", "crates/schnittwerk-mcp", "crates/schnittwerk-cli", "src-tauri"]
 
 [workspace.package]
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
+# Debug builds keep only file/line info (backtraces still point to the
+# source) – full debug info made every build several hundred MB.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.dev.package."*"]
 opt-level = 2
+debug = "line-tables-only"
 
 # Tracing is CPU-heavy: optimize the core even in dev builds.
 [profile.dev.package.schnittwerk-core]

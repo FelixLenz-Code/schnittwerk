@@ -380,14 +380,23 @@ pub async fn cut_test(app: AppHandle, x: f64, y: f64, settings: CutSettings, mgr
     start_job(app, &mgr, vec![(gpgl::test_pattern(x, y), settings)], None, None, (0, 0))
 }
 
-/// Test series: one test pattern per settings entry, side by side from
-/// (x, y) with 13 mm spacing, cut in this order (e.g. increasing force).
+/// Test series: one test pattern per settings entry from (x, y) with 13 mm
+/// spacing, `cols` per row (default: all in one row), cut in this order –
+/// e.g. rows of increasing blade depth with increasing force.
 #[tauri::command]
-pub async fn cut_test_series(app: AppHandle, x: f64, y: f64, settings: Vec<CutSettings>, mgr: TauriState<'_, PlotterManager>) -> Result<Started, String> {
+pub async fn cut_test_series(
+    app: AppHandle,
+    x: f64,
+    y: f64,
+    settings: Vec<CutSettings>,
+    cols: Option<usize>,
+    mgr: TauriState<'_, PlotterManager>,
+) -> Result<Started, String> {
     if settings.is_empty() {
         return Err("Keine Schnittlinien vorhanden.".into());
     }
-    let groups = settings.into_iter().enumerate().map(|(i, s)| (gpgl::test_pattern(x + i as f64 * 13.0, y), s)).collect();
+    let pos = gpgl::test_series_positions(x, y, settings.len(), cols.unwrap_or(settings.len()));
+    let groups = settings.into_iter().zip(pos).map(|(s, (px, py))| (gpgl::test_pattern(px, py), s)).collect();
     start_job(app, &mgr, groups, None, None, (0, 0))
 }
 

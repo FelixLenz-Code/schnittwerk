@@ -324,9 +324,27 @@ pub fn test_pattern(x: f64, y: f64) -> Vec<Vec<Point>> {
     ]
 }
 
+/// Pitch of the squares in a test series (10 mm square + 3 mm gap).
+pub const TEST_PITCH: f64 = 13.0;
+
+/// Top-left corners of `n` test patterns from (x, y): `cols` per row, row
+/// by row (e.g. rows = blade depth, columns = force).
+pub fn test_series_positions(x: f64, y: f64, n: usize, cols: usize) -> Vec<(f64, f64)> {
+    let cols = cols.max(1);
+    (0..n).map(|i| (x + (i % cols) as f64 * TEST_PITCH, y + (i / cols) as f64 * TEST_PITCH)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_series_grid() {
+        let p = test_series_positions(5.0, 5.0, 6, 3);
+        assert_eq!(p, vec![(5.0, 5.0), (18.0, 5.0), (31.0, 5.0), (5.0, 18.0), (18.0, 18.0), (31.0, 18.0)]);
+        // One row when no column count is given (cols = n).
+        assert_eq!(test_series_positions(0.0, 0.0, 3, 3)[2], (26.0, 0.0));
+    }
 
     #[test]
     fn setup_for_vinyl() {

@@ -64,3 +64,76 @@ export function rememberMaterial(id: string) {
     localStorage.setItem(LAST, id);
   } catch {}
 }
+
+// ---------- test series presets ----------
+
+/** A grid of test squares: one row per blade depth, one column per force. */
+export interface TestGrid {
+  name: string;
+  hint: string;
+  depths: number[];
+  pressures: number[];
+}
+
+/**
+ * Suggested combinations per material preset. Rows are cut in order of
+ * increasing depth, so AutoBlade only adjusts once per row. Kiss-cut
+ * materials test shallow depths (backing must stay whole), through-cut
+ * materials the upper range.
+ */
+const TEST_GRIDS: Record<string, { depths: number[]; pressures: number[] }> = {
+  vinyl: { depths: [1, 2], pressures: [8, 10, 12, 14] },
+  "sticker-matt": { depths: [1, 2, 3], pressures: [10, 14, 18] },
+  "sticker-glossy": { depths: [2, 3], pressures: [12, 16, 20] },
+  "sticker-through": { depths: [5, 6, 7], pressures: [26, 30, 33] },
+  "sticker-vinyl": { depths: [1, 2, 3], pressures: [10, 12, 14] },
+  paper: { depths: [1, 2, 3], pressures: [10, 14, 18] },
+  photo: { depths: [2, 3, 4], pressures: [16, 20, 24] },
+  cardstock: { depths: [4, 5, 6], pressures: [22, 27, 33] },
+  htv: { depths: [1, 2], pressures: [7, 9, 11, 13] },
+  transparency: { depths: [1, 2, 3], pressures: [10, 12, 14] },
+  magnet: { depths: [8, 9, 10], pressures: [26, 30, 33] },
+  pen: { depths: [0], pressures: [12, 18, 24, 30] },
+};
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(v)));
+const uniq = (a: number[]) => [...new Set(a)].sort((x, y) => x - y);
+
+/** Test presets for a material: the recommended grid (presets only), fine
+ *  tuning around the current values, and a single row for force only. */
+export function testGrids(m: Material, presetId: string): TestGrid[] {
+  const pen = m.tool === "pen";
+  const d = clamp(m.depth, 1, 10);
+  const p = clamp(m.pressure, 1, 33);
+  const out: TestGrid[] = [];
+  const rec = TEST_GRIDS[presetId];
+  if (rec && !m.custom) {
+    out.push({
+      name: "Empfohlen",
+      hint: "Typischer Bereich für dieses Material",
+      depths: pen ? [m.depth] : rec.depths,
+      pressures: rec.pressures,
+    });
+  }
+  out.push({
+    name: "Feinabstimmung",
+    hint: "Kleine Schritte um die aktuellen Werte",
+    depths: pen ? [m.depth] : uniq([clamp(d - 1, 1, 10), d, clamp(d + 1, 1, 10)]),
+    pressures: uniq([clamp(p - 2, 1, 33), p, clamp(p + 2, 1, 33)]),
+  });
+  out.push({
+    name: "Nur Druck",
+    hint: "Messertiefe bleibt, fünf Druckstufen",
+    depths: [m.depth],
+    pressures: uniq([-4, -2, 0, 2, 4].map((k) => clamp(p + k, 1, 33))),
+  });
+  if (!pen) {
+    out.push({
+      name: "Nur Messertiefe",
+      hint: "Druck bleibt, mehrere Tiefen",
+      depths: uniq([-2, -1, 0, 1, 2].map((k) => clamp(d + k, 1, 10))),
+      pressures: [m.pressure],
+    });
+  }
+  return out;
+}

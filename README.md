@@ -141,6 +141,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
 - Ausrichten, gleichmäßig verteilen, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
+  (umbenennen per Doppelklick, Reihenfolge per Ziehen, Rechtsklick-Menü)
 - Mehrere Objekte gemeinsam bearbeiten: Position der Auswahl, Größe und Drehung jedes Objekts
 - Rückgängig/Wiederholen mit Namen des Schritts, helles und dunkles Design (folgt dem System)
 - Formen: Rechteck (mit Eckenradius), Ellipse, Vieleck, Stern, Herz, Linie, Freihand
@@ -178,7 +179,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Geführter Ablauf in vier Schritten: Vorbereiten, Material, Testschnitt, Schneiden
 - Testschnitt an einer frei gewählten Stelle (Klick in die Vorschau, warnt bei Überschneidung mit dem Motiv);
   danach fragt Schnittwerk nach dem Ergebnis und passt Tiefe oder Druck an
-- Testreihe (steigender Druck oder steigende Messertiefe, bestes Quadrat anklicken), Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
+- Testreihe als Raster aus Messertiefe × Druck mit Vorschlägen je Material (bestes Quadrat anklicken), Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
 - Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)
 - Schneiden ohne Matte von der Rolle; Folie wird am Ende hinter das Motiv geschoben
 - Messerverschleiß-Zähler mit Erinnerung nach einstellbarer Schnittstrecke

@@ -983,6 +983,23 @@ export const EN: Record<string, string> = {
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Snapping to the grid and guides, plus zoom. Clicking the percentage fits the mat.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Appears with Print & Cut: prints the page with registration marks without scaling or saves it as a PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Guides you through the cut step by step: cutter and mat, material, a test cut at a spot of your choice, then cut.",
+  // ---- test grid, layers (0.8.1) ----
+  "Doppelklick: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Double-click: rename · Drag: change order · Right-click: more actions",
+  "Druck bleibt, mehrere Tiefen": "Force stays, several depths",
+  "Empfohlen": "Recommended",
+  "Feinabstimmung": "Fine tuning",
+  "Höchstens {n} Quadrate auf einmal.": "At most {n} squares at once.",
+  "Kleine Schritte um die aktuellen Werte": "Small steps around the current values",
+  "Mehrere Testquadrate mit verschiedenen Kombinationen aus Messertiefe und Druck": "Several test squares with different combinations of blade depth and force",
+  "Messertiefe bleibt, fünf Druckstufen": "Blade depth stays, five force steps",
+  "Messertiefe {d} und Druck {p} übernommen – zum Behalten das Material speichern.": "Blade depth {d} and force {p} applied – save the material to keep them.",
+  "Nur Druck": "Force only",
+  "Nur Messertiefe": "Blade depth only",
+  "Typischer Bereich für dieses Material": "Typical range for this material",
+  "Vorschläge für {m}": "Suggestions for {m}",
+  "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "Which square is cleanest? This is how they lie on the mat:",
+  "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} squares side by side, force increases to the right.",
+  "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} squares: one blade depth per row (from the top), force increases to the right.",
 };
 
 /** Backend messages with a variable part: $1 … is translated again. */

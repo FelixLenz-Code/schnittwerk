@@ -1,6 +1,6 @@
 # Baut .deb und Flatpak und legt ein GitHub-Release an, sobald ein Tag v*
 # gepusht wird.
-#   git tag v0.8.0 && git push origin v0.8.0
+#   git tag v0.8.1 && git push origin v0.8.1
 # Ohne Tag (manuell über "Run workflow") wird nur gebaut und die Pakete
 # werden als Artefakte hochgeladen.
 name: Release

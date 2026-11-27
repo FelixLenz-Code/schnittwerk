@@ -3,7 +3,7 @@
   import { api } from "../api";
   import { editor, MAT_LABELS, matSize, regBracketPath } from "../editor.svelte";
   import { aabb, fmt, uid } from "../geometry";
-  import { PRESETS, lastMaterialId, loadCustom, rememberMaterial, saveCustom, type Material } from "../materials";
+  import { PRESETS, lastMaterialId, loadCustom, rememberMaterial, saveCustom, testGrids, type Material, type TestGrid } from "../materials";
   import { matKindFor, pathMatrix, plotter } from "../plotter.svelte";
   import type { CutPlan, CutSettings, MatKind, PathInput, PathObj, PathOptions } from "../types";
   import Icon from "./Icon.svelte";
@@ -480,45 +480,61 @@
     }
   }
 
-  // ---------- test series ----------
+  // ---------- test series: a grid of blade depth × force ----------
   let seriesOpen = $state(false);
-  let seriesParam = $state<"pressure" | "depth">("pressure");
-  let seriesFrom = $state(8);
-  let seriesTo = $state(16);
-  let seriesCount = $state(5);
-  /** Values of the last series cut (left to right) – choose the best one. */
-  let seriesCut = $state<{ param: "pressure" | "depth"; values: number[] } | null>(null);
+  /** Values as typed ("1, 2, 3"); rows = depths, columns = forces. */
+  let depthText = $state("");
+  let pressureText = $state("");
+  /** Grid of the last series cut – choose the cleanest square. */
+  let seriesCut = $state<{ depths: number[]; pressures: number[] } | null>(null);
 
-  const seriesLimits = $derived(seriesParam === "pressure" ? { min: 1, max: 33 } : { min: 1, max: 10 });
-  const seriesValues = $derived.by(() => {
-    const { min, max } = seriesLimits;
-    const a = Math.min(max, Math.max(min, Math.round(seriesFrom))), b = Math.min(max, Math.max(min, Math.round(seriesTo)));
-    const n = Math.max(2, Math.min(8, Math.round(seriesCount)));
-    const vals = Array.from({ length: n }, (_, i) => Math.round(a + ((b - a) * i) / (n - 1)));
-    return [...new Set(vals)];
-  });
-  const seriesFits = $derived(testX + seriesValues.length * 13 - 3 <= area.w);
+  const MAX_AXIS = 6;
+  const MAX_SQUARES = 30;
+  function parseList(text: string, lo: number, hi: number): number[] {
+    const vals = text
+      .split(/[\s,;]+/)
+      .map((v) => Math.round(parseFloat(v.replace(",", "."))))
+      .filter((v) => Number.isFinite(v))
+      .map((v) => Math.min(hi, Math.max(lo, v)));
+    return [...new Set(vals)].sort((x, y) => x - y).slice(0, MAX_AXIS);
+  }
+  const isPen = $derived(m.tool === "pen");
+  const seriesDepths = $derived(isPen ? [m.depth] : parseList(depthText, 1, 10));
+  const seriesPressures = $derived(parseList(pressureText, 1, 33));
+  const seriesCount = $derived(seriesDepths.length * seriesPressures.length);
+  const seriesCols = $derived(Math.max(1, seriesPressures.length));
+  const seriesRows = $derived(Math.max(1, seriesDepths.length));
+  const seriesFits = $derived(testX + seriesCols * 13 - 3 <= area.w && testY + seriesRows * 13 - 3 <= area.h);
+  const seriesValid = $derived(seriesCount > 0 && seriesCount <= MAX_SQUARES);
 
-  /** Starts the series around the current value of the active material. */
+  /** Suggested grids for the active material. */
+  const grids = $derived(testGrids(m, materialId));
+  const same = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+  function applyGrid(g: TestGrid) {
+    depthText = g.depths.join(", ");
+    pressureText = g.pressures.join(", ");
+    seriesCut = null;
+    untrack(ensureFreeTestSpot);
+  }
+
   function openSeries() {
     seriesOpen = !seriesOpen;
-    if (m.tool !== "blade") seriesParam = "pressure";
-    const cur = seriesParam === "pressure" ? m.pressure : m.depth;
-    const span = seriesParam === "pressure" ? 4 : 2;
-    seriesFrom = Math.max(seriesLimits.min, cur - span);
-    seriesTo = Math.min(seriesLimits.max, cur + span);
+    testFeedback = false;
+    if (seriesOpen) applyGrid(grids[0]);
+    else untrack(ensureFreeTestSpot);
   }
 
   async function cutSeries() {
     const base = $state.snapshot(
       settings ?? { tool: m.tool, pressure: m.pressure, speed: m.speed, depth: m.tool === "blade" ? m.depth : null, mat, bladeOffset: 0.9, liftCorners: false },
     ) as CutSettings;
-    const values = seriesValues;
-    const list = values.map((v) => (seriesParam === "pressure" ? { ...base, pressure: v } : { ...base, depth: v }));
+    const depths = [...seriesDepths], pressures = [...seriesPressures];
+    // Row by row: each row one depth (AutoBlade adjusts once), forces rising.
+    const list = depths.flatMap((d) => pressures.map((p) => ({ ...base, pressure: p, depth: base.tool === "blade" ? d : null })));
     try {
       plotter.begin();
-      seriesCut = { param: seriesParam, values };
-      await api.cutTestSeries(testX, testY, list);
+      seriesCut = { depths, pressures };
+      await api.cutTestSeries(testX, testY, list, pressures.length);
     } catch (e) {
       plotter.phase = "idle";
       seriesCut = null;
@@ -526,13 +542,18 @@
     }
   }
 
-  /** Takes the chosen value into the active material. */
-  function chooseSeries(v: number) {
+  /** Takes the chosen combination into the active material. */
+  function chooseSeries(d: number, p: number) {
     if (!seriesCut) return;
-    if (seriesCut.param === "pressure") m.pressure = v;
-    else m.depth = v;
-    editor.toast(t(seriesCut.param === "pressure" ? "Druck {v} übernommen – zum Behalten das Material speichern." : "Messertiefe {v} übernommen – zum Behalten das Material speichern.", { v }), "ok");
-    const w = seriesCut.values.length * 13 - 3;
+    m.pressure = p;
+    if (m.tool === "blade") m.depth = d;
+    editor.toast(
+      m.tool === "blade"
+        ? t("Messertiefe {d} und Druck {p} übernommen – zum Behalten das Material speichern.", { d, p })
+        : t("Druck {v} übernommen – zum Behalten das Material speichern.", { v: p }),
+      "ok",
+    );
+    const w = seriesCut.pressures.length * 13 - 3;
     seriesCut = null;
     seriesOpen = false;
     const f = findFree(testX + w + 3, testY) ?? findFree();
@@ -561,7 +582,9 @@
   // ---------- test position (picked in the preview) ----------
   const TEST = 10;
   /** Width of what the next test cuts: one square or the whole series. */
-  const testW = $derived(seriesOpen && !seriesCut ? seriesValues.length * 13 - 3 : TEST);
+  const seriesShown = $derived(seriesOpen && !seriesCut && seriesValid);
+  const testW = $derived(seriesShown ? seriesCols * 13 - 3 : TEST);
+  const testH = $derived(seriesShown ? seriesRows * 13 - 3 : TEST);
   /** Boxes of everything that will be cut, to keep the test off the design. */
   const strokeBoxes = $derived(
     plans.flatMap((plan) =>
@@ -589,20 +612,20 @@
     if (strokeBoxes.some(hit) || sheetBoxes.some(hit)) return true;
     return editor.regZones().some(([zx, zy, zw, zh]) => hit({ x0: zx, y0: zy, x1: zx + zw, y1: zy + zh }));
   }
-  const testOnDesign = $derived(blocked(testX, testY, testW));
+  const testOnDesign = $derived(blocked(testX, testY, testW, testH));
 
   /** First free spot (row by row from the top left), starting after (x, y). */
-  function findFree(fromX = 0, fromY = 0, w = testW): [number, number] | null {
+  function findFree(fromX = 0, fromY = 0, w = testW, h = testH): [number, number] | null {
     const stepMm = 5;
-    for (let y = Math.max(3, fromY); y + TEST <= area.h; y += stepMm) {
+    for (let y = Math.max(3, fromY); y + h <= area.h; y += stepMm) {
       for (let x = y === Math.max(3, fromY) ? Math.max(3, fromX) : 3; x + w <= area.w; x += stepMm) {
-        if (!blocked(x, y, w)) return [x, y];
+        if (!blocked(x, y, w, h)) return [x, y];
       }
     }
     return null;
   }
   function ensureFreeTestSpot() {
-    if (!blocked(testX, testY, testW)) return;
+    if (!blocked(testX, testY, testW, testH)) return;
     const f = findFree();
     if (f) [testX, testY] = f;
   }
@@ -621,7 +644,7 @@
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
     // The click is the centre of the square (the first one of a series).
     testX = Math.round(Math.max(0, Math.min(area.w - testW, pt.x - TEST / 2)) * 2) / 2;
-    testY = Math.round(Math.max(0, Math.min(area.h - TEST, pt.y - TEST / 2)) * 2) / 2;
+    testY = Math.round(Math.max(0, Math.min(area.h - testH, pt.y - TEST / 2)) * 2) / 2;
     testFeedback = false;
   }
 
@@ -871,8 +894,8 @@
           {#if step === 3}
             <!-- Where the test cut goes (one square, or the whole series) -->
             <g class="testmark" class:bad={testOnDesign}>
-              {#each Array.from({ length: seriesOpen && !seriesCut ? seriesValues.length : 1 }) as _, i}
-                <rect x={testX + i * 13} y={testY} width={TEST} height={TEST} rx="0.6" />
+              {#each Array.from({ length: seriesShown ? seriesCount : 1 }) as _, i}
+                <rect x={testX + (i % seriesCols) * 13} y={testY + Math.floor(i / seriesCols) * 13} width={TEST} height={TEST} rx="0.6" />
               {/each}
               <text x={testX} y={testY < 6 ? testY + TEST + 4.5 : testY - 2}>{t("Test")}</text>
             </g>
@@ -1090,7 +1113,7 @@
               <div class="test-pos">
                 <span>{t("Stelle")}</span>
                 <label>X <input class="field num" type="number" min="0" max={area.w - testW} step="0.5" bind:value={testX} /></label>
-                <label>Y <input class="field num" type="number" min="0" max={area.h - TEST} step="0.5" bind:value={testY} /></label>
+                <label>Y <input class="field num" type="number" min="0" max={area.h - testH} step="0.5" bind:value={testY} /></label>
                 <span>mm</span>
               </div>
               {#if testOnDesign}
@@ -1112,42 +1135,75 @@
               {:else}
                 <div class="row test-actions">
                   <button class="btn primary grow" disabled={!ready || testOnDesign} onclick={testCut}><Icon name="scissors" /> {t("Test schneiden")}</button>
-                  <button class="btn outline" class:active={seriesOpen} disabled={plotter.busy} onclick={openSeries} title={t("Mehrere Testquadrate mit steigenden Werten nebeneinander")}>{t("Testreihe")}</button>
+                  <button class="btn outline" class:active={seriesOpen} disabled={plotter.busy} onclick={openSeries} title={t("Mehrere Testquadrate mit verschiedenen Kombinationen aus Messertiefe und Druck")}>{t("Testreihe")}</button>
                 </div>
               {/if}
               {#if seriesOpen}
                 <div class="series">
                   {#if seriesCut && !plotter.busy}
-                    <span class="series-q">{t("Welches Quadrat ist am saubersten? (von links gezählt)")}</span>
-                    <div class="series-pick">
-                      {#each seriesCut.values as v, i}
-                        <button class="btn outline" onclick={() => chooseSeries(v)}>{i + 1}: {seriesCut.param === "pressure" ? t("Druck") : t("Messertiefe")} {v}</button>
-                      {/each}
-                    </div>
+                    <span class="series-q">{t("Welches Quadrat ist am saubersten? So liegen sie auf der Matte:")}</span>
+                    <table class="pick-grid">
+                      <thead>
+                        <tr>
+                          <th>{isPen ? "" : t("Tiefe")} ↓ · {t("Druck")} →</th>
+                          {#each seriesCut.pressures as p}<th>{p}</th>{/each}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {#each seriesCut.depths as d}
+                          <tr>
+                            <th>{isPen ? "" : d}</th>
+                            {#each seriesCut.pressures as p}
+                              <td>
+                                <button
+                                  class="cell"
+                                  class:cur={p === m.pressure && (isPen || d === m.depth)}
+                                  title={isPen ? `${t("Druck")} ${p}` : `${t("Messertiefe")} ${d} · ${t("Druck")} ${p}`}
+                                  onclick={() => chooseSeries(d, p)}
+                                  aria-label={isPen ? `${t("Druck")} ${p}` : `${t("Messertiefe")} ${d} · ${t("Druck")} ${p}`}
+                                ></button>
+                              </td>
+                            {/each}
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
                     <button class="btn small-btn" onclick={() => (seriesCut = null)}>{t("Neue Testreihe")}</button>
                   {:else}
-                    {#if m.tool === "blade"}
-                      <Segmented
-                        value={seriesParam}
-                        onchange={(v) => {
-                          seriesParam = v;
-                          openSeries();
-                          seriesOpen = true;
-                        }}
-                        options={[
-                          { value: "pressure", label: "Druck" },
-                          { value: "depth", label: "Messertiefe" },
-                        ]}
-                      />
-                    {/if}
-                    <div class="calib-row">
-                      <label>{t("von")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesFrom} /></label>
-                      <label>{t("bis")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesTo} /></label>
-                      <label>{t("Anzahl")} <input class="field num" type="number" min="2" max="8" bind:value={seriesCount} /></label>
+                    <span class="series-q">{t("Vorschläge für {m}", { m: t(m.name) })}</span>
+                    <div class="presets">
+                      {#each grids as g}
+                        <button
+                          class="preset"
+                          class:on={same(g.depths, seriesDepths) && same(g.pressures, seriesPressures)}
+                          title={t(g.hint)}
+                          onclick={() => applyGrid(g)}
+                        >
+                          <b>{t(g.name)}</b>
+                          <small>{isPen ? `${t("Druck")} ${g.pressures.join(" · ")}` : `${g.depths.length} × ${g.pressures.length}`}</small>
+                        </button>
+                      {/each}
                     </div>
-                    <p class="hint">{seriesValues.join(" · ")} – {t("je ein 10-mm-Quadrat, von links nach rechts")}</p>
-                    {#if !seriesFits}<p class="warn-text">{t("Die Reihe passt ab dieser Position nicht auf die Matte.")}</p>{/if}
-                    <button class="btn outline" disabled={!ready || !seriesFits || testOnDesign} onclick={cutSeries}><Icon name="scissors" /> {t("Testreihe schneiden")}</button>
+                    {#if !isPen}
+                      <label class="axis">
+                        <span>{t("Messertiefe")}</span>
+                        <input class="field" bind:value={depthText} placeholder="1, 2, 3" oninput={() => untrack(ensureFreeTestSpot)} />
+                      </label>
+                    {/if}
+                    <label class="axis">
+                      <span>{t("Druck")}</span>
+                      <input class="field" bind:value={pressureText} placeholder="10, 14, 18" oninput={() => untrack(ensureFreeTestSpot)} />
+                    </label>
+                    <p class="hint">
+                      {#if isPen}
+                        {t("{n} Quadrate nebeneinander, Druck steigt nach rechts.", { n: seriesCount })}
+                      {:else}
+                        {t("{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.", { n: seriesCount })}
+                      {/if}
+                    </p>
+                    {#if seriesCount > MAX_SQUARES}<p class="warn-text">{t("Höchstens {n} Quadrate auf einmal.", { n: MAX_SQUARES })}</p>{/if}
+                    {#if seriesValid && !seriesFits}<p class="warn-text">{t("Die Reihe passt ab dieser Position nicht auf die Matte.")}</p>{/if}
+                    <button class="btn outline" disabled={!ready || !seriesValid || !seriesFits || testOnDesign} onclick={cutSeries}><Icon name="scissors" /> {t("Testreihe schneiden")}</button>
                   {/if}
                 </div>
               {/if}
@@ -1866,20 +1922,95 @@
     background: var(--panel-2);
     border: 1px solid var(--border);
   }
-  .series .calib-row {
-    margin-top: 0;
-  }
   .series .hint {
     margin: 0;
+  }
+  .presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .preset {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+  }
+  .preset:hover {
+    border-color: var(--border-strong);
+  }
+  .preset.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .preset b {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .preset small {
+    color: var(--text-3);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .axis {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+    font-size: 12px;
+  }
+  .axis span {
+    width: 80px;
+    flex: none;
+  }
+  .axis input {
+    flex: 1;
+    min-width: 0;
+  }
+  .pick-grid {
+    border-collapse: separate;
+    border-spacing: 4px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pick-grid th {
+    color: var(--text-3);
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .pick-grid thead th:first-child {
+    text-align: left;
+    font-weight: 500;
+  }
+  .cell {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 4px;
+    background: var(--panel);
+    cursor: pointer;
+  }
+  .cell:hover {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .cell.cur {
+    border-style: solid;
+    border-color: var(--text-3);
   }
   .series-q {
     color: var(--text-2);
     font-size: 12px;
-  }
-  .series-pick {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
   }
   .resume {
     display: flex;

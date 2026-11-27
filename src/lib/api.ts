@@ -73,7 +73,7 @@ export const api = {
   ) => call<{ clamped: number }>("cut_start", { req: { groups, regmarks, feed, resume } }),
   cutRegtest: (regmarks: RegMarks, settings: CutSettings) => call<{ clamped: number }>("cut_regtest", { regmarks, settings }),
   cutTest: (x: number, y: number, settings: CutSettings) => call<{ clamped: number }>("cut_test", { x, y, settings }),
-  cutTestSeries: (x: number, y: number, settings: CutSettings[]) => call<{ clamped: number }>("cut_test_series", { x, y, settings }),
+  cutTestSeries: (x: number, y: number, settings: CutSettings[], cols?: number) => call<{ clamped: number }>("cut_test_series", { x, y, settings, cols: cols ?? null }),
   cutPause: (paused: boolean) => call<void>("cut_pause", { paused }),
   cutCancel: () => call<void>("cut_cancel", {}),
 

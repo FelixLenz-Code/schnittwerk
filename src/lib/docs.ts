@@ -62,7 +62,8 @@ Der Dialog führt in vier Schritten durch den Schnitt:
 - **Material** wählen; die Werte lassen sich unter **Werte anpassen** ändern und als eigenes Material speichern.
 - **Testschnitt** (empfohlen): in der Vorschau auf eine freie Stelle der Folie klicken und ein kleines Quadrat schneiden. Danach fragt Schnittwerk, wie es aussieht – bei „Nicht ganz durch“ oder „Zu tief“ werden die Werte angepasst und der nächste Test landet daneben.
 - **Schneiden**: Zusammenfassung prüfen und los.
-- **Testreihe**: mehrere Quadrate mit steigendem Druck oder steigender Messertiefe – danach das sauberste anklicken, der Wert wird übernommen.
+- **Testreihe**: ein Raster aus Quadraten – je Zeile eine Messertiefe, je Spalte ein Druck. Für jedes Material gibt es passende Vorschläge (Empfohlen, Feinabstimmung, nur Druck, nur Messertiefe); die Werte lassen sich auch selbst eintippen. Danach das sauberste Quadrat anklicken, Tiefe und Druck werden übernommen.
+- **Ebenen** (unten rechts): Doppelklick benennt um, Ziehen ändert die Reihenfolge, Rechtsklick zeigt Duplizieren, Löschen, Gruppieren und mehr.
 - **Simulation**: zeigt vorher in Schnittreihenfolge, was der Plotter macht.
 - Die **Dauer** wird geschätzt und mit jedem Schnitt genauer.
 - Nach **Abbruch** oder Verbindungsfehler erscheint **Weiterschneiden** – der Schnitt geht dort weiter, wo er unterbrochen wurde. Matte dabei nicht bewegen.
@@ -189,7 +190,8 @@ If the cut is slightly off, adjust it with the test sheet under **Fine adjustmen
 The dialog guides you through the cut in four steps: **Prepare** (cutter, mat, mirroring), **Material**, **Test cut** and **Cut**.
 
 - **Test cut** (recommended): click a free spot of the material in the preview and cut a small square. Schnittwerk then asks how it looks – with “Not quite through” or “Too deep” the values are adjusted and the next test goes next to it.
-- **Test series**: several squares with increasing force or blade depth – then click the cleanest one and its value is applied.
+- **Test series**: a grid of squares – one blade depth per row, one force per column. Each material has suitable suggestions (recommended, fine tuning, force only, blade depth only); the values can also be typed in. Then click the cleanest square and depth and force are applied.
+- **Layers** (bottom right): double-click renames, dragging changes the order, right-click offers duplicate, delete, group and more.
 - **Simulation**: shows beforehand, in cutting order, what the cutter will do.
 - The **duration** is estimated and gets more accurate with every cut.
 - After **cancelling** or a connection error, **Continue cutting** appears – the cut resumes where it stopped. Do not move the mat.

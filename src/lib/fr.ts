@@ -985,6 +985,23 @@ export const FR: Record<string, string> = {
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Aimantation à la grille et aux repères, plus le zoom. Un clic sur le pourcentage ajuste le tapis.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Apparaît avec Print & Cut : imprime la page avec repères sans mise à l'échelle ou l'enregistre en PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Vous guide pas à pas : plotter et tapis, matériau, test de coupe à l'endroit de votre choix, puis découpe.",
+  // ---- test grid, layers (0.8.1) ----
+  "Doppelklick: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Double-clic : renommer · Glisser : changer l'ordre · Clic droit : autres actions",
+  "Druck bleibt, mehrere Tiefen": "Pression fixe, plusieurs profondeurs",
+  "Empfohlen": "Recommandé",
+  "Feinabstimmung": "Réglage fin",
+  "Höchstens {n} Quadrate auf einmal.": "{n} carrés au maximum à la fois.",
+  "Kleine Schritte um die aktuellen Werte": "Petits pas autour des valeurs actuelles",
+  "Mehrere Testquadrate mit verschiedenen Kombinationen aus Messertiefe und Druck": "Plusieurs carrés de test avec différentes combinaisons de profondeur de lame et de pression",
+  "Messertiefe bleibt, fünf Druckstufen": "Profondeur fixe, cinq niveaux de pression",
+  "Messertiefe {d} und Druck {p} übernommen – zum Behalten das Material speichern.": "Profondeur {d} et pression {p} appliquées – enregistrez le matériau pour les conserver.",
+  "Nur Druck": "Pression seule",
+  "Nur Messertiefe": "Profondeur seule",
+  "Typischer Bereich für dieses Material": "Plage typique pour ce matériau",
+  "Vorschläge für {m}": "Suggestions pour {m}",
+  "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "Quel carré est le plus net ? Voici leur disposition sur le tapis :",
+  "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} carrés côte à côte, la pression augmente vers la droite.",
+  "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} carrés : une profondeur par ligne (depuis le haut), la pression augmente vers la droite.",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -1061,7 +1078,8 @@ Si la coupe est légèrement décalée, corrigez-la avec la feuille de test sous
 La fenêtre guide la découpe en quatre étapes : **Préparer** (plotter, tapis, miroir), **Matériau**, **Test de coupe** et **Découper**.
 
 - **Test de coupe** (recommandé) : cliquez sur un endroit libre du matériau dans l'aperçu et découpez un petit carré. Schnittwerk demande ensuite le résultat – avec « Pas tout à fait coupé » ou « Trop profond », les valeurs sont ajustées et le test suivant se place à côté.
-- **Série de test** : plusieurs carrés avec pression ou profondeur de lame croissante – cliquez ensuite sur le plus net et sa valeur est appliquée.
+- **Série de test** : une grille de carrés – une profondeur de lame par ligne, une pression par colonne. Chaque matériau a des suggestions adaptées (recommandé, réglage fin, pression seule, profondeur seule) ; les valeurs peuvent aussi être saisies. Cliquez ensuite sur le carré le plus net : profondeur et pression sont appliquées.
+- **Calques** (en bas à droite) : double-clic pour renommer, glisser pour changer l'ordre, clic droit pour dupliquer, supprimer, grouper et plus.
 - **Simulation** : montre à l'avance, dans l'ordre de découpe, ce que fera la machine.
 - La **durée** est estimée et devient plus précise à chaque découpe.
 - Après une **annulation** ou une erreur de connexion, **Reprendre la découpe** apparaît – la découpe reprend là où elle s'est arrêtée. Ne déplacez pas le tapis.

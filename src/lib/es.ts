@@ -985,6 +985,23 @@ export const ES: Record<string, string> = {
   "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Ajuste a la cuadrícula y a las guías, además del zoom. Un clic en el porcentaje encaja la base.",
   "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Aparece con Print & Cut: imprime la página con marcas de registro sin escalar o la guarda como PDF.",
   "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Te guía paso a paso: plóter y base, material, corte de prueba en el lugar que elijas y después el corte.",
+  // ---- test grid, layers (0.8.1) ----
+  "Doppelklick: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Doble clic: renombrar · Arrastrar: cambiar el orden · Clic derecho: más acciones",
+  "Druck bleibt, mehrere Tiefen": "Presión fija, varias profundidades",
+  "Empfohlen": "Recomendado",
+  "Feinabstimmung": "Ajuste fino",
+  "Höchstens {n} Quadrate auf einmal.": "Como máximo {n} cuadrados a la vez.",
+  "Kleine Schritte um die aktuellen Werte": "Pasos pequeños alrededor de los valores actuales",
+  "Mehrere Testquadrate mit verschiedenen Kombinationen aus Messertiefe und Druck": "Varios cuadrados de prueba con distintas combinaciones de profundidad de cuchilla y presión",
+  "Messertiefe bleibt, fünf Druckstufen": "Profundidad fija, cinco niveles de presión",
+  "Messertiefe {d} und Druck {p} übernommen – zum Behalten das Material speichern.": "Profundidad {d} y presión {p} aplicadas: guarda el material para conservarlas.",
+  "Nur Druck": "Solo presión",
+  "Nur Messertiefe": "Solo profundidad",
+  "Typischer Bereich für dieses Material": "Rango típico para este material",
+  "Vorschläge für {m}": "Sugerencias para {m}",
+  "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "¿Qué cuadrado está más limpio? Así están en la base:",
+  "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} cuadrados uno al lado del otro; la presión aumenta hacia la derecha.",
+  "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} cuadrados: una profundidad por fila (desde arriba); la presión aumenta hacia la derecha.",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -1061,7 +1078,8 @@ Si el corte se desvía un poco, corrígelo con la hoja de prueba en **Ajuste fin
 El diálogo te guía en cuatro pasos: **Preparar** (plóter, base, espejo), **Material**, **Corte de prueba** y **Cortar**.
 
 - **Corte de prueba** (recomendado): haz clic en un sitio libre del material en la vista previa y corta un pequeño cuadrado. Después Schnittwerk pregunta qué tal ha quedado; con «No corta del todo» o «Demasiado profundo» se ajustan los valores y la siguiente prueba va al lado.
-- **Serie de prueba**: varios cuadrados con presión o profundidad de cuchilla crecientes – haz clic en el más limpio y se aplica su valor.
+- **Serie de prueba**: una cuadrícula de cuadrados – una profundidad de cuchilla por fila y una presión por columna. Cada material tiene sugerencias adecuadas (recomendado, ajuste fino, solo presión, solo profundidad); los valores también se pueden escribir. Después haz clic en el cuadrado más limpio y se aplican profundidad y presión.
+- **Capas** (abajo a la derecha): doble clic para renombrar, arrastrar para cambiar el orden, clic derecho para duplicar, eliminar, agrupar y más.
 - **Simulación**: muestra de antemano, en orden de corte, lo que hará el plotter.
 - La **duración** se estima y se vuelve más precisa con cada corte.
 - Tras **cancelar** o un error de conexión aparece **Continuar el corte** – el corte sigue donde se detuvo. No muevas la base.
