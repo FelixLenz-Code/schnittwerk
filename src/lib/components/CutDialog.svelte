@@ -58,7 +58,19 @@
     materialId = id;
     m = structuredClone($state.snapshot(found) as Material);
     if (m.mirror) mirror = true;
-    if (remember) rememberMaterial(id);
+    if (remember) {
+      rememberMaterial(id);
+      syncProjectMaterial(id);
+    }
+  }
+
+  /** The material chip in the header shows the main colour's material
+   *  (the first, lightest pass) – not the through-cut of a frame. */
+  function syncProjectMaterial(id: string) {
+    if (colors.length <= 1 || active === order[0]) {
+      if (editor.material !== id) editor.dirty = true;
+      editor.material = id;
+    }
   }
 
   function selectColor(c: string) {
@@ -88,6 +100,7 @@
     materialId = entry.id;
     m = structuredClone(entry);
     rememberMaterial(entry.id);
+    syncProjectMaterial(entry.id);
     naming = null;
     editor.toast(t("Material „{name}“ gespeichert", { name }), "ok");
   }
@@ -556,6 +569,7 @@
     const w = seriesCut.pressures.length * 13 - 3;
     seriesCut = null;
     seriesOpen = false;
+    if (modified) offerSave(false);
     const f = findFree(testX + w + 3, testY) ?? findFree();
     if (f) [testX, testY] = f;
   }
@@ -675,10 +689,25 @@
     moveTestOn();
   }
 
+  /** After a good test with changed values: keep them as an own material? */
+  let saveOffer = $state<null | { thenCut: boolean }>(null);
+  function offerSave(thenCut: boolean) {
+    saveOffer = { thenCut };
+    naming = `${t(m.name.replace(/ \(.*\)$/, ""))} (${t("getestet")})`;
+  }
+  function finishSaveOffer(store: boolean) {
+    const thenCut = saveOffer?.thenCut;
+    if (store) saveAsMaterial();
+    naming = null;
+    saveOffer = null;
+    if (thenCut) go(4);
+  }
+
   function testGood() {
     testFeedback = false;
     moveTestOn();
-    go(4);
+    if (modified) offerSave(true);
+    else go(4);
   }
 
   function close() {
@@ -1122,7 +1151,17 @@
                 <p class="hint">{t("Am besten eine Ecke, die später nicht gebraucht wird.")}</p>
               {/if}
 
-              {#if testFeedback && !plotter.busy}
+              {#if saveOffer && naming !== null && !plotter.busy}
+                <form class="feedback save-offer" onsubmit={(e) => { e.preventDefault(); finishSaveOffer(true); }}>
+                  <strong>{t("Diese Werte als eigenes Material speichern?")}</strong>
+                  <span class="hint">{m.tool === "pen" ? `${t("Druck")} ${m.pressure}` : `${t("Tiefe")} ${m.depth} · ${t("Druck")} ${m.pressure} · ${t("Tempo")} ${m.speed}`} – {t("beim nächsten Mal direkt auswählbar.")}</span>
+                  <input class="field" bind:value={naming} placeholder={t("Name des Materials")} />
+                  <div class="row">
+                    <button class="btn outline grow" type="button" onclick={() => finishSaveOffer(false)}>{t("Nicht speichern")}</button>
+                    <button class="btn primary grow" type="submit" disabled={!naming?.trim()}><Icon name="save" /> {t("Speichern")}</button>
+                  </div>
+                </form>
+              {:else if testFeedback && !plotter.busy}
                 <div class="feedback">
                   <strong>{t("Wie sieht der Test aus?")}</strong>
                   <span class="hint">{m.tool === "pen" ? t("Linien gleichmäßig und gut sichtbar?") : t("Quadrat abziehen: Das Dreieck soll stehen bleiben, das Trägerpapier darf nur leicht angeritzt sein.")}</span>

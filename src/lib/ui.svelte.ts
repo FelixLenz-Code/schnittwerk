@@ -14,6 +14,8 @@ function loadTheme(): Theme {
 export const ui = $state({
   theme: loadTheme(),
   settingsOpen: false,
+  /** Dialog with the own materials (menu Plotter → Materialien …). */
+  materialsOpen: false,
   aboutOpen: false,
   /** Plotter menu in the header (also opened from the menu bar). */
   deviceMenuOpen: false,

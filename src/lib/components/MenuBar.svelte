@@ -38,7 +38,7 @@
   const sel = () => editor.selected.length;
   /** A dialog covers the window – the menu stays closed. */
   const modalOpen = () =>
-    plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen;
+    plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen;
   const ctrl = () => t("Strg");
 
   async function quit() {
@@ -249,6 +249,7 @@
         { label: "Schneiden …", keys: `${ctrl()}+Enter`, action: () => (plotter.dialogOpen = true) },
         { label: "Drucken …", keys: `${ctrl()}+P`, action: () => (plotter.printOpen = true) },
         "sep",
+        { label: "Materialien …", action: () => (ui.materialsOpen = true) },
         { label: "Verbindung und Messer …", action: () => (ui.deviceMenuOpen = true) },
         {
           label: "Neues Messer eingesetzt",

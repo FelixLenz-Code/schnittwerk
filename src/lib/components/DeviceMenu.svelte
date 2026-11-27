@@ -72,8 +72,6 @@
     {#if plotter.status.connected}
       {#if plotter.status.connection === "Bluetooth"}<span class="bt">BT</span>{/if}
       {plotter.status.model?.replace("Silhouette ", "")} · {t(STATE[plotter.status.state] ?? "")}
-    {:else if plotter.reconnecting}
-      {t("Verbinde per Bluetooth …")}
     {:else if plotter.status.state === "error"}
       {t("Plotter-Fehler")}
     {:else}

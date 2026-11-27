@@ -1002,6 +1002,31 @@ export const ES: Record<string, string> = {
   "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "¿Qué cuadrado está más limpio? Así están en la base:",
   "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} cuadrados uno al lado del otro; la presión aumenta hacia la derecha.",
   "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} cuadrados: una profundidad por fila (desde arriba); la presión aumenta hacia la derecha.",
+  // ---- materials, print flow, layer groups (0.8.2) ----
+  "Aufklappen": "Desplegar",
+  "Zuklappen": "Plegar",
+  "Danach führt Schnittwerk weiter zum Schneiden.": "Después, Schnittwerk te lleva al corte.",
+  "Den Bogen oben links auf die Matte legen – bedruckte Seite nach oben.": "Coloca la hoja arriba a la izquierda de la base, con la cara impresa hacia arriba.",
+  "Diese Werte als eigenes Material speichern?": "¿Guardar estos valores como material propio?",
+  "Doppelklick oder F2: umbenennen · Rechtsklick: weitere Aktionen": "Doble clic o F2: renombrar · Clic derecho: más acciones",
+  "Doppelklick oder F2: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Doble clic o F2: renombrar · Arrastrar: cambiar el orden · Clic derecho: más acciones",
+  "Eigene Materialien": "Materiales propios",
+  "Eigene Materialien verwalten …": "Gestionar materiales propios …",
+  "Gruppe – Doppelklick klappt auf · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Grupo: doble clic despliega · Arrastrar: cambiar el orden · Clic derecho: más acciones",
+  "Material für diesen Auftrag – wird beim Schneiden vorgewählt": "Material de este trabajo: se preselecciona al cortar",
+  "Name": "Nombre",
+  "Neues Material": "Nuevo material",
+  "Nicht speichern": "No guardar",
+  "Noch einmal klicken zum Löschen": "Haz clic de nuevo para eliminar",
+  "Noch keine eigenen Materialien. Lege eins auf Basis einer Vorlage an – oder speichere die Werte nach einem Testschnitt.": "Aún no hay materiales propios. Crea uno a partir de un preajuste o guarda los valores tras un corte de prueba.",
+  "PDF ohne Skalierung drucken (100 %, nicht „An Seite anpassen“).": "Imprime el PDF sin escalar (100 %, no «Ajustar a la página»).",
+  "Werte dieser Vorlage übernehmen": "Usar los valores de este preajuste",
+  "beim nächsten Mal direkt auswählbar.": "seleccionable directamente la próxima vez.",
+  "{n} Objekte in der Gruppe": "{n} objetos en el grupo",
+  "getestet": "probado",
+  "eigen": "propio",
+  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Los materiales propios aparecen para elegir al cortar y junto al botón Cortar. Los cambios se guardan al momento.",
+  "Materialien …": "Materiales …",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -1079,7 +1104,8 @@ El diálogo te guía en cuatro pasos: **Preparar** (plóter, base, espejo), **Ma
 
 - **Corte de prueba** (recomendado): haz clic en un sitio libre del material en la vista previa y corta un pequeño cuadrado. Después Schnittwerk pregunta qué tal ha quedado; con «No corta del todo» o «Demasiado profundo» se ajustan los valores y la siguiente prueba va al lado.
 - **Serie de prueba**: una cuadrícula de cuadrados – una profundidad de cuchilla por fila y una presión por columna. Cada material tiene sugerencias adecuadas (recomendado, ajuste fino, solo presión, solo profundidad); los valores también se pueden escribir. Después haz clic en el cuadrado más limpio y se aplican profundidad y presión.
-- **Capas** (abajo a la derecha): doble clic para renombrar, arrastrar para cambiar el orden, clic derecho para duplicar, eliminar, agrupar y más.
+- **Capas** (abajo a la derecha): doble clic o \`F2\` para renombrar, arrastrar para cambiar el orden, clic derecho para duplicar, eliminar, agrupar y más. Los grupos (p. ej. una pegatina con imagen y contornos) se pueden desplegar y plegar.
+- **Material**: el material del proyecto aparece junto al botón Cortar y se puede cambiar ahí. Si el corte de prueba salió bien y se ajustaron los valores, Schnittwerk ofrece guardarlos como material propio. Gestiona tus materiales en **Plotter → Materiales …**.
 - **Simulación**: muestra de antemano, en orden de corte, lo que hará el plotter.
 - La **duración** se estima y se vuelve más precisa con cada corte.
 - Tras **cancelar** o un error de conexión aparece **Continuar el corte** – el corte sigue donde se detuvo. No muevas la base.

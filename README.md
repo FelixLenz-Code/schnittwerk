@@ -141,7 +141,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Zoom am Mauszeiger, Verschieben mit Hand-Werkzeug, Leertaste oder mittlerer Maustaste
 - Auswählen, Rahmenauswahl, Verschieben, Skalieren, Drehen, Spiegeln
 - Ausrichten, gleichmäßig verteilen, Anordnen, Gruppieren, Duplizieren, Sperren, Ein-/Ausblenden, Ebenenliste
-  (umbenennen per Doppelklick, Reihenfolge per Ziehen, Rechtsklick-Menü)
+  (umbenennen per Doppelklick oder F2, Reihenfolge per Ziehen, Rechtsklick-Menü, Mini-Vorschau, Gruppen aufklappbar)
 - Mehrere Objekte gemeinsam bearbeiten: Position der Auswahl, Größe und Drehung jedes Objekts
 - Rückgängig/Wiederholen mit Namen des Schritts, helles und dunkles Design (folgt dem System)
 - Formen: Rechteck (mit Eckenradius), Ellipse, Vieleck, Stern, Herz, Linie, Freihand
@@ -169,7 +169,8 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 ### Schneiden
 - USB und Bluetooth LE (mit automatischem Wiederverbinden)
 - Materialbibliothek mit Vorlagen und eigenen Profilen: Messertiefe (AutoBlade), Druck,
-  Geschwindigkeit, Durchgänge, Überschnitt
+  Geschwindigkeit, Durchgänge, Überschnitt; eigene Materialien unter Plotter → Materialien,
+  Material des Projekts neben dem Schneiden-Knopf, gute Testwerte direkt als Material speichern
 - Optimierte Reihenfolge: innen vor außen, kurze Leerfahrten
 - Vorschau der Schnittreihenfolge mit animierter Simulation, Fortschritt, Pause und Abbrechen
 - Benachrichtigung und Ton, wenn ein Schnitt fertig ist
@@ -192,7 +193,7 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Sticker-Bogen in einem Rutsch: mehrere Bilder auswählen – Konturen, Exemplare und platzsparende Anordnung auf einmal
 - Print-&-Cut-Seite (A4/Letter) mit Silhouette-Passermarken; der optische Sensor findet sie automatisch
 - Bogen füllen, Rand farbig drucken, Bleed (Motivfarben über die Schnittlinie hinaus)
-- Drucken über CUPS ohne Skalierung oder als PDF speichern
+- Drucken über CUPS ohne Skalierung oder als PDF speichern, danach direkt weiter zum Schneiden
 - Feinjustierung Druck ↔ Schnitt mit Testbogen
 - PixScan-Matte: Foto der Matte wird erkannt, entzerrt und in Originalgröße an die Schneideposition gelegt
 
@@ -289,6 +290,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 npm run tauri dev      # Entwicklungsmodus mit Hot-Reload
 ./scripts/build-deb.sh # .deb mit hochgezählter Version unter target/release/bundle/deb/
 cargo test -p schnittwerk-core
+python3 scripts/i18n-keys.py          # fehlende Übersetzungen
+python3 scripts/screenshots.py        # README-Screenshots neu erzeugen (X11, --build baut vorher)
+cargo clean --profile dev             # alte Debug-Builds löschen (wachsen sonst stark an)
 ```
 
 Hardware-Test ohne Oberfläche: `cargo run -p schnittwerk-plotter --example status`

@@ -1002,6 +1002,31 @@ export const FR: Record<string, string> = {
   "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "Quel carré est le plus net ? Voici leur disposition sur le tapis :",
   "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} carrés côte à côte, la pression augmente vers la droite.",
   "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} carrés : une profondeur par ligne (depuis le haut), la pression augmente vers la droite.",
+  // ---- materials, print flow, layer groups (0.8.2) ----
+  "Aufklappen": "Déplier",
+  "Zuklappen": "Replier",
+  "Danach führt Schnittwerk weiter zum Schneiden.": "Ensuite, Schnittwerk vous guide vers la découpe.",
+  "Den Bogen oben links auf die Matte legen – bedruckte Seite nach oben.": "Posez la feuille en haut à gauche du tapis – face imprimée vers le haut.",
+  "Diese Werte als eigenes Material speichern?": "Enregistrer ces valeurs comme matériau personnalisé ?",
+  "Doppelklick oder F2: umbenennen · Rechtsklick: weitere Aktionen": "Double-clic ou F2 : renommer · Clic droit : autres actions",
+  "Doppelklick oder F2: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Double-clic ou F2 : renommer · Glisser : changer l'ordre · Clic droit : autres actions",
+  "Eigene Materialien": "Matériaux personnalisés",
+  "Eigene Materialien verwalten …": "Gérer les matériaux personnalisés …",
+  "Gruppe – Doppelklick klappt auf · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Groupe – double-clic pour déplier · Glisser : changer l'ordre · Clic droit : autres actions",
+  "Material für diesen Auftrag – wird beim Schneiden vorgewählt": "Matériau de ce travail – présélectionné pour la découpe",
+  "Name": "Nom",
+  "Neues Material": "Nouveau matériau",
+  "Nicht speichern": "Ne pas enregistrer",
+  "Noch einmal klicken zum Löschen": "Cliquez à nouveau pour supprimer",
+  "Noch keine eigenen Materialien. Lege eins auf Basis einer Vorlage an – oder speichere die Werte nach einem Testschnitt.": "Aucun matériau personnalisé. Créez-en un à partir d'un préréglage – ou enregistrez les valeurs après un test de coupe.",
+  "PDF ohne Skalierung drucken (100 %, nicht „An Seite anpassen“).": "Imprimez le PDF sans mise à l'échelle (100 %, pas « Ajuster à la page »).",
+  "Werte dieser Vorlage übernehmen": "Reprendre les valeurs de ce préréglage",
+  "beim nächsten Mal direkt auswählbar.": "directement sélectionnable la prochaine fois.",
+  "{n} Objekte in der Gruppe": "{n} objets dans le groupe",
+  "getestet": "testé",
+  "eigen": "perso",
+  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Les matériaux personnalisés sont proposés lors de la découpe et à côté du bouton Découper. Les modifications sont enregistrées immédiatement.",
+  "Materialien …": "Matériaux …",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -1079,7 +1104,8 @@ La fenêtre guide la découpe en quatre étapes : **Préparer** (plotter, tapis,
 
 - **Test de coupe** (recommandé) : cliquez sur un endroit libre du matériau dans l'aperçu et découpez un petit carré. Schnittwerk demande ensuite le résultat – avec « Pas tout à fait coupé » ou « Trop profond », les valeurs sont ajustées et le test suivant se place à côté.
 - **Série de test** : une grille de carrés – une profondeur de lame par ligne, une pression par colonne. Chaque matériau a des suggestions adaptées (recommandé, réglage fin, pression seule, profondeur seule) ; les valeurs peuvent aussi être saisies. Cliquez ensuite sur le carré le plus net : profondeur et pression sont appliquées.
-- **Calques** (en bas à droite) : double-clic pour renommer, glisser pour changer l'ordre, clic droit pour dupliquer, supprimer, grouper et plus.
+- **Calques** (en bas à droite) : double-clic ou \`F2\` pour renommer, glisser pour changer l'ordre, clic droit pour dupliquer, supprimer, grouper et plus. Les groupes (p. ex. un sticker avec image et contours) se déplient et se replient.
+- **Matériau** : le matériau du projet est affiché à côté du bouton Découper et s'y change directement. Si le test de coupe était bon et que les valeurs ont été ajustées, Schnittwerk propose de les enregistrer comme matériau personnalisé. Gérez vos matériaux sous **Machine → Matériaux …**.
 - **Simulation** : montre à l'avance, dans l'ordre de découpe, ce que fera la machine.
 - La **durée** est estimée et devient plus précise à chaque découpe.
 - Après une **annulation** ou une erreur de connexion, **Reprendre la découpe** apparaît – la découpe reprend là où elle s'est arrêtée. Ne déplacez pas le tapis.

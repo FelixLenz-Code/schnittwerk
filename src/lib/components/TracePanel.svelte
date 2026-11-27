@@ -121,6 +121,8 @@
     if (!preview || !target) return;
     const img = target;
     const r = preview.result;
+    // Read before adding: the new selection ends the preview.
+    const count = contours;
     const sx = img.w / r.width, sy = img.h / r.height;
     const ic = center(img);
     const objs: PathObj[] = r.layers.map((l, i) => {
@@ -156,7 +158,7 @@
       const o = editor.byId(img.id);
       if (o) o.visible = false;
     }
-    editor.toast(t("{n} Konturen übernommen", { n: contours }), "ok");
+    editor.toast(t("{n} Konturen übernommen", { n: count }), "ok");
     editor.rightTab = "object";
     ui.nextSteps = { kind: "trace", sel: editor.selection.join(",") };
   }

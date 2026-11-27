@@ -26,8 +26,10 @@
   import TemplatesDialog from "./lib/components/TemplatesDialog.svelte";
   import MenuBar from "./lib/components/MenuBar.svelte";
   import SurfacePicker from "./lib/components/SurfacePicker.svelte";
+  import MaterialChip from "./lib/components/MaterialChip.svelte";
   import SettingsDialog from "./lib/components/SettingsDialog.svelte";
   import AboutDialog from "./lib/components/AboutDialog.svelte";
+  import MaterialsDialog from "./lib/components/MaterialsDialog.svelte";
   import { ui } from "./lib/ui.svelte";
 
 
@@ -105,7 +107,7 @@
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
   function onKeydown(e: KeyboardEvent) {
-    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen) return;
+    if (plotter.dialogOpen || plotter.printOpen || templatesUi.open || wizardUi.open || updater.dialogOpen || ui.settingsOpen || ui.aboutOpen || ui.materialsOpen) return;
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -247,6 +249,7 @@
       <button class="btn update" title={t("Schnittwerk {v} ist verfügbar", { v: updater.info?.latest ?? "" })} onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
     {/if}
     <DeviceMenu />
+    <MaterialChip />
     {#if editor.printCut.enabled}
       <button class="btn outline" data-tour="print" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> {t("Drucken")}</button>
     {/if}
@@ -324,6 +327,9 @@
   {/if}
   {#if ui.aboutOpen}
     <AboutDialog />
+  {/if}
+  {#if ui.materialsOpen}
+    <MaterialsDialog />
   {/if}
   <Tour />
   {#if updater.dialogOpen}

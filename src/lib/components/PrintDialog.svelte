@@ -12,6 +12,8 @@
   let printer = $state<string>("");
   let preview = $state<string | null>(null);
   let busy = $state<"print" | "pdf" | null>(null);
+  /** Printed (or saved as PDF): show the way on to cutting. */
+  let done = $state<"print" | "pdf" | null>(null);
 
   const page = $derived(PAGES[editor.printCut.page]);
   const hasPrintable = $derived(editor.objects.some((o) => o.visible && (o.type === "image" || (o.type === "path" && o.printFill))));
@@ -44,8 +46,7 @@
     try {
       const png = await renderPage(300);
       await api.printPage(png, editor.mat.w, editor.mat.h, page.media, toPdf ? null : printer || null, path);
-      editor.toast(toPdf ? t("PDF gespeichert") : t("An den Drucker gesendet"), "ok");
-      plotter.printOpen = false;
+      done = toPdf ? "pdf" : "print";
     } catch (e) {
       editor.error(e);
     } finally {
@@ -55,6 +56,11 @@
 
   function close() {
     if (!busy) plotter.printOpen = false;
+  }
+
+  function toCut() {
+    plotter.printOpen = false;
+    plotter.dialogOpen = true;
   }
 </script>
 
@@ -67,7 +73,23 @@
       <button class="btn icon" onclick={close} aria-label={t("Schließen")}><Icon name="x" /></button>
     </header>
 
-    {#if !editor.printCut.enabled}
+    {#if done}
+      <div class="body single next">
+        <span class="ok"><Icon name="check" size={18} stroke={2.4} /></span>
+        <h3>{done === "pdf" ? t("PDF gespeichert") : t("An den Drucker gesendet")}</h3>
+        <ol>
+          {#if done === "pdf"}
+            <li>{t("PDF ohne Skalierung drucken (100 %, nicht „An Seite anpassen“).")}</li>
+          {/if}
+          <li>{t("Den Bogen oben links auf die Matte legen – bedruckte Seite nach oben.")}</li>
+          <li>{t("Matte einlegen und am Gerät die Lade-Taste drücken.")}</li>
+        </ol>
+        <div class="next-actions">
+          <button class="btn outline" onclick={close}>{t("Später")}</button>
+          <button class="btn primary" onclick={toCut}><Icon name="scissors" /> {t("Weiter zum Schneiden")}</button>
+        </div>
+      </div>
+    {:else if !editor.printCut.enabled}
       <div class="body single">
         <p>{t("Zum Drucken für Print & Cut wird die Seite mit Passermarken benötigt.")}</p>
         <button class="btn primary" onclick={() => editor.setPrintCut(true)}>{t("Print & Cut aktivieren")}</button>
@@ -115,7 +137,7 @@
               <Icon name="printer" /> {busy === "print" ? t("Sende …") : t("Drucken")}
             </button>
           </div>
-          <p class="hint">{t("Danach den Bogen oben links auf die Matte legen, laden und im Schneiden-Dialog starten.")}</p>
+          <p class="hint">{t("Danach führt Schnittwerk weiter zum Schneiden.")}</p>
         </div>
       </div>
     {/if}
@@ -252,6 +274,32 @@
   .grow {
     flex: 1;
     justify-content: center;
+  }
+  .next {
+    padding: 28px 32px 24px;
+  }
+  .next .ok {
+    display: inline-flex;
+    padding: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    color: #fff;
+  }
+  .next h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .next ol {
+    margin: 4px 0 0;
+    padding-left: 20px;
+    color: var(--text-2);
+    text-align: left;
+    line-height: 1.7;
+  }
+  .next-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
   }
   .hint {
     margin: 0;

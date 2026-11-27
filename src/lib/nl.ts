@@ -1002,6 +1002,31 @@ export const NL: Record<string, string> = {
   "Welches Quadrat ist am saubersten? So liegen sie auf der Matte:": "Welk vierkant is het netst? Zo liggen ze op de mat:",
   "{n} Quadrate nebeneinander, Druck steigt nach rechts.": "{n} vierkanten naast elkaar, druk neemt naar rechts toe.",
   "{n} Quadrate: je Zeile eine Messertiefe (von oben), Druck steigt nach rechts.": "{n} vierkanten: per rij één mesdiepte (van boven), druk neemt naar rechts toe.",
+  // ---- materials, print flow, layer groups (0.8.2) ----
+  "Aufklappen": "Uitklappen",
+  "Zuklappen": "Inklappen",
+  "Danach führt Schnittwerk weiter zum Schneiden.": "Daarna leidt Schnittwerk je verder naar het snijden.",
+  "Den Bogen oben links auf die Matte legen – bedruckte Seite nach oben.": "Leg het vel linksboven op de mat – bedrukte kant naar boven.",
+  "Diese Werte als eigenes Material speichern?": "Deze waarden als eigen materiaal opslaan?",
+  "Doppelklick oder F2: umbenennen · Rechtsklick: weitere Aktionen": "Dubbelklik of F2: hernoemen · Rechtsklik: meer acties",
+  "Doppelklick oder F2: umbenennen · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Dubbelklik of F2: hernoemen · Slepen: volgorde wijzigen · Rechtsklik: meer acties",
+  "Eigene Materialien": "Eigen materialen",
+  "Eigene Materialien verwalten …": "Eigen materialen beheren …",
+  "Gruppe – Doppelklick klappt auf · Ziehen: Reihenfolge ändern · Rechtsklick: weitere Aktionen": "Groep – dubbelklik klapt uit · Slepen: volgorde wijzigen · Rechtsklik: meer acties",
+  "Material für diesen Auftrag – wird beim Schneiden vorgewählt": "Materiaal voor deze opdracht – wordt bij het snijden voorgeselecteerd",
+  "Name": "Naam",
+  "Neues Material": "Nieuw materiaal",
+  "Nicht speichern": "Niet opslaan",
+  "Noch einmal klicken zum Löschen": "Klik nogmaals om te verwijderen",
+  "Noch keine eigenen Materialien. Lege eins auf Basis einer Vorlage an – oder speichere die Werte nach einem Testschnitt.": "Nog geen eigen materialen. Maak er een op basis van een voorinstelling – of sla de waarden op na een testsnede.",
+  "PDF ohne Skalierung drucken (100 %, nicht „An Seite anpassen“).": "Print de PDF zonder schalen (100 %, niet ‘Aanpassen aan pagina’).",
+  "Werte dieser Vorlage übernehmen": "Waarden van deze voorinstelling overnemen",
+  "beim nächsten Mal direkt auswählbar.": "de volgende keer direct te kiezen.",
+  "{n} Objekte in der Gruppe": "{n} objecten in de groep",
+  "getestet": "getest",
+  "eigen": "eigen",
+  "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Eigen materialen verschijnen bij het snijden en naast de snijknop. Wijzigingen worden direct opgeslagen.",
+  "Materialien …": "Materialen …",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -1079,7 +1104,8 @@ Het venster leidt je in vier stappen door het snijden: **Voorbereiden** (plotter
 
 - **Testsnede** (aanbevolen): klik in het voorbeeld op een vrije plek van het materiaal en snijd een klein vierkant. Daarna vraagt Schnittwerk hoe het eruitziet – bij ‘Niet helemaal door’ of ‘Te diep’ worden de waarden aangepast en komt de volgende test ernaast.
 - **Testreeks**: een raster van vierkanten – per rij één mesdiepte, per kolom één druk. Voor elk materiaal zijn er passende voorstellen (aanbevolen, fijnafstemming, alleen druk, alleen mesdiepte); de waarden kun je ook zelf intypen. Klik daarna op het netste vierkant en diepte en druk worden overgenomen.
-- **Lagen** (rechtsonder): dubbelklik om te hernoemen, slepen om de volgorde te wijzigen, rechtsklik voor dupliceren, verwijderen, groeperen en meer.
+- **Lagen** (rechtsonder): dubbelklik of \`F2\` om te hernoemen, slepen om de volgorde te wijzigen, rechtsklik voor dupliceren, verwijderen, groeperen en meer. Groepen (bijv. een sticker met afbeelding en contouren) klap je in en uit.
+- **Materiaal**: het materiaal van het project staat naast de snijknop en is daar direct te wisselen. Was de testsnede goed en zijn de waarden aangepast, dan biedt Schnittwerk aan ze als eigen materiaal op te slaan. Eigen materialen beheer je onder **Plotter → Materialen …**.
 - **Simulatie**: toont vooraf, in snijvolgorde, wat de plotter gaat doen.
 - De **duur** wordt geschat en wordt met elke snede nauwkeuriger.
 - Na **annuleren** of een verbindingsfout verschijnt **Verder snijden** – het snijden gaat verder waar het stopte. Verschuif de mat niet.

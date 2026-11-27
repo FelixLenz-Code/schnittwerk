@@ -46,7 +46,7 @@ Nach **Übernehmen** schlägt Schnittwerk die nächsten Schritte vor: Bogen fül
 - Bild auswählen, rechts **Als Sticker**: Hintergrund entfernen oder Transparenz nutzen, Rand einstellen, **Kontur übernehmen**.
 - **Mehrere Bilder auf einmal**: alle auswählen – rechts erscheint **Sticker-Bogen erstellen**. Alle bekommen eine Kontur, auf Wunsch mehrere Exemplare, und werden platzsparend angeordnet.
 - **Einzeln ausschneiden** schneidet zusätzlich mit Trägerrand durch (blau), sonst nur an (rot).
-- Drucken (\`Strg+P\`) – im Druckdialog nie „An Seite anpassen“ wählen.
+- Drucken (\`Strg+P\`) – im Druckdialog nie „An Seite anpassen“ wählen. Danach führt **Weiter zum Schneiden** direkt in den Schneiden-Dialog.
 - Bogen oben links auf die Matte legen, laden, schneiden.
 
 Liegt der Schnitt etwas daneben, im Schneiden-Dialog im Schritt **Testschnitt** unter **Feinjustierung** mit dem Testbogen nachstellen.`,
@@ -63,7 +63,8 @@ Der Dialog führt in vier Schritten durch den Schnitt:
 - **Testschnitt** (empfohlen): in der Vorschau auf eine freie Stelle der Folie klicken und ein kleines Quadrat schneiden. Danach fragt Schnittwerk, wie es aussieht – bei „Nicht ganz durch“ oder „Zu tief“ werden die Werte angepasst und der nächste Test landet daneben.
 - **Schneiden**: Zusammenfassung prüfen und los.
 - **Testreihe**: ein Raster aus Quadraten – je Zeile eine Messertiefe, je Spalte ein Druck. Für jedes Material gibt es passende Vorschläge (Empfohlen, Feinabstimmung, nur Druck, nur Messertiefe); die Werte lassen sich auch selbst eintippen. Danach das sauberste Quadrat anklicken, Tiefe und Druck werden übernommen.
-- **Ebenen** (unten rechts): Doppelklick benennt um, Ziehen ändert die Reihenfolge, Rechtsklick zeigt Duplizieren, Löschen, Gruppieren und mehr.
+- **Ebenen** (unten rechts): Doppelklick oder \`F2\` benennt um, Ziehen ändert die Reihenfolge, Rechtsklick zeigt Duplizieren, Löschen, Gruppieren und mehr. Gruppen (z. B. ein Sticker aus Bild und Konturen) lassen sich auf- und zuklappen.
+- **Material**: Neben dem Schneiden-Knopf steht das Material des Projekts und lässt sich direkt wechseln. War der Testschnitt gut und die Werte wurden angepasst, bietet Schnittwerk an, sie als eigenes Material zu speichern. Eigene Materialien verwaltest du unter **Plotter → Materialien …**.
 - **Simulation**: zeigt vorher in Schnittreihenfolge, was der Plotter macht.
 - Die **Dauer** wird geschätzt und mit jedem Schnitt genauer.
 - Nach **Abbruch** oder Verbindungsfehler erscheint **Weiterschneiden** – der Schnitt geht dort weiter, wo er unterbrochen wurde. Matte dabei nicht bewegen.
@@ -191,7 +192,8 @@ The dialog guides you through the cut in four steps: **Prepare** (cutter, mat, m
 
 - **Test cut** (recommended): click a free spot of the material in the preview and cut a small square. Schnittwerk then asks how it looks – with “Not quite through” or “Too deep” the values are adjusted and the next test goes next to it.
 - **Test series**: a grid of squares – one blade depth per row, one force per column. Each material has suitable suggestions (recommended, fine tuning, force only, blade depth only); the values can also be typed in. Then click the cleanest square and depth and force are applied.
-- **Layers** (bottom right): double-click renames, dragging changes the order, right-click offers duplicate, delete, group and more.
+- **Layers** (bottom right): double-click or \`F2\` renames, dragging changes the order, right-click offers duplicate, delete, group and more. Groups (e.g. a sticker made of picture and outlines) can be expanded and collapsed.
+- **Material**: the project's material is shown next to the cut button and can be changed there. If the test cut was good and the values were adjusted, Schnittwerk offers to save them as your own material. Manage your own materials under **Cutter → Materials …**.
 - **Simulation**: shows beforehand, in cutting order, what the cutter will do.
 - The **duration** is estimated and gets more accurate with every cut.
 - After **cancelling** or a connection error, **Continue cutting** appears – the cut resumes where it stopped. Do not move the mat.
