@@ -123,12 +123,16 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
   wählt Material, Matte oder Rolle, Druckseite und passende Vorlage; zeigt zuletzt geöffnete Projekte.
   Ein Klick auf „Schnittwerk“ oben links führt jederzeit zurück zu dieser Startseite.
   Importierte Bilder öffnen je nach Projektart den Sticker-Assistenten oder das Tracen
+- Rechte Seite folgt der Auswahl: ohne Auswahl Matte und Werkzeuge für den ganzen Bogen, bei Bildern
+  zwei Wege (in Schnittlinien umwandeln oder Sticker), danach Vorschläge für den nächsten Schritt;
+  Ebenen einklappbar darunter
+- Matte, Papier, Print & Cut, Rolle oder eigene Größe über einen Schalter oben links auf der Arbeitsfläche
 - Automatisches Speichern einer Sicherheitskopie; nach einem Absturz wird die Arbeit beim Start angeboten
 - Beim Schließen mit ungespeicherten Änderungen: Speichern, Nicht speichern oder Abbrechen
 - Oberfläche auf Deutsch, Englisch, Französisch, Spanisch oder Niederländisch (folgt dem System, umschaltbar unter Datei → Einstellungen)
 - Menüleiste (Datei, Bearbeiten, Objekt, Ansicht, Plotter, Hilfe) mit Tastaturbedienung und Einstellungen-Dialog
 - Kurze Einführung beim ersten Start und ein Hilfe-Tab mit durchsuchbarer Anleitung (in allen fünf Sprachen)
-- Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche im Objekt-Tab
+- Rechtsklick-Menü auf Objekten und der Arbeitsfläche; einklappbare Bereiche in der Seitenleiste
 - Matten für Portrait 3 (8″ × 12″) und Cameo (12″ × 12″, 12″ × 24″), A4 und Letter, Rolle ohne Matte (Länge einstellbar) und eigene Größe
   für große Motive – mit Raster und Linealen
 - Hilfslinien aus den Linealen ziehen; Einrasten an Hilfslinien, Matte und anderen Objekten
@@ -171,7 +175,10 @@ wird nur die öffentliche Release-Liste von GitHub abgerufen.
 - Geschätzte Schnittzeit vorher und Restzeit während des Schnitts (lernt mit jedem fertigen Schnitt dazu)
 - Nach einem Abbruch oder Verbindungsfehler an der unterbrochenen Stelle weiterschneiden
 - Material je Schnittfarbe: Anschneiden (Kiss-Cut) und Durchschneiden in einem Auftrag
-- Testschnitt und Testreihe (steigender Druck oder steigende Messertiefe, bestes Quadrat anklicken), Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
+- Geführter Ablauf in vier Schritten: Vorbereiten, Material, Testschnitt, Schneiden
+- Testschnitt an einer frei gewählten Stelle (Klick in die Vorschau, warnt bei Überschneidung mit dem Motiv);
+  danach fragt Schnittwerk nach dem Ergebnis und passt Tiefe oder Druck an
+- Testreihe (steigender Druck oder steigende Messertiefe, bestes Quadrat anklicken), Stiftmodus, Spiegeln für Flexfolie – ganze Folie oder jedes Element an seiner eigenen Mittelachse
 - Große Motive in Kacheln schneiden (Überlappung einstellbar, Kachelkarte, erledigte Kacheln werden markiert)
 - Schneiden ohne Matte von der Rolle; Folie wird am Ende hinter das Motiv geschoben
 - Messerverschleiß-Zähler mit Erinnerung nach einstellbarer Schnittstrecke
@@ -198,12 +205,12 @@ Stand und Pläne: [ROADMAP.md](ROADMAP.md).
 ## So geht's: Sticker drucken und schneiden
 
 1. Bild importieren (`Strg+I`) oder hineinziehen.
-2. Unten rechts **Print & Cut** einschalten.
-3. Im Reiter **Sticker** Rand und Freistellen einstellen, **Kontur übernehmen**.
-4. Im Reiter **Objekt** mit **Füllen** den Bogen mit Kopien füllen.
+2. Oben links auf der Arbeitsfläche **Print & Cut** wählen.
+3. Rechts **Als Sticker** wählen, Rand und Freistellen einstellen, **Kontur übernehmen**.
+4. Im Vorschlag danach **Bogen füllen** – der Bogen wird mit Kopien gefüllt.
 5. **Drucken** (`Strg+P`), das Blatt auf die Matte legen und einlegen.
-6. **Schneiden** (`Strg+Enter`): Material wählen, Testschnitt, dann schneiden.
-   Die Passermarken werden automatisch gesucht.
+6. **Schneiden** (`Strg+Enter`): Der Dialog führt durch Material und Testschnitt
+   (Stelle in der Vorschau anklicken) bis zum Schnitt. Die Passermarken werden automatisch gesucht.
 
 ## Kommandozeile
 

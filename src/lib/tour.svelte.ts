@@ -26,12 +26,12 @@ export const TOUR_STEPS: TourStep[] = [
   { target: "import", title: "Importieren", text: "Bilder, SVG und PDF laden – oder einfach auf die Arbeitsfläche ziehen." },
   { target: "tools", title: "Werkzeuge", text: "Auswählen, Formen, Linien, Freihand und Text. Rechtsklick auf ein Objekt zeigt die häufigsten Aktionen." },
   { target: "undo", title: "Rückgängig", text: "Macht Schritte rückgängig oder wiederholt sie. Der Tooltip nennt den Schritt, zum Beispiel „Rückgängig: Verschieben“." },
-  { target: "modes", title: "Raster und Print & Cut", text: "Raster lässt Objekte einrasten. Print & Cut legt Passermarken für Sticker auf die Seite." },
-  { target: "tabs", title: "Rechte Seite", text: "Objekt bearbeiten, Bilder tracen, Sticker-Konturen erzeugen und Ebenen verwalten." },
-  { target: "area", title: "Fläche", text: "Matte, Papierformat, Rolle ohne Matte oder eine eigene Größe für große Motive." },
+  { target: "area", title: "Matte und Papier", text: "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive." },
+  { target: "tabs", title: "Rechte Seite", text: "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen." },
+  { target: "view", title: "Ansicht", text: "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein." },
   { target: "device", title: "Plotter", text: "Zeigt, ob der Plotter verbunden ist. Hier verbindest du per Bluetooth und siehst den Messer-Zähler." },
-  { target: "print", title: "Drucken", text: "Für Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF." },
-  { target: "cut", title: "Schneiden", text: "Material wählen, Testschnitt machen, Ablauf simulieren und an den Plotter senden." },
+  { target: "print", title: "Drucken", text: "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF." },
+  { target: "cut", title: "Schneiden", text: "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden." },
   { target: "help", title: "Hilfe", text: "Anleitungen zu allen Themen und die Tastenkürzel. Die Einführung lässt sich dort jederzeit neu starten." },
 ];
 

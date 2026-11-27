@@ -99,3 +99,5 @@
 - ✅ Einführung beim ersten Start, Hilfe-Tab mit Anleitung (Deutsch/Englisch)
 - ✅ Simulation des Schnittablaufs im Schneiden-Dialog
 - ✅ Menüleiste mit Einstellungen-Dialog, Kopfzeile entschlackt, Einführung mit 13 Schritten, Meldungen über allen Fenstern
+- ✅ Einfacherer Ablauf: Seitenleiste folgt der Auswahl, Matte/Papier-Schalter auf der Arbeitsfläche,
+  aufgeräumte Kopfleiste, Schneiden als Assistent mit Testschnitt an frei gewählter Stelle

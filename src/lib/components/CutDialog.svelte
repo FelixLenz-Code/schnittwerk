@@ -11,6 +11,7 @@
   import Toggle from "./Toggle.svelte";
   import Segmented from "./Segmented.svelte";
   import { locale, t, tMsg } from "../i18n.svelte";
+  import { ui } from "../ui.svelte";
 
   let custom = $state<Material[]>(loadCustom());
   const all = $derived([...PRESETS, ...custom]);
@@ -466,11 +467,14 @@
   async function testCut() {
     try {
       plotter.begin();
+      testRunning = true;
+      testFeedback = false;
       const st = settings ?? {
         tool: m.tool, pressure: m.pressure, speed: m.speed, depth: m.tool === "blade" ? m.depth : null, mat, bladeOffset: 0.9, liftCorners: false,
       };
       await api.cutTest(testX, testY, $state.snapshot(st) as CutSettings);
     } catch (e) {
+      testRunning = false;
       plotter.phase = "idle";
       editor.error(e);
     }
@@ -528,8 +532,130 @@
     if (seriesCut.param === "pressure") m.pressure = v;
     else m.depth = v;
     editor.toast(t(seriesCut.param === "pressure" ? "Druck {v} übernommen – zum Behalten das Material speichern." : "Messertiefe {v} übernommen – zum Behalten das Material speichern.", { v }), "ok");
+    const w = seriesCut.values.length * 13 - 3;
     seriesCut = null;
     seriesOpen = false;
+    const f = findFree(testX + w + 3, testY) ?? findFree();
+    if (f) [testX, testY] = f;
+  }
+
+  // ---------- wizard ----------
+  const STEPS = [
+    { n: 1, label: "Vorbereiten" },
+    { n: 2, label: "Material" },
+    { n: 3, label: "Testschnitt" },
+    { n: 4, label: "Schneiden" },
+  ] as const;
+  type Step = (typeof STEPS)[number]["n"];
+  /** An interrupted job continues right away; otherwise start at the top. */
+  let step = $state<Step>(untrack(() => (resume ? 4 : 1)));
+  /** Material values open (most of the time the preset fits). */
+  let tune = $state(false);
+
+  function go(n: Step) {
+    if (plotter.busy) return;
+    step = n;
+    if (n === 3) untrack(ensureFreeTestSpot);
+  }
+
+  // ---------- test position (picked in the preview) ----------
+  const TEST = 10;
+  /** Width of what the next test cuts: one square or the whole series. */
+  const testW = $derived(seriesOpen && !seriesCut ? seriesValues.length * 13 - 3 : TEST);
+  /** Boxes of everything that will be cut, to keep the test off the design. */
+  const strokeBoxes = $derived(
+    plans.flatMap((plan) =>
+      plan.strokes.map((st) => {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const [x, y] of st) {
+          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+        }
+        return { x0, y0, x1, y1 };
+      }),
+    ),
+  );
+  /** Everything else on the sheet (not cut now, but in the way: other
+   *  stickers, printed pictures). Not for tiles – they move the design. */
+  const sheetBoxes = $derived.by(() => {
+    if (tile) return [];
+    return editor.objects
+      .filter((o) => o.visible && (o.type === "image" ? !!reg : o.cut !== false))
+      .map((o) => aabb([o])!)
+      .map((b) => (mirror && mirrorMode === "sheet" ? { x0: editor.mat.w - b.x1, y0: b.y0, x1: editor.mat.w - b.x0, y1: b.y1 } : b));
+  });
+  function blocked(x: number, y: number, w: number, h = TEST, margin = 2): boolean {
+    if (x < 0 || y < 0 || x + w > area.w || y + h > area.h) return true;
+    const hit = (b: { x0: number; y0: number; x1: number; y1: number }) => x < b.x1 + margin && x + w > b.x0 - margin && y < b.y1 + margin && y + h > b.y0 - margin;
+    if (strokeBoxes.some(hit) || sheetBoxes.some(hit)) return true;
+    return editor.regZones().some(([zx, zy, zw, zh]) => hit({ x0: zx, y0: zy, x1: zx + zw, y1: zy + zh }));
+  }
+  const testOnDesign = $derived(blocked(testX, testY, testW));
+
+  /** First free spot (row by row from the top left), starting after (x, y). */
+  function findFree(fromX = 0, fromY = 0, w = testW): [number, number] | null {
+    const stepMm = 5;
+    for (let y = Math.max(3, fromY); y + TEST <= area.h; y += stepMm) {
+      for (let x = y === Math.max(3, fromY) ? Math.max(3, fromX) : 3; x + w <= area.w; x += stepMm) {
+        if (!blocked(x, y, w)) return [x, y];
+      }
+    }
+    return null;
+  }
+  function ensureFreeTestSpot() {
+    if (!blocked(testX, testY, testW)) return;
+    const f = findFree();
+    if (f) [testX, testY] = f;
+  }
+  /** After a test: the next one goes next to it, onto fresh material. */
+  function moveTestOn() {
+    const f = findFree(testX + testW + 3, testY) ?? findFree();
+    if (f) [testX, testY] = f;
+  }
+
+  let previewSvg = $state<SVGSVGElement>();
+  function placeTest(e: PointerEvent) {
+    if (step !== 3 || plotter.busy || !previewSvg) return;
+    if (e.type === "pointermove" && !(e.buttons & 1)) return;
+    const ctm = previewSvg.getScreenCTM();
+    if (!ctm) return;
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+    // The click is the centre of the square (the first one of a series).
+    testX = Math.round(Math.max(0, Math.min(area.w - testW, pt.x - TEST / 2)) * 2) / 2;
+    testY = Math.round(Math.max(0, Math.min(area.h - TEST, pt.y - TEST / 2)) * 2) / 2;
+    testFeedback = false;
+  }
+
+  // ---------- after a test cut: how did it go? ----------
+  let testRunning = false;
+  let testFeedback = $state(false);
+  $effect(() => {
+    const r = plotter.lastResult;
+    if (!r) return;
+    untrack(() => {
+      if (!testRunning) return;
+      testRunning = false;
+      if (r.status === "done") testFeedback = true;
+    });
+  });
+
+  /** "Too light" / "too deep": change the active material one notch, test again. */
+  function adjustTest(dir: 1 | -1) {
+    const before = { depth: m.depth, pressure: m.pressure };
+    if (m.tool === "blade" && m.depth + dir >= 1 && m.depth + dir <= 10) m.depth += dir;
+    else m.pressure = Math.max(1, Math.min(33, m.pressure + 2 * dir));
+    const msg =
+      m.depth !== before.depth
+        ? t("Messertiefe {a} → {b} – noch einmal testen.", { a: before.depth, b: m.depth })
+        : t("Druck {a} → {b} – noch einmal testen.", { a: before.pressure, b: m.pressure });
+    editor.toast(msg, "ok");
+    testFeedback = false;
+    moveTestOn();
+  }
+
+  function testGood() {
+    testFeedback = false;
+    moveTestOn();
+    go(4);
   }
 
   function close() {
@@ -679,7 +805,15 @@
     <div class="body">
       <!-- Preview -->
       <div class="preview">
-        <svg viewBox="-6 -6 {area.w + 12} {area.h + 12}" preserveAspectRatio="xMidYMid meet">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <svg
+          viewBox="-6 -6 {area.w + 12} {area.h + 12}"
+          preserveAspectRatio="xMidYMid meet"
+          bind:this={previewSvg}
+          class:picking={step === 3 && !plotter.busy}
+          onpointerdown={placeTest}
+          onpointermove={placeTest}
+        >
           <rect x="0" y="0" width={area.w} height={area.h} rx="1" class="mat" class:paper={!!reg} />
           {#if reg}
             <rect x={reg.originX} y={reg.originY} width="5" height="5" fill="#000" />
@@ -734,10 +868,22 @@
           {#if plans.length}
             <circle cx={reg ? reg.originX : 0} cy={reg ? reg.originY : 0} r="1.5" class="origin" />
           {/if}
+          {#if step === 3}
+            <!-- Where the test cut goes (one square, or the whole series) -->
+            <g class="testmark" class:bad={testOnDesign}>
+              {#each Array.from({ length: seriesOpen && !seriesCut ? seriesValues.length : 1 }) as _, i}
+                <rect x={testX + i * 13} y={testY} width={TEST} height={TEST} rx="0.6" />
+              {/each}
+              <text x={testX} y={testY < 6 ? testY + TEST + 4.5 : testY - 2}>{t("Test")}</text>
+            </g>
+          {/if}
           {#if sim && simHead}
             <circle cx={simHead.x} cy={simHead.y} r="2.2" class="head" class:up={!simHead.down} />
           {/if}
         </svg>
+        {#if step === 3}
+          <p class="pick-hint"><Icon name="pointer" size={13} /> {t("In die Vorschau klicken: dort wird getestet.")}</p>
+        {/if}
         <div class="simbar">
           <button class="btn outline" disabled={!plans.length || plotter.busy} onclick={toggleSim}>
             <Icon name={sim ? "stop" : "play"} /> {sim ? t("Simulation stoppen") : t("Simulation")}
@@ -768,204 +914,365 @@
         </div>
       </div>
 
-      <!-- Settings -->
+      <!-- Settings: a guided flow in four steps -->
       <div class="side">
-        <div class="device" class:ok={ready} class:warn={plotter.status.state === "unloaded"} class:err={plotter.status.state === "error"}>
-          <span class="dot"></span>
-          <div>
-            <div class="dev-name">{plotter.status.model ?? t("Kein Plotter")}</div>
-            <div class="dev-state">{tMsg(plotter.status.message ?? STATE_TEXT[plotter.status.state])}</div>
-          </div>
-        </div>
-        <div class="blade" class:worn={plotter.bladeWorn} title={t("Geschnittene Strecke seit dem letzten Messerwechsel")}>
-          <Icon name="scissors" size={12} />
-          {t("Messer: {len} seit {date}", { len: fmtLen(plotter.blade.mm), date: new Date(plotter.blade.since).toLocaleDateString(locale()) })}
-          {#if plotter.bladeWorn}– {t("bitte prüfen")}{/if}
-        </div>
+        <nav class="steps" aria-label={t("Schritte")}>
+          {#each STEPS as s}
+            <button class="step" class:on={step === s.n} class:done={step > s.n} disabled={plotter.busy} onclick={() => go(s.n)} aria-current={step === s.n ? "step" : undefined}>
+              <span class="num">{#if step > s.n}<Icon name="check" size={11} stroke={2.6} />{:else}{s.n}{/if}</span>
+              <span class="step-label">{t(s.label)}</span>
+            </button>
+          {/each}
+        </nav>
 
-        <section>
-          <h3 class="section-title">{colors.length > 1 ? t("Material je Schnittfarbe") : t("Material")}</h3>
-          {#if colors.length > 1}
-            <div class="color-tabs">
-              {#each order as c, i}
-                <div class="ctab-row">
-                  <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title={t("Einstellungen für diese Farbe")}>
-                    <span class="sw" style:background={c}></span>
-                    <span class="ctab-text">{i + 1}. {t(matOf(c).name)}</span>
-                  </button>
-                  <button class="btn icon mini" onclick={() => moveColor(c, -1)} disabled={plotter.busy || i === 0} title={t("Früher schneiden")} aria-label={t("Früher schneiden")}><Icon name="arrowUp" size={13} /></button>
-                  <button class="btn icon mini" onclick={() => moveColor(c, 1)} disabled={plotter.busy || i === order.length - 1} title={t("Später schneiden")} aria-label={t("Später schneiden")}><Icon name="arrowDown" size={13} /></button>
-                </div>
-              {/each}
+        <div class="step-body">
+          {#if step === 1}
+            <!-- 1 · Plotter and mat -->
+            <div class="device" class:ok={ready} class:warn={plotter.status.state === "unloaded"} class:err={plotter.status.state === "error"}>
+              <span class="dot"></span>
+              <div class="grow-text">
+                <div class="dev-name">{plotter.status.model ?? t("Kein Plotter")}</div>
+                <div class="dev-state">{tMsg(plotter.status.message ?? STATE_TEXT[plotter.status.state])}</div>
+              </div>
             </div>
-            {#if misordered}
-              <p class="warn-text order-warn">
-                {t("Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.")}
-                <button class="btn small-btn" onclick={() => (manualOrder = bySeverity(colors))} disabled={plotter.busy}>{t("Leichte zuerst")}</button>
-              </p>
+            {#if !plotter.status.connected}
+              <div class="callout">
+                <p>{t("Plotter per USB anschließen und einschalten – er wird automatisch erkannt.")}</p>
+                <button class="btn outline" onclick={() => { plotter.dialogOpen = false; ui.deviceMenuOpen = true; }}><Icon name="usb" /> {t("Per Bluetooth verbinden …")}</button>
+              </div>
+            {:else if plotter.status.state === "unloaded"}
+              <div class="callout warn">
+                <p>{mat === "none" ? t("Material einlegen und am Gerät die Lade-Taste drücken.") : t("Matte einlegen und am Gerät die Lade-Taste drücken.")}</p>
+              </div>
             {/if}
-          {/if}
-          <div class="row">
-            <select class="field" value={materialId} onchange={(e) => pickMaterial(e.currentTarget.value)} disabled={plotter.busy}>
-              <optgroup label={t("Vorlagen")}>
-                {#each PRESETS as p}<option value={p.id}>{t(p.name)}</option>{/each}
-              </optgroup>
-              {#if custom.length}
-                <optgroup label={t("Eigene")}>
-                  {#each custom as p}<option value={p.id}>{p.name}</option>{/each}
-                </optgroup>
-              {/if}
-            </select>
-            <button class="btn icon outline" title={t("Als eigenes Material speichern")} onclick={() => (naming = modified ? `${t(m.name)} (${t("angepasst")})` : t(m.name))} disabled={plotter.busy}><Icon name="save" /></button>
-            {#if materialId.startsWith("c-")}
-              <button class="btn icon outline danger" title={t("Material löschen")} onclick={deleteMaterial} disabled={plotter.busy}><Icon name="trash" /></button>
-            {/if}
-          </div>
-          {#if naming !== null}
-            <form class="row name-row" onsubmit={(e) => { e.preventDefault(); saveAsMaterial(); }}>
-              <!-- svelte-ignore a11y_autofocus -->
-              <input class="field" bind:value={naming} placeholder={t("Name des Materials")} autofocus />
-              <button class="btn primary" type="submit">{t("Speichern")}</button>
-              <button class="btn" type="button" onclick={() => (naming = null)}>{t("Abbrechen")}</button>
-            </form>
-          {/if}
-          <p class="hint">{modified ? t("Angepasst – speichern, um die Werte zu behalten.") : t("Startwerte – vorher mit einem Testschnitt prüfen.")}</p>
-          <div class="controls">
-            {#if m.tool === "blade"}
-              <Slider disabled={plotter.busy} label="Messertiefe" bind:value={m.depth} min={1} max={10} hint="AutoBlade-Tiefe, wird vor dem Schnitt automatisch eingestellt" />
-            {/if}
-            <Slider disabled={plotter.busy} label="Druck" bind:value={m.pressure} min={1} max={33} />
-            <Slider disabled={plotter.busy} label="Geschwindigkeit" bind:value={m.speed} min={1} max={30} />
-            <Slider disabled={plotter.busy} label="Durchgänge" bind:value={m.passes} min={1} max={5} unit="×" />
-            {#if m.tool === "blade"}
-              <Slider disabled={plotter.busy} label="Überschnitt" bind:value={m.overcut} min={0} max={2} step={0.1} unit=" mm" hint="Schneidet geschlossene Formen etwas über den Startpunkt hinaus" />
-            {/if}
-            <label class="select-row">
-              <span>{t("Werkzeug")}</span>
-              <select class="field" bind:value={m.tool} disabled={plotter.busy}>
-                <option value="blade">{t("AutoBlade (Messer)")}</option>
-                <option value="pen">{t("Stift")}</option>
-              </select>
-            </label>
-          </div>
-        </section>
+            <div class="blade" class:worn={plotter.bladeWorn} title={t("Geschnittene Strecke seit dem letzten Messerwechsel")}>
+              <Icon name="scissors" size={12} />
+              {t("Messer: {len} seit {date}", { len: fmtLen(plotter.blade.mm), date: new Date(plotter.blade.since).toLocaleDateString(locale()) })}
+              {#if plotter.bladeWorn}– {t("bitte prüfen")}{/if}
+            </div>
 
-        <section>
-          <h3 class="section-title">{t("Auftrag")}</h3>
-          <div class="controls">
-            <label class="select-row">
-              <span>{t("Matte")}</span>
-              <select class="field" bind:value={mat} disabled={plotter.busy}>
-                <option value="portrait8x12">{t(MAT_LABELS.portrait8x12)}</option>
-                <option value="portrait8_5x12">{t(MAT_LABELS.portrait8_5x12)}</option>
-                <option value="cameo12x12">{t(MAT_LABELS.cameo12x12)}</option>
-                <option value="cameo12x24">{t(MAT_LABELS.cameo12x24)}</option>
-                <option value="none">{t("Ohne Matte")}</option>
-              </select>
-            </label>
-            <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
-            {#if mirror}
-              <div class="mirror-mode">
-                <Segmented
-                  value={mirrorMode}
-                  onchange={setMirrorMode}
-                  options={[
-                    { value: "sheet", label: "Ganze Folie", hint: "Alles an der Mittelachse der Folie spiegeln – die Anordnung wird seitenverkehrt" },
-                    { value: "each", label: "Jedes Element", hint: "Jedes Element an seiner eigenen Mittelachse spiegeln – alles bleibt an seinem Platz" },
-                  ]}
-                />
-                <p class="hint">
-                  {mirrorMode === "sheet"
-                    ? t("Die ganze Folie wird seitenverkehrt – Elemente tauschen links und rechts.")
-                    : t("Jedes Element wird an Ort und Stelle gespiegelt. Gruppen werden als Ganzes gespiegelt.")}
-                </p>
-              </div>
-            {/if}
-            <Toggle disabled={plotter.busy} label="Nur Auswahl schneiden" bind:checked={onlySelection} />
-            <Toggle disabled={plotter.busy} label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
-            {#if mat === "none" && !reg}
-              <Toggle disabled={plotter.busy} label="Folie am Ende herausschieben" bind:checked={feedOut} hint="Schiebt das Material hinter das Motiv, damit es abgeschnitten werden kann" />
-            {/if}
-          </div>
-          <div class="stats">
-            {#if plans.length}
-              <span>{totals.paths === 1 ? t("1 Pfad") : t("{n} Pfade", { n: totals.paths })}</span>
-              <span><b>{fmtLen(totals.cut)}</b> {t("Schnitt")}</span>
-              <span><b>{fmtLen(totals.travel)}</b> {t("Leerweg")}</span>
-              {#if plans.length > 1}<span><b>{plans.length}</b> {t("Schritte")}</span>{/if}
-              <span title={t("Schätzung – wird mit jedem fertigen Schnitt genauer")}><b>≈ {fmtDuration(estimate)}</b> {t("Dauer")}</span>
-            {:else if planError}
-              <span class="err-text">{planError}</span>
-            {:else}
-              <span class="muted">{t("Keine Schnittlinien – erst tracen oder Formen zeichnen.")}</span>
-            {/if}
-          </div>
-          {#if matTooWide}
-            <p class="warn-text">{t("Diese Matte ist breiter als der Plotter ({w} mm) – nur der Teil, der hineinpasst, wird geschnitten.", { w: fmt(plotter.status.widthMm ?? 0) })}</p>
-          {/if}
-          {#if outside}
-            <p class="warn-text">{reg ? t("Teile liegen außerhalb des Passermarken-Rahmens und werden abgeschnitten.") : t("Teile liegen außerhalb des Schneidebereichs und werden abgeschnitten.")}</p>
-          {/if}
-          {#if tooBig}
-            <div class="tiles">
-              <div class="calib-head">
-                <span>{t("Großes Motiv: in Kacheln schneiden")}</span>
-                <input type="checkbox" bind:checked={tileOn} disabled={plotter.busy} title={t("Motiv auf mehrere Matten aufteilen")} />
-              </div>
-              {#if tiling}
-                <svg class="tilemap" viewBox="{tiling.box.x0 - 4} {tiling.box.y0 - 4} {tiling.box.x1 - tiling.box.x0 + 8} {tiling.box.y1 - tiling.box.y0 + 8}" preserveAspectRatio="xMidYMid meet">
-                  {#each cutObjects as o (o.id)}
-                    <path d={o.d} transform={mapTransform(o)} fill="none" stroke="var(--text-3)" stroke-width="1" vector-effect="non-scaling-stroke" />
-                  {/each}
-                  {#each tiling.tiles as tl, i}
-                    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-                    <rect
-                      x={tl.x}
-                      y={tl.y}
-                      width={tl.w}
-                      height={tl.h}
-                      class="tile"
-                      class:on={i === tileIdx}
-                      class:done={tilesDone.includes(i)}
-                      vector-effect="non-scaling-stroke"
-                      onclick={() => !plotter.busy && (tileIdx = i)}
+            <section>
+              <h3 class="section-title">{t("Worauf schneidest du?")}</h3>
+              <div class="controls">
+                <label class="select-row">
+                  <span>{t("Matte")}</span>
+                  <select class="field" bind:value={mat} disabled={plotter.busy}>
+                    <option value="portrait8x12">{t(MAT_LABELS.portrait8x12)}</option>
+                    <option value="portrait8_5x12">{t(MAT_LABELS.portrait8_5x12)}</option>
+                    <option value="cameo12x12">{t(MAT_LABELS.cameo12x12)}</option>
+                    <option value="cameo12x24">{t(MAT_LABELS.cameo12x24)}</option>
+                    <option value="none">{t("Ohne Matte")}</option>
+                  </select>
+                </label>
+                {#if mat === "none" && !reg}
+                  <Toggle disabled={plotter.busy} label="Folie am Ende herausschieben" bind:checked={feedOut} hint="Schiebt das Material hinter das Motiv, damit es abgeschnitten werden kann" />
+                {/if}
+                <Toggle disabled={plotter.busy} label="Spiegeln (Flexfolie)" bind:checked={mirror} />
+                {#if mirror}
+                  <div class="mirror-mode">
+                    <Segmented
+                      value={mirrorMode}
+                      onchange={setMirrorMode}
+                      options={[
+                        { value: "sheet", label: "Ganze Folie", hint: "Alles an der Mittelachse der Folie spiegeln – die Anordnung wird seitenverkehrt" },
+                        { value: "each", label: "Jedes Element", hint: "Jedes Element an seiner eigenen Mittelachse spiegeln – alles bleibt an seinem Platz" },
+                      ]}
                     />
-                  {/each}
-                </svg>
-                <div class="tile-buttons">
-                  {#each tiling.tiles as tl, i}
-                    <button class="tbtn" class:on={i === tileIdx} class:done={tilesDone.includes(i)} disabled={plotter.busy} onclick={() => (tileIdx = i)} title={t("Reihe {r}, Spalte {c}", { r: tl.row + 1, c: tl.col + 1 })}>
-                      {#if tilesDone.includes(i)}<Icon name="check" size={11} />{/if}{i + 1}
-                    </button>
-                  {/each}
-                </div>
-                <div class="calib-row">
-                  <label>{t("Überlappung")} <input class="field num" type="number" min="0" max="30" step="1" bind:value={tileOverlap} disabled={plotter.busy} /> mm</label>
-                  <span>{t("{n} Kacheln", { n: tiling.tiles.length })} · {fmt(cutArea.w)} × {fmt(cutArea.h)} mm</span>
-                </div>
-                <p class="hint">{mat === "none" ? t("Kachel {n} wird oben links auf dem Material geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 }) : t("Kachel {n} wird oben links auf der Matte geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 })}</p>
-              {:else}
-                <p class="hint">{t("Aus: alles außerhalb des Schneidebereichs wird abgeschnitten.")}</p>
+                    <p class="hint">
+                      {mirrorMode === "sheet"
+                        ? t("Die ganze Folie wird seitenverkehrt – Elemente tauschen links und rechts.")
+                        : t("Jedes Element wird an Ort und Stelle gespiegelt. Gruppen werden als Ganzes gespiegelt.")}
+                    </p>
+                  </div>
+                {/if}
+                <Toggle disabled={plotter.busy} label="Nur Auswahl schneiden" bind:checked={onlySelection} />
+                <Toggle disabled={plotter.busy} label="Reihenfolge optimieren" bind:checked={optimize} hint="Innere Formen zuerst, kurze Leerfahrten" />
+              </div>
+              {#if matTooWide}
+                <p class="warn-text">{t("Diese Matte ist breiter als der Plotter ({w} mm) – nur der Teil, der hineinpasst, wird geschnitten.", { w: fmt(plotter.status.widthMm ?? 0) })}</p>
               {/if}
-            </div>
-          {/if}
-          {#if reg}
-            <div class="calib">
-              <div class="calib-head">
-                <span>{t("Feinjustierung Druck ↔ Schnitt")}</span>
-                <button class="btn small-btn" onclick={addCalibrationSheet} disabled={plotter.busy} title={t("Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite")}>{t("Testbogen")}</button>
+              {#if reg}
+                <p class="info-text">
+                  <Icon name="sparkle" size={13} /> {t("Print & Cut: Bedruckten Bogen oben links auf die Matte legen. Die Passermarken werden vor dem Schnitt automatisch gesucht.")}
+                </p>
+              {/if}
+            </section>
+          {:else if step === 2}
+            <!-- 2 · Material per cut colour -->
+            <section>
+              <h3 class="section-title">{colors.length > 1 ? t("Material je Schnittfarbe") : t("Material")}</h3>
+              {#if colors.length > 1}
+                <div class="color-tabs">
+                  {#each order as c, i}
+                    <div class="ctab-row">
+                      <button class="ctab" class:on={c === active} onclick={() => selectColor(c)} disabled={plotter.busy} title={t("Einstellungen für diese Farbe")}>
+                        <span class="sw" style:background={c}></span>
+                        <span class="ctab-text">{i + 1}. {t(matOf(c).name)}</span>
+                      </button>
+                      <button class="btn icon mini" onclick={() => moveColor(c, -1)} disabled={plotter.busy || i === 0} title={t("Früher schneiden")} aria-label={t("Früher schneiden")}><Icon name="arrowUp" size={13} /></button>
+                      <button class="btn icon mini" onclick={() => moveColor(c, 1)} disabled={plotter.busy || i === order.length - 1} title={t("Später schneiden")} aria-label={t("Später schneiden")}><Icon name="arrowDown" size={13} /></button>
+                    </div>
+                  {/each}
+                </div>
+                {#if misordered}
+                  <p class="warn-text order-warn">
+                    {t("Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.")}
+                    <button class="btn small-btn" onclick={() => (manualOrder = bySeverity(colors))} disabled={plotter.busy}>{t("Leichte zuerst")}</button>
+                  </p>
+                {/if}
+              {/if}
+              <div class="row">
+                <select class="field" value={materialId} onchange={(e) => pickMaterial(e.currentTarget.value)} disabled={plotter.busy}>
+                  <optgroup label={t("Vorlagen")}>
+                    {#each PRESETS as p}<option value={p.id}>{t(p.name)}</option>{/each}
+                  </optgroup>
+                  {#if custom.length}
+                    <optgroup label={t("Eigene")}>
+                      {#each custom as p}<option value={p.id}>{p.name}</option>{/each}
+                    </optgroup>
+                  {/if}
+                </select>
+                <button class="btn icon outline" title={t("Als eigenes Material speichern")} onclick={() => (naming = modified ? `${t(m.name)} (${t("angepasst")})` : t(m.name))} disabled={plotter.busy}><Icon name="save" /></button>
+                {#if materialId.startsWith("c-")}
+                  <button class="btn icon outline danger" title={t("Material löschen")} onclick={deleteMaterial} disabled={plotter.busy}><Icon name="trash" /></button>
+                {/if}
               </div>
-              <div class="calib-row">
-                <label>X <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dx} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
-                <label>Y <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dy} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
+              {#if naming !== null}
+                <form class="row name-row" onsubmit={(e) => { e.preventDefault(); saveAsMaterial(); }}>
+                  <!-- svelte-ignore a11y_autofocus -->
+                  <input class="field" bind:value={naming} placeholder={t("Name des Materials")} autofocus />
+                  <button class="btn primary" type="submit">{t("Speichern")}</button>
+                  <button class="btn" type="button" onclick={() => (naming = null)}>{t("Abbrechen")}</button>
+                </form>
+              {/if}
+              <!-- Summary of the values; the sliders only when wanted. -->
+              <button class="values" class:open={tune || modified} onclick={() => (tune = !tune)} aria-expanded={tune || modified}>
+                <span>
+                  {m.tool === "pen" ? t("Stift") : `${t("Tiefe")} ${m.depth}`} · {t("Druck")} {m.pressure} · {t("Tempo")} {m.speed}{m.passes > 1 ? ` · ${m.passes}×` : ""}
+                </span>
+                <span class="values-link">{tune || modified ? t("Weniger") : t("Werte anpassen")}</span>
+              </button>
+              {#if tune || modified}
+                <div class="controls">
+                  {#if m.tool === "blade"}
+                    <Slider disabled={plotter.busy} label="Messertiefe" bind:value={m.depth} min={1} max={10} hint="AutoBlade-Tiefe, wird vor dem Schnitt automatisch eingestellt" />
+                  {/if}
+                  <Slider disabled={plotter.busy} label="Druck" bind:value={m.pressure} min={1} max={33} />
+                  <Slider disabled={plotter.busy} label="Geschwindigkeit" bind:value={m.speed} min={1} max={30} />
+                  <Slider disabled={plotter.busy} label="Durchgänge" bind:value={m.passes} min={1} max={5} unit="×" />
+                  {#if m.tool === "blade"}
+                    <Slider disabled={plotter.busy} label="Überschnitt" bind:value={m.overcut} min={0} max={2} step={0.1} unit=" mm" hint="Schneidet geschlossene Formen etwas über den Startpunkt hinaus" />
+                  {/if}
+                  <label class="select-row">
+                    <span>{t("Werkzeug")}</span>
+                    <select class="field" bind:value={m.tool} disabled={plotter.busy}>
+                      <option value="blade">{t("AutoBlade (Messer)")}</option>
+                      <option value="pen">{t("Stift")}</option>
+                    </select>
+                  </label>
+                </div>
+              {/if}
+              <p class="hint">{modified ? t("Angepasst – speichern, um die Werte zu behalten.") : t("Startwerte der Vorlage. Im nächsten Schritt kannst du sie an einer freien Stelle testen.")}</p>
+            </section>
+          {:else if step === 3}
+            <!-- 3 · Test cut at a spot of your choice -->
+            <section>
+              <h3 class="section-title">{t("Testschnitt (empfohlen)")}</h3>
+              <p class="lead">{t("Schneidet ein kleines Quadrat mit Dreieck. So siehst du vor dem eigentlichen Schnitt, ob Tiefe und Druck zum Material passen.")}</p>
+              {#if colors.length > 1}
+                <label class="select-row">
+                  <span>{t("Testen mit")}</span>
+                  <select class="field" value={active} onchange={(e) => selectColor(e.currentTarget.value)} disabled={plotter.busy}>
+                    {#each order as c, i}<option value={c}>{i + 1}. {t(matOf(c).name)}</option>{/each}
+                  </select>
+                </label>
+              {/if}
+              <div class="test-pos">
+                <span>{t("Stelle")}</span>
+                <label>X <input class="field num" type="number" min="0" max={area.w - testW} step="0.5" bind:value={testX} /></label>
+                <label>Y <input class="field num" type="number" min="0" max={area.h - TEST} step="0.5" bind:value={testY} /></label>
+                <span>mm</span>
               </div>
-              <p class="hint">{t("Schnitt liegt zu weit rechts → X verringern; zu weit unten → Y verringern. Beim Testbogen ist der weiße Rand dann ringsum gleich (2 mm).")}</p>
-            </div>
-            <p class="info-text">
-              <Icon name="sparkle" size={13} /> {t("Print & Cut: Bedruckten Bogen oben links auf die Matte legen. Die Passermarken werden vor dem Schnitt automatisch gesucht.")}
-            </p>
+              {#if testOnDesign}
+                <p class="warn-text">{t("Die Stelle liegt auf dem Motiv oder am Rand – in der Vorschau eine freie Stelle anklicken.")}</p>
+              {:else}
+                <p class="hint">{t("Am besten eine Ecke, die später nicht gebraucht wird.")}</p>
+              {/if}
+
+              {#if testFeedback && !plotter.busy}
+                <div class="feedback">
+                  <strong>{t("Wie sieht der Test aus?")}</strong>
+                  <span class="hint">{m.tool === "pen" ? t("Linien gleichmäßig und gut sichtbar?") : t("Quadrat abziehen: Das Dreieck soll stehen bleiben, das Trägerpapier darf nur leicht angeritzt sein.")}</span>
+                  <button class="btn primary" onclick={testGood}><Icon name="check" /> {t("Passt – weiter")}</button>
+                  <div class="row">
+                    <button class="btn outline grow" onclick={() => adjustTest(1)}>{m.tool === "pen" ? t("Zu schwach") : t("Nicht ganz durch")}</button>
+                    <button class="btn outline grow" onclick={() => adjustTest(-1)}>{m.tool === "pen" ? t("Zu stark") : t("Zu tief")}</button>
+                  </div>
+                </div>
+              {:else}
+                <div class="row test-actions">
+                  <button class="btn primary grow" disabled={!ready || testOnDesign} onclick={testCut}><Icon name="scissors" /> {t("Test schneiden")}</button>
+                  <button class="btn outline" class:active={seriesOpen} disabled={plotter.busy} onclick={openSeries} title={t("Mehrere Testquadrate mit steigenden Werten nebeneinander")}>{t("Testreihe")}</button>
+                </div>
+              {/if}
+              {#if seriesOpen}
+                <div class="series">
+                  {#if seriesCut && !plotter.busy}
+                    <span class="series-q">{t("Welches Quadrat ist am saubersten? (von links gezählt)")}</span>
+                    <div class="series-pick">
+                      {#each seriesCut.values as v, i}
+                        <button class="btn outline" onclick={() => chooseSeries(v)}>{i + 1}: {seriesCut.param === "pressure" ? t("Druck") : t("Messertiefe")} {v}</button>
+                      {/each}
+                    </div>
+                    <button class="btn small-btn" onclick={() => (seriesCut = null)}>{t("Neue Testreihe")}</button>
+                  {:else}
+                    {#if m.tool === "blade"}
+                      <Segmented
+                        value={seriesParam}
+                        onchange={(v) => {
+                          seriesParam = v;
+                          openSeries();
+                          seriesOpen = true;
+                        }}
+                        options={[
+                          { value: "pressure", label: "Druck" },
+                          { value: "depth", label: "Messertiefe" },
+                        ]}
+                      />
+                    {/if}
+                    <div class="calib-row">
+                      <label>{t("von")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesFrom} /></label>
+                      <label>{t("bis")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesTo} /></label>
+                      <label>{t("Anzahl")} <input class="field num" type="number" min="2" max="8" bind:value={seriesCount} /></label>
+                    </div>
+                    <p class="hint">{seriesValues.join(" · ")} – {t("je ein 10-mm-Quadrat, von links nach rechts")}</p>
+                    {#if !seriesFits}<p class="warn-text">{t("Die Reihe passt ab dieser Position nicht auf die Matte.")}</p>{/if}
+                    <button class="btn outline" disabled={!ready || !seriesFits || testOnDesign} onclick={cutSeries}><Icon name="scissors" /> {t("Testreihe schneiden")}</button>
+                  {/if}
+                </div>
+              {/if}
+              {#if !plotter.status.connected}
+                <p class="hint">{t("Zum Testen den Plotter anschließen (Schritt 1).")}</p>
+              {/if}
+            </section>
+            {#if reg}
+              <section>
+                <h3 class="section-title">{t("Print & Cut prüfen")}</h3>
+                <div class="test">
+                  <span>{t("Marken bei {x} / {y} mm, Abstand {w} × {h} mm", { x: reg.originX, y: reg.originY, w: fmt(reg.width), h: fmt(reg.length) })}</span>
+                  <button class="btn outline" disabled={!ready} onclick={testMarks} title={t("Sucht nur die Passermarken, ohne zu schneiden")}>{t("Marken testen")}</button>
+                </div>
+                <div class="calib">
+                  <div class="calib-head">
+                    <span>{t("Feinjustierung Druck ↔ Schnitt")}</span>
+                    <button class="btn small-btn" onclick={addCalibrationSheet} disabled={plotter.busy} title={t("Legt 4 gedruckte Quadrate mit Schnittrahmen auf die Seite")}>{t("Testbogen")}</button>
+                  </div>
+                  <div class="calib-row">
+                    <label>X <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dx} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
+                    <label>Y <input class="field num" type="number" step="0.1" bind:value={plotter.calib.dy} disabled={plotter.busy} onchange={() => plotter.saveCalib()} /> mm</label>
+                  </div>
+                  <p class="hint">{t("Schnitt liegt zu weit rechts → X verringern; zu weit unten → Y verringern. Beim Testbogen ist der weiße Rand dann ringsum gleich (2 mm).")}</p>
+                </div>
+              </section>
+            {/if}
+          {:else}
+            <!-- 4 · Cut -->
+            <section>
+              <h3 class="section-title">{t("Bereit zum Schneiden")}</h3>
+              <ul class="passes">
+                {#each groups as g, i (g.color)}
+                  {@const mm = matOf(g.color)}
+                  <li>
+                    <span class="sw" style:background={g.color}></span>
+                    <span class="pass-name">{groups.length > 1 ? `${i + 1}. ` : ""}{t(mm.name)}</span>
+                    <span class="pass-vals">{mm.tool === "pen" ? t("Stift") : `${t("Tiefe")} ${mm.depth}`} · {t("Druck")} {mm.pressure}{mm.passes > 1 ? ` · ${mm.passes}×` : ""}</span>
+                  </li>
+                {/each}
+              </ul>
+              <div class="stats">
+                {#if plans.length}
+                  <span>{totals.paths === 1 ? t("1 Pfad") : t("{n} Pfade", { n: totals.paths })}</span>
+                  <span><b>{fmtLen(totals.cut)}</b> {t("Schnitt")}</span>
+                  <span><b>{fmtLen(totals.travel)}</b> {t("Leerweg")}</span>
+                  <span title={t("Schätzung – wird mit jedem fertigen Schnitt genauer")}><b>≈ {fmtDuration(estimate)}</b> {t("Dauer")}</span>
+                {:else if planError}
+                  <span class="err-text">{planError}</span>
+                {:else}
+                  <span class="muted">{t("Keine Schnittlinien – erst tracen oder Formen zeichnen.")}</span>
+                {/if}
+              </div>
+              {#if misordered}
+                <p class="warn-text">{t("Ein stärkerer Schnitt kommt vor einem leichteren – der Bogen kann sich lösen, bevor alles angeschnitten ist.")}</p>
+              {/if}
+              {#if outside}
+                <p class="warn-text">{reg ? t("Teile liegen außerhalb des Passermarken-Rahmens und werden abgeschnitten.") : t("Teile liegen außerhalb des Schneidebereichs und werden abgeschnitten.")}</p>
+              {/if}
+              {#if tooBig}
+                <div class="tiles">
+                  <div class="calib-head">
+                    <span>{t("Großes Motiv: in Kacheln schneiden")}</span>
+                    <input type="checkbox" bind:checked={tileOn} disabled={plotter.busy} title={t("Motiv auf mehrere Matten aufteilen")} />
+                  </div>
+                  {#if tiling}
+                    <svg class="tilemap" viewBox="{tiling.box.x0 - 4} {tiling.box.y0 - 4} {tiling.box.x1 - tiling.box.x0 + 8} {tiling.box.y1 - tiling.box.y0 + 8}" preserveAspectRatio="xMidYMid meet">
+                      {#each cutObjects as o (o.id)}
+                        <path d={o.d} transform={mapTransform(o)} fill="none" stroke="var(--text-3)" stroke-width="1" vector-effect="non-scaling-stroke" />
+                      {/each}
+                      {#each tiling.tiles as tl, i}
+                        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+                        <rect
+                          x={tl.x}
+                          y={tl.y}
+                          width={tl.w}
+                          height={tl.h}
+                          class="tile"
+                          class:on={i === tileIdx}
+                          class:done={tilesDone.includes(i)}
+                          vector-effect="non-scaling-stroke"
+                          onclick={() => !plotter.busy && (tileIdx = i)}
+                        />
+                      {/each}
+                    </svg>
+                    <div class="tile-buttons">
+                      {#each tiling.tiles as tl, i}
+                        <button class="tbtn" class:on={i === tileIdx} class:done={tilesDone.includes(i)} disabled={plotter.busy} onclick={() => (tileIdx = i)} title={t("Reihe {r}, Spalte {c}", { r: tl.row + 1, c: tl.col + 1 })}>
+                          {#if tilesDone.includes(i)}<Icon name="check" size={11} />{/if}{i + 1}
+                        </button>
+                      {/each}
+                    </div>
+                    <div class="calib-row">
+                      <label>{t("Überlappung")} <input class="field num" type="number" min="0" max="30" step="1" bind:value={tileOverlap} disabled={plotter.busy} /> mm</label>
+                      <span>{t("{n} Kacheln", { n: tiling.tiles.length })} · {fmt(cutArea.w)} × {fmt(cutArea.h)} mm</span>
+                    </div>
+                    <p class="hint">{mat === "none" ? t("Kachel {n} wird oben links auf dem Material geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 }) : t("Kachel {n} wird oben links auf der Matte geschnitten. Nach jedem Schnitt neues Material einlegen.", { n: tileIdx + 1 })}</p>
+                  {:else}
+                    <p class="hint">{t("Aus: alles außerhalb des Schneidebereichs wird abgeschnitten.")}</p>
+                  {/if}
+                </div>
+              {/if}
+              {#if resume}
+                {@const p = resume.point}
+                <div class="resume">
+                  <div class="calib-head">
+                    <span>{t("Unterbrochener Schnitt")}</span>
+                    <button class="btn small-btn" onclick={() => (plotter.resume = null)} title={t("Nicht weiterschneiden")}>{t("Verwerfen")}</button>
+                  </div>
+                  <p class="hint">
+                    {jobGroups.length > 1 ? `${t("Schritt {n}", { n: p.pass + 1 })} (${t(jobGroups[p.pass]?.name ?? "")}), ` : ""}{t("Pfad {a} von {b}.", { a: Math.min(p.stroke + 1, p.strokes), b: p.strokes })}
+                    {t("Matte und Material nicht verschieben.")}
+                  </p>
+                  <div class="calib-row">
+                    <span>{t("Weiter ab Pfad")}</span>
+                    <button class="btn icon mini" onclick={() => (back = Math.min(p.stroke, back + 1))} disabled={resumeFrom === 0} aria-label={t("Einen Pfad früher")}>−</button>
+                    <b>{resumeFrom + 1}</b>
+                    <button class="btn icon mini" onclick={() => (back = Math.max(0, back - 1))} disabled={back === 0} aria-label={t("Einen Pfad später")}>+</button>
+                  </div>
+                  <button class="btn outline" disabled={!ready} onclick={() => startCut(true)}><Icon name="scissors" /> {t("Weiterschneiden")}</button>
+                </div>
+              {/if}
+            </section>
           {/if}
-        </section>
+        </div>
 
         <div class="footer">
           {#if plotter.busy}
@@ -979,78 +1286,7 @@
               </button>
               <button class="btn outline danger grow" disabled={plotter.phase === "cancelling"} onclick={() => plotter.cancel()}><Icon name="x" /> {t("Abbrechen")}</button>
             </div>
-          {:else}
-            {#if reg}
-              <div class="test">
-                <span>{t("Marken bei {x} / {y} mm, Abstand {w} × {h} mm", { x: reg.originX, y: reg.originY, w: fmt(reg.width), h: fmt(reg.length) })}</span>
-                <button class="btn outline" disabled={!ready} onclick={testMarks} title={t("Sucht nur die Passermarken, ohne zu schneiden")}>{t("Marken testen")}</button>
-              </div>
-            {/if}
-            <div class="test">
-              <span>{t("Testschnitt bei")}</span>
-              <input class="field num" type="number" min="0" max={area.w - 10} bind:value={testX} />
-              <span>×</span>
-              <input class="field num" type="number" min="0" max={area.h - 10} bind:value={testY} />
-              <span>mm</span>
-              <button class="btn outline" disabled={!ready} onclick={testCut}>Test</button>
-              <button class="btn outline" class:active={seriesOpen} disabled={plotter.busy} onclick={openSeries} title={t("Mehrere Testquadrate mit steigenden Werten nebeneinander")}>{t("Testreihe")}</button>
-            </div>
-            {#if seriesOpen}
-              <div class="series">
-                {#if seriesCut && !plotter.busy}
-                  <span class="series-q">{t("Welches Quadrat ist am saubersten? (von links gezählt)")}</span>
-                  <div class="series-pick">
-                    {#each seriesCut.values as v, i}
-                      <button class="btn outline" onclick={() => chooseSeries(v)}>{i + 1}: {seriesCut.param === "pressure" ? t("Druck") : t("Messertiefe")} {v}</button>
-                    {/each}
-                  </div>
-                  <button class="btn small-btn" onclick={() => (seriesCut = null)}>{t("Neue Testreihe")}</button>
-                {:else}
-                  {#if m.tool === "blade"}
-                    <Segmented
-                      value={seriesParam}
-                      onchange={(v) => {
-                        seriesParam = v;
-                        openSeries();
-                        seriesOpen = true;
-                      }}
-                      options={[
-                        { value: "pressure", label: "Druck" },
-                        { value: "depth", label: "Messertiefe" },
-                      ]}
-                    />
-                  {/if}
-                  <div class="calib-row">
-                    <label>{t("von")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesFrom} /></label>
-                    <label>{t("bis")} <input class="field num" type="number" min={seriesLimits.min} max={seriesLimits.max} bind:value={seriesTo} /></label>
-                    <label>{t("Anzahl")} <input class="field num" type="number" min="2" max="8" bind:value={seriesCount} /></label>
-                  </div>
-                  <p class="hint">{seriesValues.join(" · ")} – {t("je ein 10-mm-Quadrat, von links nach rechts")}</p>
-                  {#if !seriesFits}<p class="warn-text">{t("Die Reihe passt ab dieser Position nicht auf die Matte.")}</p>{/if}
-                  <button class="btn outline" disabled={!ready || !seriesFits} onclick={cutSeries}><Icon name="scissors" /> {t("Testreihe schneiden")}</button>
-                {/if}
-              </div>
-            {/if}
-            {#if resume}
-              {@const p = resume.point}
-              <div class="resume">
-                <div class="calib-head">
-                  <span>{t("Unterbrochener Schnitt")}</span>
-                  <button class="btn small-btn" onclick={() => (plotter.resume = null)} title={t("Nicht weiterschneiden")}>{t("Verwerfen")}</button>
-                </div>
-                <p class="hint">
-                  {jobGroups.length > 1 ? `${t("Schritt {n}", { n: p.pass + 1 })} (${t(jobGroups[p.pass]?.name ?? "")}), ` : ""}{t("Pfad {a} von {b}.", { a: Math.min(p.stroke + 1, p.strokes), b: p.strokes })}
-                  {t("Matte und Material nicht verschieben.")}
-                </p>
-                <div class="calib-row">
-                  <span>{t("Weiter ab Pfad")}</span>
-                  <button class="btn icon mini" onclick={() => (back = Math.min(p.stroke, back + 1))} disabled={resumeFrom === 0} aria-label={t("Einen Pfad früher")}>−</button>
-                  <b>{resumeFrom + 1}</b>
-                  <button class="btn icon mini" onclick={() => (back = Math.max(0, back - 1))} disabled={back === 0} aria-label={t("Einen Pfad später")}>+</button>
-                </div>
-                <button class="btn outline" disabled={!ready} onclick={() => startCut(true)}><Icon name="scissors" /> {t("Weiterschneiden")}</button>
-              </div>
-            {/if}
+          {:else if step === 4}
             <button class="btn primary big" disabled={!ready || totals.paths === 0} onclick={() => startCut()}>
               <Icon name="scissors" /> {allPen ? t("Zeichnen") : t("Schneiden")}{tiling ? ` – ${t("Kachel {a}/{b}", { a: tileIdx + 1, b: tiling.tiles.length })}` : ""}
             </button>
@@ -1059,6 +1295,14 @@
             {:else if plotter.status.state === "unloaded"}
               <p class="hint center">{t("Matte einlegen und am Gerät die Lade-Taste drücken.")}</p>
             {/if}
+            <button class="btn link-btn" onclick={() => go(3)}><Icon name="chevronLeft" size={13} /> {t("Zurück")}</button>
+          {:else}
+            <div class="nav">
+              {#if step > 1}
+                <button class="btn outline" onclick={() => go((step - 1) as Step)}><Icon name="chevronLeft" /> {t("Zurück")}</button>
+              {/if}
+              <button class="btn primary grow" onclick={() => go((step + 1) as Step)}>{step === 3 ? t("Weiter zum Schneiden") : t("Weiter")} <Icon name="arrowRight" /></button>
+            </div>
           {/if}
         </div>
       </div>
@@ -1191,7 +1435,242 @@
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--border);
+    min-height: 0;
+  }
+  /* ---------- wizard ---------- */
+  .steps {
+    display: flex;
+    gap: 2px;
+    padding: 10px 10px 0;
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .step {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 2px 9px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-3);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .step:disabled {
+    cursor: default;
+  }
+  .step:hover:not(:disabled) {
+    color: var(--text);
+  }
+  .step .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .step.done {
+    color: var(--text-2);
+  }
+  .step.done .num {
+    border-color: var(--ok);
+    background: var(--ok);
+    color: #fff;
+  }
+  .step.on {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+  .step.on .num {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+  .step-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .step-body {
+    flex: 1;
+    overflow-x: hidden;
     overflow-y: auto;
+    min-height: 0;
+  }
+  .grow-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .callout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 16px 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text-2);
+    font-size: 12.5px;
+  }
+  .callout.warn {
+    border-color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  }
+  .callout p {
+    margin: 0;
+  }
+  .lead {
+    margin: 0 0 12px;
+    color: var(--text-2);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .values {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+    color: var(--text-2);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    cursor: pointer;
+  }
+  .values:hover {
+    border-color: var(--border-strong);
+  }
+  .values-link {
+    flex: none;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .test-pos {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    color: var(--text-2);
+    font-size: 12px;
+  }
+  .test-pos label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .test-actions {
+    margin-top: 12px;
+  }
+  .feedback {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+  }
+  .feedback .hint {
+    margin: 0;
+  }
+  .feedback .btn {
+    justify-content: center;
+  }
+  .passes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .passes li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+  }
+  .pass-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .pass-vals {
+    color: var(--text-3);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .nav {
+    display: flex;
+    gap: 8px;
+  }
+  .nav .grow,
+  .feedback .grow,
+  .test-actions .grow {
+    flex: 1;
+    justify-content: center;
+  }
+  .link-btn {
+    align-self: center;
+    height: 24px;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+  .preview svg.picking {
+    cursor: crosshair;
+  }
+  .testmark rect {
+    fill: color-mix(in srgb, var(--accent) 18%, transparent);
+    stroke: var(--accent);
+    stroke-width: 0.5;
+    stroke-dasharray: 1.2 0.8;
+  }
+  .testmark text {
+    fill: var(--accent);
+    font-size: 4px;
+    font-weight: 700;
+  }
+  .testmark.bad rect {
+    fill: color-mix(in srgb, var(--warn) 22%, transparent);
+    stroke: var(--warn);
+  }
+  .testmark.bad text {
+    fill: var(--warn);
+  }
+  .pick-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 8px 0 0;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
   }
   .device {
     display: flex;

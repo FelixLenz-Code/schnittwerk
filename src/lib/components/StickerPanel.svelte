@@ -10,6 +10,7 @@
   import Segmented from "./Segmented.svelte";
   import Slider from "./Slider.svelte";
   import Toggle from "./Toggle.svelte";
+  import { ui } from "../ui.svelte";
 
   let maskKind = $state<"background" | "alpha">("background");
   let tolerance = $state(12);
@@ -111,6 +112,7 @@
     editor.selection = ids;
     editor.toast(preview.result.layers[1] ? "Sticker angelegt: rot wird angeschnitten, blau durchgeschnitten" : "Sticker-Kontur erstellt", "ok");
     editor.rightTab = "object";
+    ui.nextSteps = { kind: "sticker", sel: editor.selection.join(",") };
   }
 
   type Bled = { id: string; src: string; name: string; pxW: number; pxH: number; pad: number };
@@ -220,6 +222,7 @@
       editor.selection = units.flat().map((o) => o.id);
       editor.toast(msg, "ok");
       editor.rightTab = "object";
+      ui.nextSteps = { kind: "sticker", sel: editor.selection.join(",") };
     } catch (e) {
       editor.error(e);
     } finally {

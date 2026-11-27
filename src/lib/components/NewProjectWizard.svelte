@@ -43,8 +43,8 @@
   };
 
   const TIPS: Record<Kind, string> = {
-    sticker: "Motiv importieren, im Tab „Sticker“ die Kontur erzeugen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.",
-    vinyl: "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (Tab „Objekt“) beim Abziehen.",
+    sticker: "Motiv importieren, rechts „Als Sticker“ wählen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.",
+    vinyl: "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (rechts, ohne Auswahl) beim Abziehen.",
     htv: "Glänzende Trägerfolie nach unten einlegen. Das Motiv wird beim Schneiden automatisch gespiegelt.",
     paper: "Karton braucht meist zwei Durchgänge – vorher einen Testschnitt machen.",
     pen: "Stift statt Messer in den Werkzeughalter setzen. Die Linien werden gezeichnet statt geschnitten.",

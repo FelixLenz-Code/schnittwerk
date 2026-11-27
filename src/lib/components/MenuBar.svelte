@@ -2,7 +2,8 @@
   // Classic menu bar: Datei, Bearbeiten, Objekt, Ansicht, Plotter, Hilfe.
   import { BOOL_OPS, combine, flip, putTextOnPath, selectedPaths, textOnPathPair } from "../actions";
   import { api } from "../api";
-  import { customMat, editor, matKindOf, MATS, rollMat } from "../editor.svelte";
+  import { customMat, editor, matKindOf, MATS, PAGES, rollMat, type PageName } from "../editor.svelte";
+  import { fmt } from "../geometry";
   import { t } from "../i18n.svelte";
   import { copySelection, exportSvg, importDialog, newProject, openDialog, openProject, paste, recent, saveProject } from "../io.svelte";
   import { nodes } from "../nodes.svelte";
@@ -59,6 +60,7 @@
   }
 
   function pickMat(v: string) {
+    if (editor.printCut.enabled) editor.setPrintCut(false);
     const kind = matKindOf(editor.mat);
     if (v === "roll") editor.mat = rollMat(kind === "roll" ? editor.mat.h : 600);
     else if (v === "custom") editor.mat = customMat(Math.max(editor.mat.w, 300), Math.max(editor.mat.h, 400));
@@ -193,6 +195,14 @@
           "sep",
           { label: "Raster anzeigen", checked: editor.showGrid, action: () => (editor.showGrid = !editor.showGrid) },
           { label: "Am Raster einrasten", checked: editor.gridSnap, action: () => (editor.gridSnap = !editor.gridSnap) },
+          {
+            label: "Rasterweite",
+            sub: [0.5, 1, 2, 5, 10].map((g) => ({ label: `${fmt(g)} mm`, raw: true, checked: editor.gridStep === g, action: () => (editor.gridStep = g) })),
+          },
+          {
+            label: "Winkelschritt",
+            sub: [1, 5, 15, 45, 90].map((a) => ({ label: `${a}°`, raw: true, checked: editor.rotStep === a, action: () => (editor.rotStep = a) })),
+          },
           { label: "An Hilfslinien und Objekten einrasten", checked: editor.snap, action: () => (editor.snap = !editor.snap) },
           {
             label: "Alle Hilfslinien entfernen",
@@ -204,15 +214,20 @@
             },
           },
           "sep",
-          { label: "Print & Cut", raw: true, checked: editor.printCut.enabled, action: () => editor.setPrintCut(!editor.printCut.enabled) },
           {
-            label: "Fläche",
-            disabled: editor.printCut.enabled,
+            label: "Matte und Papier",
             sub: [
-              ...MATS.map((m) => ({ label: m.name, checked: kind !== "roll" && kind !== "custom" && editor.mat.name === m.name, action: () => pickMat(m.name) })),
+              ...MATS.map((m) => ({ label: m.name, checked: !editor.printCut.enabled && kind !== "roll" && kind !== "custom" && editor.mat.name === m.name, action: () => pickMat(m.name) })),
               "sep" as const,
-              { label: "Rolle ohne Matte", checked: kind === "roll", action: () => pickMat("roll") },
-              { label: "Eigene Größe (Kacheln)", checked: kind === "custom", action: () => pickMat("custom") },
+              ...(Object.keys(PAGES) as PageName[]).map((p) => ({
+                label: `${p} · Print & Cut`,
+                raw: true,
+                checked: editor.printCut.enabled && editor.printCut.page === p,
+                action: () => editor.setPrintCut(true, p),
+              })),
+              "sep" as const,
+              { label: "Rolle ohne Matte", checked: !editor.printCut.enabled && kind === "roll", action: () => pickMat("roll") },
+              { label: "Eigene Größe (Kacheln)", checked: !editor.printCut.enabled && kind === "custom", action: () => pickMat("custom") },
             ],
           },
           "sep",

@@ -2,6 +2,7 @@
   // Collapsible panel section; remembers whether it was open.
   import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
+  import { ui } from "../ui.svelte";
 
   let { id, title, open: defaultOpen = true, children }: { id: string; title: string; open?: boolean; children: Snippet } = $props();
 
@@ -15,6 +16,14 @@
     }
   }
   let open = $state(load());
+  let el = $state<HTMLElement>();
+  // Opened from elsewhere (e.g. "Next: fill sheet").
+  $effect(() => {
+    const r = ui.sectionRequest;
+    if (r.id !== id || !r.n) return;
+    open = true;
+    requestAnimationFrame(() => el?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  });
   function toggle() {
     open = !open;
     try {
@@ -23,7 +32,7 @@
   }
 </script>
 
-<section class:closed={!open}>
+<section class:closed={!open} bind:this={el}>
   <button class="head" onclick={toggle} aria-expanded={open}>
     <span class="chev" class:open><Icon name="chevronLeft" size={12} /></span>
     <span class="section-title">{title}</span>

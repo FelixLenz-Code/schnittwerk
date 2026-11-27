@@ -15,16 +15,17 @@ export const DOCS_DE: DocSection[] = [
     text: `Beim Start öffnet sich die **Startseite** (auch über einen Klick auf „Schnittwerk“ oben links). Dort wählst du, was du machen möchtest – Sticker, Vinyl, Flexfolie, Papier, Stift oder ein großes Motiv. Schnittwerk stellt dann Material, Matte und Seite passend ein.
 
 - Bilder und Vektoren über **Importieren** (\`Strg+I\`) laden oder einfach auf die Arbeitsfläche ziehen.
-- Rechts im Tab **Tracen** wird aus einem Bild eine Schnittlinie, im Tab **Sticker** eine Sticker-Kontur.
+- Die rechte Seite zeigt immer, was zur Auswahl passt. Bei einem Bild gibt es dort zwei Wege: **In Schnittlinien umwandeln** (Tracen) oder **Als Sticker**. Ist nichts ausgewählt, stehen dort die Matte und Werkzeuge für den ganzen Bogen.
 - Mit **Schneiden** (\`Strg+Enter\`) geht es zum Plotter.
 - Die **Menüleiste** ganz oben enthält alle Funktionen – auch per Tastatur mit \`Alt\` und dem unterstrichenen Buchstaben. Unter **Datei → Einstellungen** stehen Sprache, Design, Raster und mehr.
+- Oben links auf der Arbeitsfläche wählst du, **worauf du schneidest**: Matte, Papier, Print & Cut, Rolle oder eine eigene Größe.
 
 Gespeichert wird als \`.schnitt\`-Datei, Bilder sind darin enthalten. Ungespeicherte Arbeit wird alle 20 Sekunden gesichert und nach einem Absturz auf der Startseite angeboten.`,
   },
   {
     id: "trace",
     heading: `Bilder tracen`,
-    text: `Bild auswählen, Tab **Tracen** öffnen – die Vorschau aktualisiert sich bei jeder Einstellung.
+    text: `Bild auswählen und rechts **In Schnittlinien umwandeln** wählen – die Vorschau aktualisiert sich bei jeder Einstellung. Mit dem Pfeil oben geht es zurück.
 
 - **S/W**: dunkle Bereiche werden zu Formen – für Zeichnungen, Schrift, Logos.
 - **Farbe**: eine Farbe mit der Pipette aufnehmen.
@@ -32,29 +33,35 @@ Gespeichert wird als \`.schnitt\`-Datei, Bilder sind darin enthalten. Ungespeich
 - **Freistellen**: Umriss von PNGs mit Transparenz.
 - **Linie**: eine Linie mitten durch jeden Strich – ideal für den Stift.
 
-**Glättung** macht Kurven ruhiger, **Flecken entfernen** verwirft Krümel. Fotos von Zeichnungen lassen sich mit **Perspektive korrigieren** gerade ziehen und mit **Beleuchtung ausgleichen** von Schatten befreien. Mit **Radierer** und **Pinsel** bereinigst du das Bild direkt vor dem Tracen.`,
+**Glättung** macht Kurven ruhiger, **Flecken entfernen** verwirft Krümel. Fotos von Zeichnungen lassen sich mit **Perspektive korrigieren** gerade ziehen und mit **Beleuchtung ausgleichen** von Schatten befreien. Mit **Radierer** und **Pinsel** bereinigst du das Bild direkt vor dem Tracen – all das steht im Bereich **Bild vorbereiten**.
+
+Nach **Übernehmen** schlägt Schnittwerk die nächsten Schritte vor: Bogen füllen oder gleich schneiden.`,
   },
   {
     id: "sticker",
     heading: `Sticker und Print & Cut`,
     text: `Für Sticker wird gedruckt und danach ausgeschnitten. Die Seite bekommt dafür **Passermarken**, die der Plotter vor dem Schnitt mit seinem Sensor sucht.
 
-- **Print & Cut** oben einschalten (oder auf der Startseite „Sticker“ wählen).
-- Bild auswählen, Tab **Sticker**: Hintergrund entfernen oder Transparenz nutzen, Rand einstellen, **Kontur übernehmen**.
-- **Mehrere Bilder auf einmal**: alle auswählen – im Sticker-Tab erscheint **Sticker-Bogen erstellen**. Alle bekommen eine Kontur, auf Wunsch mehrere Exemplare, und werden platzsparend angeordnet.
+- Oben links auf der Arbeitsfläche **Print & Cut** wählen (oder auf der Startseite „Sticker“).
+- Bild auswählen, rechts **Als Sticker**: Hintergrund entfernen oder Transparenz nutzen, Rand einstellen, **Kontur übernehmen**.
+- **Mehrere Bilder auf einmal**: alle auswählen – rechts erscheint **Sticker-Bogen erstellen**. Alle bekommen eine Kontur, auf Wunsch mehrere Exemplare, und werden platzsparend angeordnet.
 - **Einzeln ausschneiden** schneidet zusätzlich mit Trägerrand durch (blau), sonst nur an (rot).
 - Drucken (\`Strg+P\`) – im Druckdialog nie „An Seite anpassen“ wählen.
 - Bogen oben links auf die Matte legen, laden, schneiden.
 
-Liegt der Schnitt etwas daneben, im Schneiden-Dialog unter **Feinjustierung** mit dem Testbogen nachstellen.`,
+Liegt der Schnitt etwas daneben, im Schneiden-Dialog im Schritt **Testschnitt** unter **Feinjustierung** mit dem Testbogen nachstellen.`,
   },
   {
     id: "cut",
     heading: `Schneiden`,
     text: `Im Schneiden-Dialog bekommt jede **Schnittfarbe** ein eigenes Material: rot = anschneiden, blau = durchschneiden, grün = zeichnen. Leichte Schnitte laufen zuerst, damit der Bogen zusammenhält.
 
-- **Material** wählen; Werte bei Bedarf anpassen und als eigenes Material speichern.
-- **Testschnitt**: ein kleines Quadrat an der angegebenen Stelle.
+Der Dialog führt in vier Schritten durch den Schnitt:
+
+- **Vorbereiten**: Plotter verbinden, Matte wählen, bei Flexfolie spiegeln.
+- **Material** wählen; die Werte lassen sich unter **Werte anpassen** ändern und als eigenes Material speichern.
+- **Testschnitt** (empfohlen): in der Vorschau auf eine freie Stelle der Folie klicken und ein kleines Quadrat schneiden. Danach fragt Schnittwerk, wie es aussieht – bei „Nicht ganz durch“ oder „Zu tief“ werden die Werte angepasst und der nächste Test landet daneben.
+- **Schneiden**: Zusammenfassung prüfen und los.
 - **Testreihe**: mehrere Quadrate mit steigendem Druck oder steigender Messertiefe – danach das sauberste anklicken, der Wert wird übernommen.
 - **Simulation**: zeigt vorher in Schnittreihenfolge, was der Plotter macht.
 - Die **Dauer** wird geschätzt und mit jedem Schnitt genauer.
@@ -65,7 +72,7 @@ Ist ein Schnitt fertig, während das Fenster im Hintergrund ist, meldet Schnittw
   {
     id: "vinyl",
     heading: `Vinyl und Flexfolie`,
-    text: `**Vinyl**: Folie mit dem Trägerpapier nach unten auf die Matte. Nach dem Schneiden hilft die **Entgitterungshilfe** (Objekt-Tab): ein Rahmen und Linien durch den Abfall, damit sich die Folie in Streifen abziehen lässt.
+    text: `**Vinyl**: Folie mit dem Trägerpapier nach unten auf die Matte. Nach dem Schneiden hilft die **Entgitterungshilfe** (unter **Werkzeuge**, ohne Auswahl auch für den ganzen Bogen): ein Rahmen und Linien durch den Abfall, damit sich die Folie in Streifen abziehen lässt.
 
 **Flexfolie (Textil)**: glänzende Trägerfolie nach unten. Das Motiv muss gespiegelt geschnitten werden – im Schneiden-Dialog **Spiegeln** einschalten:
 
@@ -75,7 +82,7 @@ Ist ein Schnitt fertig, während das Fenster im Hintergrund ist, meldet Schnittw
   {
     id: "large",
     heading: `Große Motive und Rolle`,
-    text: `Unten unter **Fläche** gibt es **Eigene Größe** und **Rolle ohne Matte**.
+    text: `Oben links auf der Arbeitsfläche gibt es **Eigene Größe** und **Rolle ohne Matte**.
 
 - Ist das Motiv größer als die Matte, teilt der Schneiden-Dialog es in **Kacheln**. Kachel für Kachel schneiden, nach jeder neues Material einlegen. Eine kleine Überlappung erleichtert das Zusammensetzen.
 - **Ohne Matte** nur mit Folie mit festem Trägerpapier. Am Ende wird die Folie hinter das Motiv geschoben.
@@ -84,11 +91,11 @@ Ist ein Schnitt fertig, während das Fenster im Hintergrund ist, meldet Schnittw
   {
     id: "draw",
     heading: `Formen, Text und Hilfslinien`,
-    text: `Werkzeuge links: Rechteck, Ellipse, Vieleck, Stern, Herz, Linie, Freihand und Text. \`Umschalt\` beim Zeichnen hält die Form unverzerrt. Parameter wie Eckenradius oder Zackenzahl lassen sich danach im Objekt-Tab ändern.
+    text: `Werkzeuge links: Rechteck, Ellipse, Vieleck, Stern, Herz, Linie, Freihand und Text. \`Umschalt\` beim Zeichnen hält die Form unverzerrt. Parameter wie Eckenradius oder Zackenzahl lassen sich danach rechts ändern.
 
 - **Text**: Schrift, Größe, Abstand; **Bogen** setzt den Text auf einen Kreis. Text und Form zusammen auswählen → **Text auf Pfad**.
 - **Hilfslinien** aus den Linealen ziehen; zurück aufs Lineal ziehen oder Rechtsklick löscht sie.
-- **Raster** (oben): Verschieben rastet am Raster ein, Drehen in Winkelschritten. \`Alt\` beim Ziehen = frei.
+- **Raster** (unten rechts auf der Arbeitsfläche, Rasterweite unter **Ansicht**): Verschieben rastet am Raster ein, Drehen in Winkelschritten. \`Alt\` beim Ziehen = frei.
 - Breite und Höhe stehen am Objekt – anklicken zum Eintippen.
 - Mehrere Objekte: Größe und Drehung für alle setzen, **verteilen** mit gleichen Abständen.
 - **Rechtsklick** auf ein Objekt öffnet ein Menü mit den häufigsten Aktionen.
@@ -137,16 +144,17 @@ export const DOCS_EN: DocSection[] = [
     text: `At start the **start page** opens (also by clicking “Schnittwerk” at the top left). Choose what you want to make – stickers, vinyl, heat transfer vinyl, paper, pen or a large design. Schnittwerk then sets material, mat and page accordingly.
 
 - Load pictures and vectors with **Import** (\`Ctrl+I\`) or drop them onto the work area.
-- On the right, the **Trace** tab turns a picture into cut lines, the **Sticker** tab into a sticker outline.
+- The right side always shows what fits the selection. For a picture there are two ways: **Turn into cut lines** (tracing) or **As a sticker**. With nothing selected it shows the mat and tools for the whole sheet.
 - **Cut** (\`Ctrl+Enter\`) takes you to the cutter.
 - The **menu bar** at the very top holds every function – also by keyboard with \`Alt\` and the underlined letter. **File → Settings** has language, theme, grid and more.
+- At the top left of the work area you choose **what you are cutting on**: mat, paper, Print & Cut, roll or a custom size.
 
 Projects are saved as \`.schnitt\` files with the pictures inside. Unsaved work is backed up every 20 seconds and offered on the start page after a crash.`,
   },
   {
     id: "trace",
     heading: `Tracing pictures`,
-    text: `Select a picture and open the **Trace** tab – the preview updates with every setting.
+    text: `Select a picture and choose **Turn into cut lines** on the right – the preview updates with every setting. The arrow at the top takes you back.
 
 - **B/W**: dark areas become shapes – for drawings, lettering, logos.
 - **Colour**: pick one colour with the picker.
@@ -154,21 +162,23 @@ Projects are saved as \`.schnitt\` files with the pictures inside. Unsaved work 
 - **Cut out**: outline of PNGs with transparency.
 - **Line**: one line through the middle of each stroke – ideal for the pen.
 
-**Smoothing** calms the curves, **Remove specks** drops crumbs. Photos of drawings can be straightened with **Correct perspective** and freed from shadows with **Even out lighting**. **Eraser** and **Brush** clean up the picture right before tracing.`,
+**Smoothing** calms the curves, **Remove specks** drops crumbs. Photos of drawings can be straightened with **Correct perspective** and freed from shadows with **Even out lighting**. **Eraser** and **Brush** clean up the picture right before tracing – all of this is under **Prepare picture**.
+
+After **Apply**, Schnittwerk suggests the next steps: fill the sheet or cut right away.`,
   },
   {
     id: "sticker",
     heading: `Stickers and Print & Cut`,
     text: `Stickers are printed and then cut out. The page gets **registration marks** that the cutter finds with its sensor before cutting.
 
-- Switch on **Print & Cut** at the top (or choose “Sticker” on the start page).
-- Select a picture, **Sticker** tab: remove the background or use transparency, set the margin, **Apply outline**.
-- **Several pictures at once**: select them all – the Sticker tab shows **Create sticker sheet**. Every picture gets an outline, several copies if you like, arranged compactly.
+- Choose **Print & Cut** at the top left of the work area (or “Sticker” on the start page).
+- Select a picture, **As a sticker** on the right: remove the background or use transparency, set the margin, **Apply outline**.
+- **Several pictures at once**: select them all – the right side shows **Create sticker sheet**. Every picture gets an outline, several copies if you like, arranged compactly.
 - **Cut out individually** also cuts through with a backing margin (blue), otherwise kiss cut only (red).
 - Print (\`Ctrl+P\`) – never choose “fit to page” in the print dialog.
 - Put the sheet at the top left of the mat, load it, cut.
 
-If the cut is slightly off, adjust it with the test sheet under **Fine adjustment** in the cut dialog.`,
+If the cut is slightly off, adjust it with the test sheet under **Fine adjustment** in the **Test cut** step of the cut dialog.`,
   },
   {
     id: "cut",
@@ -176,7 +186,9 @@ If the cut is slightly off, adjust it with the test sheet under **Fine adjustmen
     text: `In the cut dialog every **cut colour** gets its own material: red = kiss cut, blue = cut through, green = draw. Lighter cuts run first so the sheet holds together.
 
 - Choose the **material**; adjust the values if needed and save them as a custom material.
-- **Test cut**: a small square at the given position.
+The dialog guides you through the cut in four steps: **Prepare** (cutter, mat, mirroring), **Material**, **Test cut** and **Cut**.
+
+- **Test cut** (recommended): click a free spot of the material in the preview and cut a small square. Schnittwerk then asks how it looks – with “Not quite through” or “Too deep” the values are adjusted and the next test goes next to it.
 - **Test series**: several squares with increasing force or blade depth – then click the cleanest one and its value is applied.
 - **Simulation**: shows beforehand, in cutting order, what the cutter will do.
 - The **duration** is estimated and gets more accurate with every cut.
@@ -187,7 +199,7 @@ When a cut finishes while the window is in the background, Schnittwerk shows a n
   {
     id: "vinyl",
     heading: `Vinyl and heat transfer vinyl`,
-    text: `**Vinyl**: put it on the mat with the backing paper facing down. After cutting, the **weeding lines** (Object tab) help: a frame and lines through the waste so the vinyl peels off in strips.
+    text: `**Vinyl**: put it on the mat with the backing paper facing down. After cutting, the **weeding lines** (under **Tools**, or for the whole sheet with nothing selected) help: a frame and lines through the waste so the vinyl peels off in strips.
 
 **Heat transfer vinyl (textiles)**: shiny carrier facing down. The design must be cut mirrored – switch on **Mirror** in the cut dialog:
 
@@ -197,7 +209,7 @@ When a cut finishes while the window is in the background, Schnittwerk shows a n
   {
     id: "large",
     heading: `Large designs and rolls`,
-    text: `At the bottom under **Area** there are **Custom size** and **Roll without mat**.
+    text: `At the top left of the work area there are **Custom size** and **Roll without mat**.
 
 - If the design is larger than the mat, the cut dialog splits it into **tiles**. Cut tile by tile and load new material after each one. A small overlap makes putting them together easier.
 - **No mat** only for material with a firm backing. At the end the material is pushed out past the design.
@@ -206,11 +218,11 @@ When a cut finishes while the window is in the background, Schnittwerk shows a n
   {
     id: "draw",
     heading: `Shapes, text and guides`,
-    text: `Tools on the left: rectangle, ellipse, polygon, star, heart, line, freehand and text. \`Shift\` while drawing keeps the shape undistorted. Parameters such as corner radius or number of points can be changed afterwards in the Object tab.
+    text: `Tools on the left: rectangle, ellipse, polygon, star, heart, line, freehand and text. \`Shift\` while drawing keeps the shape undistorted. Parameters such as corner radius or number of points can be changed afterwards on the right.
 
 - **Text**: font, size, spacing; **Arc** puts the text on a circle. Select text and a shape together → **Text on path**.
 - Drag **guides** out of the rulers; drag them back or right-click to delete them.
-- **Grid** (top): moving snaps to the grid, rotating to angle steps. \`Alt\` while dragging = free.
+- **Grid** (bottom right of the work area, grid size under **View**): moving snaps to the grid, rotating to angle steps. \`Alt\` while dragging = free.
 - Width and height are shown at the object – click to type.
 - Several objects: set size and rotation for all, **distribute** with equal gaps.
 - **Right-click** an object for a menu with the most common actions.

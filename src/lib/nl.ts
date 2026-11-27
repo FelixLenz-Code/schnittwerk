@@ -651,10 +651,10 @@ export const NL: Record<string, string> = {
   "Linien mit dem Stifthalter zeichnen": "Lijnen tekenen met de penhouder",
   "Großes Motiv": "Groot ontwerp",
   "Größer als die Matte – in Kacheln oder von der Rolle": "Groter dan de mat – in tegels of van de rol",
-  "Motiv importieren, im Tab „Sticker“ die Kontur erzeugen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
-    "Importeer een ontwerp, maak de contour in het tabblad ‘Sticker’, print (Ctrl+P) en leg het vel linksboven op de mat. De registratiemarkeringen worden automatisch gezocht.",
-  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (Tab „Objekt“) beim Abziehen.":
-    "Leg de folie in met het rugpapier naar beneden. Na het snijden helpen de wiedlijnen (tabblad ‘Object’) bij het verwijderen.",
+  "Motiv importieren, rechts „Als Sticker“ wählen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
+    "Importeer een ontwerp, kies rechts ‘Als sticker’, print (Ctrl+P) en leg het vel linksboven op de mat. De registratiemarkeringen worden automatisch gezocht.",
+  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (rechts, ohne Auswahl) beim Abziehen.":
+    "Leg de folie in met het rugpapier naar beneden. Na het snijden helpen de wiedlijnen (rechts, zonder selectie) bij het verwijderen.",
   "Glänzende Trägerfolie nach unten einlegen. Das Motiv wird beim Schneiden automatisch gespiegelt.": "Leg de glanzende draagfolie naar beneden. Het ontwerp wordt bij het snijden automatisch gespiegeld.",
   "Karton braucht meist zwei Durchgänge – vorher einen Testschnitt machen.": "Karton heeft meestal twee doorgangen nodig – maak eerst een testsnede.",
   "Stift statt Messer in den Werkzeughalter setzen. Die Linien werden gezeichnet statt geschnitten.": "Zet een pen in plaats van het mes in de gereedschapshouder. De lijnen worden getekend in plaats van gesneden.",
@@ -906,6 +906,85 @@ export const NL: Record<string, string> = {
   "Matte, Papierformat, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Mat, papierformaat, rol zonder mat of een eigen formaat voor grote ontwerpen.",
   "Zeigt, ob der Plotter verbunden ist. Hier verbindest du per Bluetooth und siehst den Messer-Zähler.": "Toont of de plotter verbonden is. Hier verbind je via Bluetooth en zie je de messenteller.",
   "Für Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Voor Print & Cut: print de pagina met registratiemarkeringen zonder schaling of slaat hem op als PDF.",
+  // ---- simpler flow (0.8) ----
+  "Abgerundeter Rahmen, wird durchgeschnitten": "Afgeronde rand, wordt doorgesneden",
+  "Alle Teile verschachteln, damit weniger Material übrig bleibt": "Alle delen in elkaar schuiven, zodat er minder materiaal overblijft",
+  "Alle ausgewählten Bilder bekommen eine Kontur mit Rand": "Alle geselecteerde afbeeldingen krijgen een contour met rand",
+  "Als Sticker": "Als sticker",
+  "Am Raster einrasten ({g} mm, {a}°) – Alt beim Ziehen = frei. Rasterweite unter Ansicht.": "Uitlijnen op raster ({g} mm, {a}°) – Alt tijdens slepen = vrij. Rastergrootte onder Beeld.",
+  "Am besten eine Ecke, die später nicht gebraucht wird.": "Het liefst een hoek die je later niet nodig hebt.",
+  "Aus Vorlage …": "Uit sjabloon …",
+  "Bereit zum Schneiden": "Klaar om te snijden",
+  "Bild hierher ziehen": "Sleep een afbeelding hierheen",
+  "Breite": "Breedte",
+  "Die Stelle liegt auf dem Motiv oder am Rand – in der Vorschau eine freie Stelle anklicken.": "Deze plek ligt op het motief of aan de rand – klik in het voorbeeld op een vrije plek.",
+  "Druck {a} → {b} – noch einmal testen.": "Druk {a} → {b} – test opnieuw.",
+  "Entgitterungshilfe um alles": "Wiedhulp rond alles",
+  "Form": "Vorm",
+  "Foto, Zeichnung, Logo, SVG oder PDF – oder links eine Form zeichnen": "Foto, tekening, logo, SVG of PDF – of teken links een vorm",
+  "Füllung anzeigen": "Vulling tonen",
+  "Für den ganzen Bogen": "Voor het hele vel",
+  "Für einzelne Teile: Objekt auswählen – die Werkzeuge stehen dann unter „Werkzeuge“.": "Voor losse delen: selecteer het object – de gereedschappen staan dan onder ‘Gereedschap’.",
+  "Helligkeit & Kontrast": "Helderheid en contrast",
+  "Höhe": "Hoogte",
+  "Importiere ein Bild oder zeichne links eine Form.": "Importeer een afbeelding of teken links een vorm.",
+  "In Schnittlinien umwandeln": "Omzetten in snijlijnen",
+  "In die Vorschau klicken: dort wird getestet.": "Klik in het voorbeeld: daar wordt getest.",
+  "Ist das ein Foto der PixScan-Matte?": "Is dit een foto van de PixScan-mat?",
+  "Kontur mit Rand zum Drucken und Ausschneiden (Print & Cut)": "Contour met rand om te printen en uit te snijden (Print & Cut)",
+  "Linien gleichmäßig und gut sichtbar?": "Lijnen gelijkmatig en goed zichtbaar?",
+  "Material einlegen und am Gerät die Lade-Taste drücken.": "Leg het materiaal in en druk op de laadknop van het apparaat.",
+  "Matte und Papier": "Mat en papier",
+  "Messertiefe {a} → {b} – noch einmal testen.": "Mesdiepte {a} → {b} – test opnieuw.",
+  "Nicht ganz durch": "Niet helemaal door",
+  "Noch leer": "Nog leeg",
+  "Passt – weiter": "Prima – verder",
+  "Per Bluetooth verbinden …": "Verbinden via Bluetooth …",
+  "Pixel dunkler als dieser Wert werden zur Form – Ziehen stellt von Hand ein": "Pixels donkerder dan deze waarde worden de vorm – slepen stelt handmatig in",
+  "Platzsparend anordnen": "Compact schikken",
+  "Plotter per USB anschließen und einschalten – er wird automatisch erkannt.": "Sluit de plotter via USB aan en zet hem aan – hij wordt automatisch herkend.",
+  "Print & Cut (mit Passermarken)": "Print & Cut (met registratiemarkeringen)",
+  "Print & Cut prüfen": "Print & Cut controleren",
+  "Quadrat abziehen: Das Dreieck soll stehen bleiben, das Trägerpapier darf nur leicht angeritzt sein.": "Trek het vierkant eraf: de driehoek moet blijven staan, het dragerpapier mag maar licht gekrast zijn.",
+  "Rahmen und Linien durch den Abfall – Folie lässt sich in Streifen abziehen": "Rand en lijnen door het afval – de folie trek je er in stroken af",
+  "Rasterweite": "Rastergrootte",
+  "Schneidet ein kleines Quadrat mit Dreieck. So siehst du vor dem eigentlichen Schnitt, ob Tiefe und Druck zum Material passen.": "Snijdt een klein vierkant met driehoek. Zo zie je vóór het echte snijden of diepte en druk bij het materiaal passen.",
+  "Schnittlinien erstellt": "Snijlijnen gemaakt",
+  "Schnittrahmen um alles": "Snijrand rond alles",
+  "Schwellwert automatisch aus dem Bild bestimmen": "Drempel automatisch uit de afbeelding bepalen",
+  "Seite": "Pagina",
+  "Startwerte der Vorlage. Im nächsten Schritt kannst du sie an einer freien Stelle testen.": "Beginwaarden van de voorinstelling. In de volgende stap kun je ze op een vrije plek testen.",
+  "Stelle": "Plek",
+  "Sticker angelegt": "Sticker gemaakt",
+  "Tempo": "Snelheid",
+  "Test": "Test",
+  "Test schneiden": "Test snijden",
+  "Testen mit": "Testen met",
+  "Testschnitt": "Testsnede",
+  "Testschnitt (empfohlen)": "Testsnede (aanbevolen)",
+  "Tiefe": "Diepte",
+  "Vorbereiten": "Voorbereiden",
+  "Weiter zum Schneiden": "Verder naar snijden",
+  "Weniger": "Minder",
+  "Werte anpassen": "Waarden aanpassen",
+  "Wie geht es weiter?": "Hoe verder?",
+  "Wie sieht der Test aus?": "Hoe ziet de test eruit?",
+  "Winkelschritt": "Hoekstap",
+  "Worauf arbeitest du? Matte, Papier, Print & Cut oder Rolle": "Waarop werk je? Mat, papier, Print & Cut of rol",
+  "Worauf schneidest du?": "Waarop snijd je?",
+  "Zeichnung, Logo oder Schrift tracen – für Folie, Papier und Stift": "Tekening, logo of tekst overtrekken – voor folie, papier en pen",
+  "Zum Testen den Plotter anschließen (Schritt 1).": "Sluit de plotter aan om te testen (stap 1).",
+  "Zu schwach": "Te zwak",
+  "Zu stark": "Te sterk",
+  "Zu tief": "Te diep",
+  "{n} Bilder": "{n} afbeeldingen",
+  "Schneidematte": "Snijmat",
+  "Papier ohne Matte": "Papier zonder mat",
+  "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Waarop snijd je? Mat, papier, Print & Cut met registratiemarkeringen, rol zonder mat of een eigen formaat voor grote motieven.",
+  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Toont altijd wat bij de selectie past: de mat als er niets geselecteerd is, anders het object. Bij afbeeldingen ga je hier verder naar overtrekken of sticker. Onderaan staan de lagen.",
+  "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Uitlijnen op raster en hulplijnen, plus zoom. Een klik op het percentage past de mat in beeld.",
+  "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Verschijnt bij Print & Cut: print de pagina met registratiemarkeringen zonder schalen of bewaart hem als PDF.",
+  "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Leidt je stap voor stap door het snijden: plotter en mat, materiaal, een testsnede op een plek naar keuze en dan snijden.",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -940,7 +1019,7 @@ export const DOCS_NL: DocSection[] = [
     text: `Bij het starten opent de **startpagina** (ook via een klik op ‘Schnittwerk’ linksboven). Kies wat je wilt maken – stickers, vinyl, flexfolie, papier, pen of een groot ontwerp. Schnittwerk stelt dan materiaal, mat en pagina passend in.
 
 - Laad afbeeldingen en vectoren via **Importeren** (\`Ctrl+I\`) of sleep ze naar het werkgebied.
-- Rechts maakt het tabblad **Overtrekken** van een afbeelding snijlijnen, het tabblad **Sticker** een stickercontour.
+- De rechterkant toont altijd wat bij de selectie past. Bij een afbeelding zijn er twee wegen: **Omzetten in snijlijnen** (overtrekken) of **Als sticker**. Zonder selectie staan daar de mat en gereedschap voor het hele vel.
 - **Snijden** (\`Ctrl+Enter\`) brengt je naar de plotter.
 - De **menubalk** helemaal bovenaan bevat alle functies – ook via het toetsenbord met \`Alt\` en de onderstreepte letter. Onder **Bestand → Instellingen** staan taal, thema, raster en meer.
 
@@ -949,7 +1028,7 @@ Projecten worden opgeslagen als \`.schnitt\`-bestanden, met de afbeeldingen erin
   {
     id: "trace",
     heading: `Afbeeldingen overtrekken`,
-    text: `Selecteer een afbeelding en open het tabblad **Overtrekken** – het voorbeeld werkt zich bij elke instelling bij.
+    text: `Selecteer een afbeelding en kies rechts **Omzetten in snijlijnen** – het voorbeeld werkt zich bij elke instelling bij. Met de pijl bovenaan ga je terug.
 
 - **Z/W**: donkere gebieden worden vormen – voor tekeningen, belettering, logo's.
 - **Kleur**: neem één kleur op met het pipet.
@@ -964,14 +1043,14 @@ Projecten worden opgeslagen als \`.schnitt\`-bestanden, met de afbeeldingen erin
     heading: `Stickers en Print & Cut`,
     text: `Stickers worden geprint en daarna uitgesneden. De pagina krijgt **registratiemarkeringen** die de plotter vóór het snijden met zijn sensor zoekt.
 
-- Zet bovenaan **Print & Cut** aan (of kies ‘Sticker’ op de startpagina).
-- Selecteer een afbeelding, tabblad **Sticker**: verwijder de achtergrond of gebruik transparantie, stel de marge in, **Contour toepassen**.
-- **Meerdere afbeeldingen tegelijk**: selecteer ze allemaal – het tabblad Sticker toont **Stickervel maken**. Elke afbeelding krijgt een contour, desgewenst in meerdere exemplaren, ruimtebesparend geschikt.
+- Kies linksboven op het werkvlak **Print & Cut** (of ‘Sticker’ op de startpagina).
+- Selecteer een afbeelding, rechts **Als sticker**: verwijder de achtergrond of gebruik transparantie, stel de marge in, **Contour toepassen**.
+- **Meerdere afbeeldingen tegelijk**: selecteer ze allemaal – rechts verschijnt **Stickervel maken**. Elke afbeelding krijgt een contour, desgewenst in meerdere exemplaren, ruimtebesparend geschikt.
 - **Afzonderlijk uitsnijden** snijdt ook door met een rugpapiermarge (blauw), anders alleen aansnijden (rood).
 - Printen (\`Ctrl+P\`) – kies in het printvenster nooit ‘Aan pagina aanpassen’.
 - Leg het vel linksboven op de mat, laad het, snijden.
 
-Ligt de snede net naast de print, corrigeer dat dan met het testvel onder **Fijnafstelling** in het snijvenster.`,
+Ligt de snede net naast de print, corrigeer dat dan met het testvel onder **Fijnafstelling** in de stap **Testsnede** van het snijvenster.`,
   },
   {
     id: "cut",
@@ -979,7 +1058,9 @@ Ligt de snede net naast de print, corrigeer dat dan met het testvel onder **Fijn
     text: `In het snijvenster krijgt elke **snijkleur** een eigen materiaal: rood = aansnijden, blauw = doorsnijden, groen = tekenen. Lichtere sneden gaan eerst zodat het vel bij elkaar blijft.
 
 - Kies het **materiaal**; pas de waarden zo nodig aan en sla ze op als eigen materiaal.
-- **Testsnede**: een klein vierkant op de opgegeven positie.
+Het venster leidt je in vier stappen door het snijden: **Voorbereiden** (plotter, mat, spiegelen), **Materiaal**, **Testsnede** en **Snijden**.
+
+- **Testsnede** (aanbevolen): klik in het voorbeeld op een vrije plek van het materiaal en snijd een klein vierkant. Daarna vraagt Schnittwerk hoe het eruitziet – bij ‘Niet helemaal door’ of ‘Te diep’ worden de waarden aangepast en komt de volgende test ernaast.
 - **Testreeks**: meerdere vierkanten met oplopende druk of mesdiepte – klik daarna op het netste en de waarde wordt toegepast.
 - **Simulatie**: toont vooraf, in snijvolgorde, wat de plotter gaat doen.
 - De **duur** wordt geschat en wordt met elke snede nauwkeuriger.
@@ -990,7 +1071,7 @@ Is een snede klaar terwijl het venster op de achtergrond staat, dan toont Schnit
   {
     id: "vinyl",
     heading: `Vinyl en flexfolie`,
-    text: `**Vinyl**: met het rugpapier naar beneden op de mat leggen. Na het snijden helpen de **wiedlijnen** (tabblad Object): een kader en lijnen door het afval zodat de folie in stroken loskomt.
+    text: `**Vinyl**: met het rugpapier naar beneden op de mat leggen. Na het snijden helpen de **wiedlijnen** (onder **Gereedschap**, of zonder selectie voor het hele vel): een kader en lijnen door het afval zodat de folie in stroken loskomt.
 
 **Flexfolie (textiel)**: glanzende draagfolie naar beneden. Het ontwerp moet gespiegeld worden gesneden – zet **Spiegelen** aan in het snijvenster:
 
@@ -1000,7 +1081,7 @@ Is een snede klaar terwijl het venster op de achtergrond staat, dan toont Schnit
   {
     id: "large",
     heading: `Grote ontwerpen en rollen`,
-    text: `Onderaan onder **Oppervlak** vind je **Eigen formaat** en **Rol zonder mat**.
+    text: `Linksboven op het werkvlak vind je **Eigen formaat** en **Rol zonder mat**.
 
 - Is het ontwerp groter dan de mat, dan verdeelt het snijvenster het in **tegels**. Snijd tegel voor tegel en leg na elke tegel nieuw materiaal in. Een kleine overlap maakt het samenvoegen makkelijker.
 - **Zonder mat** alleen voor materiaal met stevig rugpapier. Aan het eind wordt het materiaal voorbij het ontwerp uitgevoerd.
@@ -1009,11 +1090,11 @@ Is een snede klaar terwijl het venster op de achtergrond staat, dan toont Schnit
   {
     id: "draw",
     heading: `Vormen, tekst en hulplijnen`,
-    text: `Gereedschappen links: rechthoek, ellips, veelhoek, ster, hart, lijn, vrije hand en tekst. \`Shift\` tijdens het tekenen houdt de vorm onvervormd. Parameters zoals hoekradius of aantal punten pas je daarna aan in het tabblad Object.
+    text: `Gereedschappen links: rechthoek, ellips, veelhoek, ster, hart, lijn, vrije hand en tekst. \`Shift\` tijdens het tekenen houdt de vorm onvervormd. Parameters zoals hoekradius of aantal punten pas je daarna rechts aan.
 
 - **Tekst**: lettertype, grootte, afstand; **Boog** zet de tekst op een cirkel. Selecteer tekst en een vorm samen → **Tekst op pad**.
 - Sleep **hulplijnen** uit de linialen; sleep ze terug of rechtsklik om ze te verwijderen.
-- **Raster** (bovenaan): verplaatsen lijnt uit op het raster, draaien in hoekstappen. \`Alt\` tijdens slepen = vrij.
+- **Raster** (rechtsonder op het werkvlak, rastergrootte onder **Beeld**): verplaatsen lijnt uit op het raster, draaien in hoekstappen. \`Alt\` tijdens slepen = vrij.
 - Breedte en hoogte staan bij het object – klik om ze in te typen.
 - Meerdere objecten: stel grootte en draaiing voor allemaal in, **verdeel** met gelijke tussenruimte.
 - **Rechtsklik** op een object: menu met de meest gebruikte acties.

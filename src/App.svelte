@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { inApp } from "./lib/api";
-  import { customMat, editor, matKindOf, MATS, PAGES, rollMat, ROLL_MAX, type PageName } from "./lib/editor.svelte";
+  import { editor } from "./lib/editor.svelte";
   import { fmt } from "./lib/geometry";
   import { t } from "./lib/i18n.svelte";
   import { confirmClose, copySelection, exportSvg, findRecovery, importDialog, importPaths, newProject, openDialog, paste, saveProject, startAutosave, type Recovery } from "./lib/io.svelte";
@@ -25,6 +25,7 @@
   import { templatesUi } from "./lib/templates.svelte";
   import TemplatesDialog from "./lib/components/TemplatesDialog.svelte";
   import MenuBar from "./lib/components/MenuBar.svelte";
+  import SurfacePicker from "./lib/components/SurfacePicker.svelte";
   import SettingsDialog from "./lib/components/SettingsDialog.svelte";
   import AboutDialog from "./lib/components/AboutDialog.svelte";
   import { ui } from "./lib/ui.svelte";
@@ -220,21 +221,6 @@
     { id: "text", icon: "type", label: "Text", key: "T" },
   ];
 
-  // ---------- work area ----------
-  const matKind = $derived(matKindOf(editor.mat));
-  function pickMat(v: string) {
-    if (v === "roll") editor.mat = rollMat(matKind === "roll" ? editor.mat.h : 600);
-    else if (v === "custom") editor.mat = customMat(Math.max(editor.mat.w, 300), Math.max(editor.mat.h, 400));
-    else editor.mat = MATS.find((m) => m.name === v) ?? MATS[0];
-    editor.fitMat();
-  }
-  function setMatSize(key: "w" | "h", raw: string) {
-    const v = parseFloat(raw.replace(",", "."));
-    if (!Number.isFinite(v)) return;
-    editor.mat = matKind === "roll" ? rollMat(v) : customMat(key === "w" ? v : editor.mat.w, key === "h" ? v : editor.mat.h, editor.mat.roll, editor.mat.cut);
-    editor.dirty = true;
-    editor.fitMat();
-  }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -256,44 +242,14 @@
       <button class="btn icon" title={editor.canUndo ? t("Rückgängig: {x} (Strg+Z)", { x: t(editor.undoLabel) }) : t("Rückgängig (Strg+Z)")} disabled={!editor.canUndo} onclick={() => editor.undo()}><Icon name="undo" /></button>
       <button class="btn icon" title={editor.canRedo ? t("Wiederholen: {x} (Strg+Y)", { x: t(editor.redoLabel) }) : t("Wiederholen (Strg+Y)")} disabled={!editor.canRedo} onclick={() => editor.redo()}><Icon name="redo" /></button>
     </div>
-    <span class="divider"></span>
-    <div class="group" data-tour="modes">
-      <button class="btn" class:active={editor.gridSnap} title={t("Raster: beim Verschieben am Raster und beim Drehen in Winkelschritten einrasten (Alt beim Ziehen = frei)")} onclick={() => (editor.gridSnap = !editor.gridSnap)}>
-        <Icon name="grid" /> {t("Raster")}
-      </button>
-      {#if editor.gridSnap}
-        <select class="hsel" title={t("Rasterweite beim Verschieben")} value={editor.gridStep} onchange={(e) => (editor.gridStep = +e.currentTarget.value)}>
-          {#each [0.5, 1, 2, 5, 10] as g}<option value={g}>{fmt(g)} mm</option>{/each}
-        </select>
-        <select class="hsel" title={t("Winkelschritt beim Drehen")} value={editor.rotStep} onchange={(e) => (editor.rotStep = +e.currentTarget.value)}>
-          {#each [1, 5, 15, 45, 90] as a}<option value={a}>{a}°</option>{/each}
-        </select>
-      {/if}
-    </div>
-    <span class="divider"></span>
-    <div class="group" data-tour="modes">
-      <button class="btn" class:active={editor.printCut.enabled} title={t("Print & Cut: Seite mit Passermarken zum Drucken und Ausschneiden")} onclick={() => editor.setPrintCut(!editor.printCut.enabled)}>
-        <Icon name="sticker" /> Print & Cut
-      </button>
-      {#if editor.printCut.enabled}
-        <select class="hsel" title={t("Papierformat")} value={editor.printCut.page} onchange={(e) => editor.setPrintCut(true, e.currentTarget.value as PageName)}>
-          {#each Object.keys(PAGES) as p}<option value={p}>{p}</option>{/each}
-        </select>
-      {/if}
-    </div>
-
     <div class="spacer"></div>
-
-    <div class="group">
-      <button class="btn zoom" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
-      <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
-    </div>
-    <span class="divider"></span>
     {#if updater.available}
       <button class="btn update" title={t("Schnittwerk {v} ist verfügbar", { v: updater.info?.latest ?? "" })} onclick={() => (updater.dialogOpen = true)}><Icon name="download" /> Update</button>
     {/if}
     <DeviceMenu />
-    <button class="btn outline" data-tour="print" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> <span class="lbl">{t("Drucken")}</span></button>
+    {#if editor.printCut.enabled}
+      <button class="btn outline" data-tour="print" title={t("Für Print & Cut drucken (Strg+P)")} onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> {t("Drucken")}</button>
+    {/if}
     <button class="btn primary" data-tour="cut" title={t("Schneiden-Dialog öffnen (Strg+Enter)")} onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
   </header>
 
@@ -306,7 +262,31 @@
       {/each}
     </div>
 
-    <Canvas />
+    <div class="stage">
+      <Canvas />
+      <div class="surface"><SurfacePicker /></div>
+      <div class="viewbar" data-tour="view">
+        <button class="btn icon" class:active={editor.gridSnap} title={t("Am Raster einrasten ({g} mm, {a}°) – Alt beim Ziehen = frei. Rasterweite unter Ansicht.", { g: fmt(editor.gridStep), a: editor.rotStep })} onclick={() => (editor.gridSnap = !editor.gridSnap)}><Icon name="grid" /></button>
+        <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
+        <span class="vdiv"></span>
+        <button class="btn icon" title={t("Verkleinern")} onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
+        <button class="btn zoom" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
+        <button class="btn icon" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
+      </div>
+      {#if !editor.objects.length && !wizardUi.open && !dropping}
+        <div class="empty">
+          <div class="empty-card">
+            <span class="empty-icon"><Icon name="imagePlus" size={26} stroke={1.6} /></span>
+            <strong>{t("Bild hierher ziehen")}</strong>
+            <span class="muted">{t("Foto, Zeichnung, Logo, SVG oder PDF – oder links eine Form zeichnen")}</span>
+            <div class="empty-actions">
+              <button class="btn primary" onclick={importDialog}><Icon name="imagePlus" /> {t("Importieren")}</button>
+              <button class="btn outline" onclick={() => (templatesUi.open = true)}><Icon name="filePlus" /> {t("Aus Vorlage …")}</button>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
     <RightPanel />
 
     {#if dropping}
@@ -327,29 +307,6 @@
         {t("{n} Objekte ausgewählt", { n: editor.selected.length })}
       {/if}
     </span>
-    <span class="spacer"></span>
-    {#if !editor.printCut.enabled}
-      <label class="mat" data-tour="area">
-        {t("Fläche")}
-        <select value={matKind === "roll" ? "roll" : matKind === "custom" ? "custom" : editor.mat.name} onchange={(e) => pickMat(e.currentTarget.value)}>
-          {#each MATS as m}<option value={m.name}>{t(m.name)}</option>{/each}
-          <option value="roll">{t("Rolle ohne Matte")}</option>
-          <option value="custom">{t("Eigene Größe (Kacheln)")}</option>
-        </select>
-      </label>
-      {#if matKind === "roll"}
-        <label class="mat" title={t("Länge der Folie, die geschnitten wird")}>
-          {t("Länge")}
-          <input class="size" type="number" min="50" max={ROLL_MAX} step="10" value={Math.round(editor.mat.h)} onchange={(e) => setMatSize("h", e.currentTarget.value)} /> mm
-        </label>
-      {:else if matKind === "custom"}
-        <label class="mat">
-          <input class="size" type="number" min="20" step="10" value={Math.round(editor.mat.w)} onchange={(e) => setMatSize("w", e.currentTarget.value)} />
-          ×
-          <input class="size" type="number" min="20" step="10" value={Math.round(editor.mat.h)} onchange={(e) => setMatSize("h", e.currentTarget.value)} /> mm
-        </label>
-      {/if}
-    {/if}
   </footer>
 
   {#if plotter.dialogOpen}
@@ -416,7 +373,7 @@
     background: var(--panel-2);
   }
   /* Narrow windows: icon-only buttons (the title still names them). */
-  @media (max-width: 1600px) {
+  @media (max-width: 1100px) {
     .lbl {
       display: none;
     }
@@ -425,15 +382,6 @@
     background: color-mix(in srgb, var(--ok) 15%, transparent);
     color: var(--ok);
     font-weight: 600;
-  }
-  .hsel {
-    height: 28px;
-    padding: 0 4px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    font-size: 12px;
-    cursor: pointer;
   }
   .logo {
     display: inline-flex;
@@ -477,10 +425,90 @@
     border-radius: 50%;
     background: var(--accent);
   }
+  .stage {
+    position: relative;
+    flex: 1;
+    display: flex;
+    min-width: 0;
+  }
+  /* Floating controls on the canvas (below the 22 px rulers). */
+  .surface {
+    position: absolute;
+    top: 32px;
+    left: 32px;
+    z-index: 5;
+  }
+  .viewbar {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .viewbar .btn {
+    height: 28px;
+  }
+  .vdiv {
+    width: 1px;
+    height: 18px;
+    margin: 0 3px;
+    background: var(--border);
+  }
   .zoom {
-    min-width: 58px;
+    min-width: 54px;
     justify-content: center;
     font-variant-numeric: tabular-nums;
+    font-size: 12px;
+  }
+  .empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: 320px;
+    padding: 26px 28px 22px;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .empty-card strong {
+    font-size: 15px;
+  }
+  .empty-card .muted {
+    color: var(--text-3);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .empty-icon {
+    display: inline-flex;
+    margin-bottom: 4px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .empty-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    pointer-events: auto;
   }
   main {
     position: relative;
@@ -514,27 +542,6 @@
   .mono {
     font-variant-numeric: tabular-nums;
     min-width: 150px;
-  }
-  .mat {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .size {
-    width: 64px;
-    height: 20px;
-    padding: 0 4px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--panel-2);
-    font-size: 12px;
-    text-align: right;
-  }
-  .mat select {
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
   }
   .drop {
     position: absolute;

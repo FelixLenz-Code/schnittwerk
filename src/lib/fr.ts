@@ -651,10 +651,10 @@ export const FR: Record<string, string> = {
   "Linien mit dem Stifthalter zeichnen": "Dessiner des lignes avec le porte-stylo",
   "Großes Motiv": "Grand motif",
   "Größer als die Matte – in Kacheln oder von der Rolle": "Plus grand que le tapis – en tuiles ou depuis le rouleau",
-  "Motiv importieren, im Tab „Sticker“ die Kontur erzeugen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
-    "Importez un motif, créez le contour dans l'onglet « Sticker », imprimez (Ctrl+P) et posez la feuille en haut à gauche du tapis. Les repères d'alignement sont recherchés automatiquement.",
-  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (Tab „Objekt“) beim Abziehen.":
-    "Chargez le vinyle support vers le bas. Après la découpe, les lignes d'échenillage (onglet « Objet ») facilitent le retrait.",
+  "Motiv importieren, rechts „Als Sticker“ wählen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
+    "Importez un motif, choisissez « En sticker » à droite, imprimez (Ctrl+P) et posez la feuille en haut à gauche du tapis. Les repères d'alignement sont recherchés automatiquement.",
+  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (rechts, ohne Auswahl) beim Abziehen.":
+    "Chargez le vinyle support vers le bas. Après la découpe, les lignes d'échenillage (à droite, sans sélection) facilitent le retrait.",
   "Glänzende Trägerfolie nach unten einlegen. Das Motiv wird beim Schneiden automatisch gespiegelt.": "Chargez le support brillant vers le bas. Le motif est automatiquement découpé en miroir.",
   "Karton braucht meist zwei Durchgänge – vorher einen Testschnitt machen.": "Le carton demande souvent deux passages – faites d'abord une coupe test.",
   "Stift statt Messer in den Werkzeughalter setzen. Die Linien werden gezeichnet statt geschnitten.": "Mettez un stylo à la place de la lame dans le porte-outil. Les lignes sont dessinées au lieu d'être découpées.",
@@ -906,6 +906,85 @@ export const FR: Record<string, string> = {
   "Matte, Papierformat, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Tapis, format de papier, rouleau sans tapis ou taille personnalisée pour les grands motifs.",
   "Zeigt, ob der Plotter verbunden ist. Hier verbindest du per Bluetooth und siehst den Messer-Zähler.": "Indique si la machine est connectée. Connectez-la ici en Bluetooth et consultez le compteur de lame.",
   "Für Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Pour Print & Cut : imprime la page avec repères sans mise à l'échelle ou l'enregistre en PDF.",
+  // ---- simpler flow (0.8) ----
+  "Abgerundeter Rahmen, wird durchgeschnitten": "Cadre arrondi, découpé de part en part",
+  "Alle Teile verschachteln, damit weniger Material übrig bleibt": "Imbriquer toutes les pièces pour gaspiller moins de matériau",
+  "Alle ausgewählten Bilder bekommen eine Kontur mit Rand": "Toutes les images sélectionnées reçoivent un contour avec marge",
+  "Als Sticker": "En sticker",
+  "Am Raster einrasten ({g} mm, {a}°) – Alt beim Ziehen = frei. Rasterweite unter Ansicht.": "Aimanter à la grille ({g} mm, {a}°) – Alt en faisant glisser = libre. Pas de grille dans Affichage.",
+  "Am besten eine Ecke, die später nicht gebraucht wird.": "Idéalement un coin dont vous n'aurez pas besoin.",
+  "Aus Vorlage …": "Depuis un modèle …",
+  "Bereit zum Schneiden": "Prêt à découper",
+  "Bild hierher ziehen": "Glissez une image ici",
+  "Breite": "Largeur",
+  "Die Stelle liegt auf dem Motiv oder am Rand – in der Vorschau eine freie Stelle anklicken.": "Cet endroit est sur le motif ou au bord – cliquez sur un endroit libre dans l'aperçu.",
+  "Druck {a} → {b} – noch einmal testen.": "Pression {a} → {b} – testez à nouveau.",
+  "Entgitterungshilfe um alles": "Aide à l'échenillage autour de tout",
+  "Form": "Forme",
+  "Foto, Zeichnung, Logo, SVG oder PDF – oder links eine Form zeichnen": "Photo, dessin, logo, SVG ou PDF – ou dessinez une forme à gauche",
+  "Füllung anzeigen": "Afficher le remplissage",
+  "Für den ganzen Bogen": "Pour toute la feuille",
+  "Für einzelne Teile: Objekt auswählen – die Werkzeuge stehen dann unter „Werkzeuge“.": "Pour des pièces seules : sélectionnez l'objet – les outils sont alors sous « Outils ».",
+  "Helligkeit & Kontrast": "Luminosité et contraste",
+  "Höhe": "Hauteur",
+  "Importiere ein Bild oder zeichne links eine Form.": "Importez une image ou dessinez une forme à gauche.",
+  "In Schnittlinien umwandeln": "Convertir en lignes de découpe",
+  "In die Vorschau klicken: dort wird getestet.": "Cliquez dans l'aperçu : le test y sera découpé.",
+  "Ist das ein Foto der PixScan-Matte?": "Est-ce une photo du tapis PixScan ?",
+  "Kontur mit Rand zum Drucken und Ausschneiden (Print & Cut)": "Contour avec marge pour imprimer et découper (Print & Cut)",
+  "Linien gleichmäßig und gut sichtbar?": "Lignes régulières et bien visibles ?",
+  "Material einlegen und am Gerät die Lade-Taste drücken.": "Insérez le matériau et appuyez sur le bouton de chargement de l'appareil.",
+  "Matte und Papier": "Tapis et papier",
+  "Messertiefe {a} → {b} – noch einmal testen.": "Profondeur de lame {a} → {b} – testez à nouveau.",
+  "Nicht ganz durch": "Pas tout à fait coupé",
+  "Noch leer": "Encore vide",
+  "Passt – weiter": "C'est bon – continuer",
+  "Per Bluetooth verbinden …": "Connecter via Bluetooth …",
+  "Pixel dunkler als dieser Wert werden zur Form – Ziehen stellt von Hand ein": "Les pixels plus foncés que cette valeur forment la forme – glisser règle à la main",
+  "Platzsparend anordnen": "Disposer de façon compacte",
+  "Plotter per USB anschließen und einschalten – er wird automatisch erkannt.": "Branchez le plotter en USB et allumez-le – il est détecté automatiquement.",
+  "Print & Cut (mit Passermarken)": "Print & Cut (avec repères)",
+  "Print & Cut prüfen": "Vérifier le Print & Cut",
+  "Quadrat abziehen: Das Dreieck soll stehen bleiben, das Trägerpapier darf nur leicht angeritzt sein.": "Retirez le carré : le triangle doit rester, le support ne doit être que légèrement marqué.",
+  "Rahmen und Linien durch den Abfall – Folie lässt sich in Streifen abziehen": "Cadre et lignes dans les chutes – le vinyle se retire en bandes",
+  "Rasterweite": "Pas de la grille",
+  "Schneidet ein kleines Quadrat mit Dreieck. So siehst du vor dem eigentlichen Schnitt, ob Tiefe und Druck zum Material passen.": "Découpe un petit carré avec un triangle pour vérifier, avant la vraie découpe, que profondeur et pression conviennent au matériau.",
+  "Schnittlinien erstellt": "Lignes de découpe créées",
+  "Schnittrahmen um alles": "Cadre de découpe autour de tout",
+  "Schwellwert automatisch aus dem Bild bestimmen": "Déterminer le seuil automatiquement à partir de l'image",
+  "Seite": "Page",
+  "Startwerte der Vorlage. Im nächsten Schritt kannst du sie an einer freien Stelle testen.": "Valeurs de départ du préréglage. À l'étape suivante, vous pouvez les tester sur un endroit libre.",
+  "Stelle": "Position",
+  "Sticker angelegt": "Sticker créé",
+  "Tempo": "Vitesse",
+  "Test": "Test",
+  "Test schneiden": "Découper le test",
+  "Testen mit": "Tester avec",
+  "Testschnitt": "Test de coupe",
+  "Testschnitt (empfohlen)": "Test de coupe (recommandé)",
+  "Tiefe": "Profondeur",
+  "Vorbereiten": "Préparer",
+  "Weiter zum Schneiden": "Passer à la découpe",
+  "Weniger": "Moins",
+  "Werte anpassen": "Ajuster les valeurs",
+  "Wie geht es weiter?": "Et maintenant ?",
+  "Wie sieht der Test aus?": "À quoi ressemble le test ?",
+  "Winkelschritt": "Pas d'angle",
+  "Worauf arbeitest du? Matte, Papier, Print & Cut oder Rolle": "Sur quoi travaillez-vous ? Tapis, papier, Print & Cut ou rouleau",
+  "Worauf schneidest du?": "Sur quoi découpez-vous ?",
+  "Zeichnung, Logo oder Schrift tracen – für Folie, Papier und Stift": "Vectoriser un dessin, un logo ou du texte – pour vinyle, papier et stylo",
+  "Zum Testen den Plotter anschließen (Schritt 1).": "Branchez le plotter pour tester (étape 1).",
+  "Zu schwach": "Trop faible",
+  "Zu stark": "Trop fort",
+  "Zu tief": "Trop profond",
+  "{n} Bilder": "{n} images",
+  "Schneidematte": "Tapis de découpe",
+  "Papier ohne Matte": "Papier sans tapis",
+  "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Sur quoi découpez-vous ? Tapis, papier, Print & Cut avec repères, rouleau sans tapis ou une taille libre pour les grands motifs.",
+  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Affiche toujours ce qui correspond à la sélection : le tapis si rien n'est sélectionné, sinon l'objet. Pour les images, c'est d'ici qu'on passe à la vectorisation ou au sticker. Les calques sont en bas.",
+  "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Aimantation à la grille et aux repères, plus le zoom. Un clic sur le pourcentage ajuste le tapis.",
+  "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Apparaît avec Print & Cut : imprime la page avec repères sans mise à l'échelle ou l'enregistre en PDF.",
+  "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Vous guide pas à pas : plotter et tapis, matériau, test de coupe à l'endroit de votre choix, puis découpe.",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -940,7 +1019,7 @@ export const DOCS_FR: DocSection[] = [
     text: `Au démarrage, la **page d'accueil** s'ouvre (aussi en cliquant sur « Schnittwerk » en haut à gauche). Choisissez ce que vous voulez créer – stickers, vinyle, flex thermocollant, papier, stylo ou grand motif. Schnittwerk règle alors le matériau, le tapis et la page.
 
 - Chargez images et vecteurs avec **Importer** (\`Ctrl+I\`) ou glissez-les sur la zone de travail.
-- À droite, l'onglet **Vectoriser** transforme une image en lignes de coupe, l'onglet **Sticker** en contour de sticker.
+- Le côté droit montre toujours ce qui correspond à la sélection. Pour une image, deux voies : **Convertir en lignes de découpe** (vectoriser) ou **En sticker**. Sans sélection, il affiche le tapis et les outils pour toute la feuille.
 - **Découper** (\`Ctrl+Entrée\`) mène à la machine.
 - La **barre de menus** tout en haut contient toutes les fonctions – aussi au clavier avec \`Alt\` et la lettre soulignée. **Fichier → Paramètres** regroupe langue, thème, grille et plus.
 
@@ -949,7 +1028,7 @@ Les projets sont enregistrés en fichiers \`.schnitt\`, images comprises. Le tra
   {
     id: "trace",
     heading: `Vectoriser des images`,
-    text: `Sélectionnez une image et ouvrez l'onglet **Vectoriser** – l'aperçu se met à jour à chaque réglage.
+    text: `Sélectionnez une image et choisissez à droite **Convertir en lignes de découpe** – l'aperçu se met à jour à chaque réglage. La flèche en haut permet de revenir.
 
 - **N/B** : les zones sombres deviennent des formes – pour dessins, lettrages, logos.
 - **Couleur** : prélevez une couleur avec la pipette.
@@ -964,14 +1043,14 @@ Le **lissage** adoucit les courbes, **Supprimer les taches** écarte les miettes
     heading: `Stickers et Print & Cut`,
     text: `Les stickers sont imprimés puis découpés. La page reçoit des **repères d'alignement** que la machine cherche avec son capteur avant la découpe.
 
-- Activez **Print & Cut** en haut (ou choisissez « Sticker » sur la page d'accueil).
-- Sélectionnez une image, onglet **Sticker** : supprimez l'arrière-plan ou utilisez la transparence, réglez la marge, **Appliquer le contour**.
-- **Plusieurs images à la fois** : sélectionnez-les toutes – l'onglet Sticker propose **Créer une planche de stickers**. Chaque image reçoit un contour, en plusieurs exemplaires si vous voulez, disposés de façon compacte.
+- Choisissez **Print & Cut** en haut à gauche de la zone de travail (ou « Sticker » sur la page d'accueil).
+- Sélectionnez une image, à droite **En sticker** : supprimez l'arrière-plan ou utilisez la transparence, réglez la marge, **Appliquer le contour**.
+- **Plusieurs images à la fois** : sélectionnez-les toutes – le côté droit propose **Créer une planche de stickers**. Chaque image reçoit un contour, en plusieurs exemplaires si vous voulez, disposés de façon compacte.
 - **Découper individuellement** coupe aussi complètement avec une marge de support (bleu), sinon seulement mi-chair (rouge).
 - Imprimez (\`Ctrl+P\`) – ne choisissez jamais « Ajuster à la page » dans la boîte d'impression.
 - Posez la feuille en haut à gauche du tapis, chargez-la, découpez.
 
-Si la coupe est légèrement décalée, corrigez-la avec la feuille de test sous **Réglage fin** dans la fenêtre de découpe.`,
+Si la coupe est légèrement décalée, corrigez-la avec la feuille de test sous **Réglage fin**, à l'étape **Test de coupe** de la fenêtre de découpe.`,
   },
   {
     id: "cut",
@@ -979,7 +1058,9 @@ Si la coupe est légèrement décalée, corrigez-la avec la feuille de test sous
     text: `Dans la fenêtre de découpe, chaque **couleur de coupe** a son propre matériau : rouge = mi-chair, bleu = coupe complète, vert = dessin. Les coupes légères passent d'abord pour que la feuille tienne.
 
 - Choisissez le **matériau** ; ajustez les valeurs si besoin et enregistrez-les comme matériau personnalisé.
-- **Coupe test** : un petit carré à la position indiquée.
+La fenêtre guide la découpe en quatre étapes : **Préparer** (plotter, tapis, miroir), **Matériau**, **Test de coupe** et **Découper**.
+
+- **Test de coupe** (recommandé) : cliquez sur un endroit libre du matériau dans l'aperçu et découpez un petit carré. Schnittwerk demande ensuite le résultat – avec « Pas tout à fait coupé » ou « Trop profond », les valeurs sont ajustées et le test suivant se place à côté.
 - **Série de test** : plusieurs carrés avec pression ou profondeur de lame croissante – cliquez ensuite sur le plus net et sa valeur est appliquée.
 - **Simulation** : montre à l'avance, dans l'ordre de découpe, ce que fera la machine.
 - La **durée** est estimée et devient plus précise à chaque découpe.
@@ -990,7 +1071,7 @@ Quand une découpe se termine alors que la fenêtre est en arrière-plan, Schnit
   {
     id: "vinyl",
     heading: `Vinyle et flex thermocollant`,
-    text: `**Vinyle** : posez-le sur le tapis, support vers le bas. Après la découpe, les **lignes d'échenillage** (onglet Objet) aident : un cadre et des lignes à travers les chutes pour retirer le vinyle en bandes.
+    text: `**Vinyle** : posez-le sur le tapis, support vers le bas. Après la découpe, les **lignes d'échenillage** (sous **Outils**, ou pour toute la feuille sans sélection) aident : un cadre et des lignes à travers les chutes pour retirer le vinyle en bandes.
 
 **Flex thermocollant (textile)** : support brillant vers le bas. Le motif doit être découpé en miroir – activez **Miroir** dans la fenêtre de découpe :
 
@@ -1000,7 +1081,7 @@ Quand une découpe se termine alors que la fenêtre est en arrière-plan, Schnit
   {
     id: "large",
     heading: `Grands motifs et rouleaux`,
-    text: `En bas, sous **Surface**, se trouvent **Taille personnalisée** et **Rouleau sans tapis**.
+    text: `En haut à gauche de la zone de travail se trouvent **Taille personnalisée** et **Rouleau sans tapis**.
 
 - Si le motif est plus grand que le tapis, la fenêtre de découpe le divise en **tuiles**. Découpez tuile par tuile et chargez du nouveau matériau après chacune. Un léger chevauchement facilite l'assemblage.
 - **Sans tapis** uniquement pour un matériau à support rigide. À la fin, le matériau avance au-delà du motif.
@@ -1009,11 +1090,11 @@ Quand une découpe se termine alors que la fenêtre est en arrière-plan, Schnit
   {
     id: "draw",
     heading: `Formes, texte et repères`,
-    text: `Outils à gauche : rectangle, ellipse, polygone, étoile, cœur, ligne, main levée et texte. \`Maj\` pendant le dessin garde la forme non déformée. Les paramètres comme le rayon des coins ou le nombre de branches se modifient ensuite dans l'onglet Objet.
+    text: `Outils à gauche : rectangle, ellipse, polygone, étoile, cœur, ligne, main levée et texte. \`Maj\` pendant le dessin garde la forme non déformée. Les paramètres comme le rayon des coins ou le nombre de branches se modifient ensuite à droite.
 
 - **Texte** : police, taille, espacement ; **Arc** place le texte sur un cercle. Sélectionnez texte et forme ensemble → **Texte sur tracé**.
 - Tirez des **repères** depuis les règles ; ramenez-les ou faites un clic droit pour les supprimer.
-- **Grille** (en haut) : le déplacement s'aimante à la grille, la rotation par pas d'angle. \`Alt\` en glissant = libre.
+- **Grille** (en bas à droite de la zone de travail, pas de grille dans **Affichage**) : le déplacement s'aimante à la grille, la rotation par pas d'angle. \`Alt\` en glissant = libre.
 - Largeur et hauteur s'affichent à côté de l'objet – cliquez pour les saisir.
 - Plusieurs objets : réglez taille et rotation pour tous, **répartissez** avec des espacements égaux.
 - **Clic droit** sur un objet : menu avec les actions courantes.

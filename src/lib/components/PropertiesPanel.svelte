@@ -2,18 +2,19 @@
   import { api } from "../api";
   import { editor } from "../editor.svelte";
   import { aabb, fmt, uid } from "../geometry";
-  import { pathMatrix } from "../plotter.svelte";
-  import type { Obj, PathObj } from "../types";
+  import { pathMatrix, plotter } from "../plotter.svelte";
+  import type { ImageObj, Obj, PathObj } from "../types";
   import Icon from "./Icon.svelte";
   import Toggle from "./Toggle.svelte";
   import TextEditor from "./TextEditor.svelte";
   import { nodes } from "../nodes.svelte";
-  import { pathBbox, parsePath } from "../pathdata";
-  import { polysBox, weedLines, worldPolys } from "../weed";
   import { refreshShape, rememberSpec, SHAPE_NAMES } from "../shapes";
   import Slider from "./Slider.svelte";
   import { t } from "../i18n.svelte";
-  import { BOOL_OPS, combine, CUT_TYPES, flip, placeUnit, putTextOnPath, setCutColor, sheetArea, textOnPathPair, unitOutline } from "../actions";
+  import { addWeeding, BOOL_OPS, combine, CUT_TYPES, flip, frameSelection, nestSelection, putTextOnPath, setCutColor, textOnPathPair } from "../actions";
+  import { perspective } from "../perspective.svelte";
+  import { openSection, ui } from "../ui.svelte";
+  import PixScanSection from "./PixScanSection.svelte";
   import Section from "./Section.svelte";
 
   const single = $derived(editor.selected.length === 1 ? editor.selected[0] : null);
@@ -63,57 +64,6 @@
     }
   }
 
-  function frameSelection() {
-    const b = aabb(editor.selected);
-    if (!b) return;
-    const pad = 2, r = 2;
-    const w = b.x1 - b.x0 + 2 * pad, h = b.y1 - b.y0 + 2 * pad;
-    const d = `M${r} 0H${w - r}A${r} ${r} 0 0 1 ${w} ${r}V${h - r}A${r} ${r} 0 0 1 ${w - r} ${h}H${r}A${r} ${r} 0 0 1 0 ${h - r}V${r}A${r} ${r} 0 0 1 ${r} 0Z`;
-    const frame: PathObj = {
-      id: uid(), type: "path", name: t("Schnittrahmen"), d, bbox: [0, 0, w, h], color: "#3e63dd", fill: false,
-      x: b.x0 - pad, y: b.y0 - pad, w, h, rot: 0, flipX: false, flipY: false, visible: true, locked: false,
-    };
-    editor.add([frame], false);
-    editor.toast("Rahmen zum Durchschneiden hinzugefügt", "ok");
-  }
-
-  // ---------- weeding aids ----------
-  let weedMargin = $state(3);
-  let weedSpacing = $state(20);
-  let weedDir = $state<"h" | "v" | "hv" | "none">("h");
-
-  /** Box around the design plus lines through the waste (vinyl). */
-  function addWeeding() {
-    const designs = selPaths.filter((o) => o.visible && o.cut !== false);
-    if (!designs.length) return;
-    const polys = worldPolys(designs);
-    const b0 = polysBox(polys);
-    if (!b0) return;
-    const m = Math.max(0.5, weedMargin);
-    const box = { x0: b0.x0 - m, y0: b0.y0 - m, x1: b0.x1 + m, y1: b0.y1 + m };
-    const color = designs[0].color;
-    const group = uid();
-    const mk = (name: string, d: string): PathObj | null => {
-      if (!d) return null;
-      const [x, y, w, h] = pathBbox(parsePath(d));
-      return {
-        id: uid(), type: "path", name, d, bbox: [x, y, w || 0.01, h || 0.01], color, fill: false,
-        x, y, w: w || 0.01, h: h || 0.01, rot: 0, flipX: false, flipY: false, visible: true, locked: false, group,
-      };
-    };
-    const rect = `M${box.x0} ${box.y0}H${box.x1}V${box.y1}H${box.x0}Z`;
-    const lines =
-      weedDir === "none"
-        ? ""
-        : weedLines(polys, box, Math.max(3, weedSpacing), Math.min(m, Math.max(0.5, weedMargin / 2)), {
-            horizontal: weedDir.includes("h"),
-            vertical: weedDir.includes("v"),
-          });
-    const objs = [mk(t("Entgitterungsrahmen"), rect), mk(t("Entgitterungslinien"), lines)].filter((o): o is PathObj => !!o);
-    editor.add(objs, false);
-    editor.toast(lines ? "Entgitterungsrahmen und -linien angelegt" : "Entgitterungsrahmen angelegt", "ok");
-  }
-
   let boolBusy = $state(false);
   async function runCombine(op: (typeof BOOL_OPS)[number]["op"]) {
     boolBusy = true;
@@ -122,121 +72,34 @@
   }
   const textOnPath = $derived(textOnPathPair());
 
-  /** Selected objects split into units (a group or a single object). */
-  function selectedUnits(): Obj[][] {
-    const ids = editor.expandGroups(editor.selection);
-    const byKey = new Map<string, Obj[]>();
-    for (const o of editor.objects) {
-      if (!ids.includes(o.id) || o.locked) continue;
-      const k = o.group ?? o.id;
-      byKey.set(k, [...(byKey.get(k) ?? []), o]);
-    }
-    return [...byKey.values()];
-  }
-
-  // ---------- sheet fill / nesting ----------
+  // ---------- sheet tools ----------
+  let weedMargin = $state(3);
+  let weedSpacing = $state(20);
+  let weedDir = $state<"h" | "v" | "hv" | "none">("h");
   let gap = $state(3);
   let nestShapes = $state(true);
   let nesting = $state(false);
-
-  async function nestSelection(fill: boolean) {
-    const units = selectedUnits();
-    if (!units.length) return;
-    if (fill && !nestShapes) return gridFill();
+  async function nest(fill: boolean) {
     nesting = true;
-    try {
-      const { area, keepouts } = sheetArea();
-      const items = (fill ? units.slice(0, 1) : units).map((u) => ({ paths: unitOutline(u) }));
-      if (fill && units.length > 1) {
-        // Fill treats the whole selection as one unit.
-        items[0] = { paths: units.flatMap(unitOutline) };
-      }
-      const r = await api.nest({ items, area, keepouts, gap, rotate: true, fill });
-      if (!r.placements.length) {
-        editor.toast("Passt nicht auf den Bogen.", "error");
-        return;
-      }
-      editor.checkpoint("Bogen füllen");
-      if (fill) {
-        const unit = units.flat();
-        r.placements.forEach((p, i) => {
-          let objs = unit;
-          if (i > 0) {
-            const groupMap = new Map<string, string>();
-            objs = unit.map((o) => {
-              const c = { ...($state.snapshot(o) as Obj), id: uid() };
-              if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
-              return c;
-            });
-            // Copies start from the original pose.
-            editor.objects.push(...objs);
-            objs = editor.objects.slice(-objs.length);
-          }
-          if (i === 0) {
-            // Move the original last so copies can be cloned from its start pose.
-            return;
-          }
-          placeUnit(objs, p.rot, p.center, p.dx, p.dy);
-        });
-        placeUnit(unit, r.placements[0].rot, r.placements[0].center, r.placements[0].dx, r.placements[0].dy);
-        editor.toast(t("{n} Exemplare platzsparend verteilt", { n: r.placements.length }), "ok");
-      } else {
-        for (const p of r.placements) placeUnit(units[p.item], p.rot, p.center, p.dx, p.dy);
-        editor.toast(
-          r.unplaced.length
-            ? t("{a} angeordnet, {b} passen nicht mehr drauf", { a: r.placements.length, b: r.unplaced.length })
-            : t("{n} Teile platzsparend angeordnet", { n: r.placements.length }),
-          r.unplaced.length ? "error" : "ok",
-        );
-      }
-    } catch (e) {
-      editor.error(e);
-    } finally {
-      nesting = false;
-    }
+    await nestSelection(fill, gap, nestShapes);
+    nesting = false;
   }
 
-  /** Simple grid fill by bounding box (no rotation). */
-  function gridFill() {
-    const unit = editor.selected.filter((o) => !o.locked);
-    const b = aabb(unit);
-    if (!b) return;
-    const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
-    const r = editor.regmarks;
-    const area = r
-      ? { x0: r.originX + 1, y0: r.originY + 1, x1: r.originX + r.width - 1, y1: r.originY + r.length - 1 }
-      : { x0: 5, y0: 5, x1: editor.mat.w - 5, y1: editor.mat.h - 5 };
-    const zones = editor.regZones();
-    const hits = (x: number, y: number) =>
-      zones.some(([zx, zy, zw, zh]) => x < zx + zw + 1 && x + bw > zx - 1 && y < zy + zh + 1 && y + bh > zy - 1);
-    const cells: [number, number][] = [];
-    for (let y = area.y0; y + bh <= area.y1; y += bh + gap) {
-      for (let x = area.x0; x + bw <= area.x1; x += bw + gap) {
-        if (!hits(x, y)) cells.push([x, y]);
-      }
-    }
-    if (!cells.length) {
-      editor.toast("Motiv ist zu groß für den Bogen.", "error");
-      return;
-    }
-    editor.checkpoint("Bogen füllen");
-    const [fx, fy] = cells[0];
-    for (const o of unit) {
-      o.x += fx - b.x0;
-      o.y += fy - b.y0;
-    }
-    const copies: Obj[] = [];
-    for (const [cx, cy] of cells.slice(1)) {
-      const groupMap = new Map<string, string>();
-      for (const o of unit) {
-        const c = { ...($state.snapshot(o) as Obj), id: uid(), x: o.x + cx - fx, y: o.y + cy - fy };
-        if (c.group) c.group = groupMap.get(c.group) ?? groupMap.set(c.group, uid()).get(c.group);
-        copies.push(c);
-      }
-    }
-    editor.objects.push(...copies);
-    editor.toast(t("{n} Exemplare auf dem Bogen", { n: cells.length }), "ok");
-  }
+  // ---------- pictures ----------
+  const images = $derived(editor.selected.filter((o): o is ImageObj => o.type === "image"));
+  const onlyImages = $derived(images.length > 0 && images.length === editor.selected.length);
+  let showPix = $state(false);
+  // A PixScan photo keeps its section open; another picture starts closed.
+  $effect(() => {
+    showPix = !!(single?.type === "image" && single.pixscan);
+  });
+  // Selecting something else ends the PixScan corner tool.
+  $effect(() => {
+    if (perspective.objId && single?.id !== perspective.objId) perspective.cancel();
+  });
+
+  // ---------- next steps (after tracing / stickers) ----------
+  const next = $derived(ui.nextSteps && ui.nextSteps.sel === editor.selection.join(",") ? ui.nextSteps : null);
 
   // ---------- shape parameters ----------
   let shapeTouched = false;
@@ -322,309 +185,325 @@
   const CUT_COLORS = ["#e5484d", "#3e63dd", "#30a46c", "#f5a524", "#8e4ec6", "#1b1d22"];
 </script>
 
-{#if !editor.selected.length}
-  <div class="empty">
-    <p><strong>{t("Nichts ausgewählt")}</strong></p>
-    <p class="muted">{t("Importiere eine Datei")} (<kbd>{t("Strg")}</kbd>+<kbd>I</kbd>) {t("oder ziehe sie direkt auf die Arbeitsfläche.")}</p>
-    <div class="tips">
-      <div><kbd>V</kbd> {t("Auswahl")}</div>
-      <div><kbd>H</kbd> / <kbd>{t("Leertaste")}</kbd> {t("Verschieben")}</div>
-      <div><kbd>R</kbd> {t("Rechteck")} · <kbd>E</kbd> {t("Ellipse")} · <kbd>P</kbd> {t("Vieleck")} · <kbd>S</kbd> {t("Stern")}</div>
-      <div><kbd>L</kbd> {t("Linie")} · <kbd>F</kbd> {t("Freihand")} · <kbd>T</kbd> {t("Text")}</div>
-      <div>{t("Hilfslinien aus den Linealen ziehen")}</div>
-      <div>{t("Mausrad = Zoom")} · <kbd>{t("Strg")}</kbd>+<kbd>0</kbd> {t("Einpassen")}</div>
+{#if next}
+  <div class="next">
+    <div class="next-head">
+      <span class="ok"><Icon name="check" size={13} stroke={2.4} /></span>
+      <strong>{next.kind === "sticker" ? t("Sticker angelegt") : t("Schnittlinien erstellt")}</strong>
+      <button class="btn icon close" title={t("Ausblenden")} aria-label={t("Ausblenden")} onclick={() => (ui.nextSteps = null)}><Icon name="x" size={13} /></button>
+    </div>
+    <p>{t("Wie geht es weiter?")}</p>
+    <div class="next-actions">
+      <button class="btn outline" onclick={() => openSection("fill")}><Icon name="copy" /> {t("Bogen füllen")}</button>
+      {#if editor.printCut.enabled}
+        <button class="btn outline" onclick={() => (plotter.printOpen = true)}><Icon name="printer" /> {t("Drucken")}</button>
+      {/if}
+      <button class="btn primary" onclick={() => (plotter.dialogOpen = true)}><Icon name="scissors" /> {t("Schneiden")}</button>
     </div>
   </div>
-{:else}
-  {#if single}
-    <section>
-      <div class="title-row">
-        <Icon name={single.type === "image" ? "imagePlus" : "scissors"} />
-        <input
-          class="name"
-          value={single.name}
-          onchange={(e) => {
-            editor.checkpoint("Umbenennen");
-            single.name = e.currentTarget.value;
-          }}
-        />
-      </div>
-    </section>
+{/if}
 
-    <Section id="pos" title={t("Position & Größe")}>
-      <div class="grid">
-        {#each [["x", "X"], ["y", "Y"], ["w", "B"], ["h", "H"]] as [key, label]}
-          <label class="num">
-            <span>{t(label)}</span>
-            <input
-              class="field"
-              value={fmt(single[key as "x"], 2)}
-              disabled={single.locked}
-              onchange={(e) => setField(single, key as "x", e.currentTarget.value)}
-            />
-            <em>mm</em>
-          </label>
-        {/each}
-        <label class="num">
-          <span>∠</span>
-          <input class="field" value={fmt(single.rot, 1)} disabled={single.locked} onchange={(e) => setField(single, "rot", e.currentTarget.value)} />
-          <em>°</em>
-        </label>
-        <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
-          <Icon name={editor.keepRatio ? "lock" : "unlock"} />
-        </button>
-      </div>
-    </Section>
+{#if single}
+  <section class="title">
+    <div class="title-row">
+      <Icon name={single.type === "image" ? "imagePlus" : single.type === "path" && single.text ? "type" : "scissors"} />
+      <input
+        class="name"
+        value={single.name}
+        onchange={(e) => {
+          editor.checkpoint("Umbenennen");
+          single.name = e.currentTarget.value;
+        }}
+      />
+    </div>
+  </section>
+{:else if box}
+  <section class="title">
+    <h3 class="section-title">{t("{n} Objekte", { n: editor.selected.length })}</h3>
+    <p class="muted no-gap">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
+  </section>
+{/if}
 
-    {#if single.type === "path" && single.shape && single.shape.kind !== "ellipse" && single.shape.kind !== "heart"}
-      {@const sh = single.shape}
-      <Section id="shape" title={t(SHAPE_NAMES[sh.kind])}>
-        <div class="stack">
-          {#if sh.kind === "rect"}
-            <Slider label="Eckenradius" value={sh.radius} min={0} max={Math.round(Math.min(single.w, single.h) / 2)} step={0.5} unit=" mm" oninput={(v) => setShape(single as PathObj, { ...sh, radius: v })} />
-          {:else if sh.kind === "polygon"}
-            <Slider label="Ecken" value={sh.sides} min={3} max={12} oninput={(v) => setShape(single as PathObj, { ...sh, sides: v })} />
-          {:else if sh.kind === "star"}
-            <Slider label="Zacken" value={sh.points} min={3} max={20} oninput={(v) => setShape(single as PathObj, { ...sh, points: v })} />
-            <Slider label="Innenradius" value={Math.round(sh.inner * 100)} min={10} max={90} unit=" %" oninput={(v) => setShape(single as PathObj, { ...sh, inner: v / 100 })} />
-          {/if}
-        </div>
-      </Section>
+{#if onlyImages}
+  <!-- Pictures: the two ways forward come first. -->
+  <section class="paths">
+    {#if images.length === 1}
+      <button class="way" onclick={() => (editor.rightTab = "trace")}>
+        <span class="way-icon"><Icon name="wand" size={18} /></span>
+        <span><b>{t("In Schnittlinien umwandeln")}</b><small>{t("Zeichnung, Logo oder Schrift tracen – für Folie, Papier und Stift")}</small></span>
+        <span class="arrow"><Icon name="arrowRight" size={14} /></span>
+      </button>
     {/if}
-
-    {#if single.type === "path"}
-      <Section id="nodes" title={t("Knoten")}>
-        {#if nodes.objId === single.id}
-          <p class="muted small">{t("{n} Knoten · {s} ausgewählt", { n: nodes.count, s: nodes.sel.length })}</p>
-          <div class="cut-types">
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(false)} title={t("Knick: Griffe unabhängig")}>{t("Ecke")}</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(true)} title={t("Weicher Übergang: Griffe in einer Linie")}>{t("Glatt")}</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(true)} title={t("Abschnitt nach dem Knoten wird gerade")}>{t("Gerade")}</button>
-            <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(false)} title={t("Abschnitt nach dem Knoten wird zur Kurve")}>{t("Kurve")}</button>
-            <button class="btn outline danger" disabled={!nodes.sel.length} onclick={() => nodes.deleteSelected()}>{t("Löschen")}</button>
-            <button class="btn primary" onclick={() => nodes.stop()}><Icon name="check" /> {t("Fertig")}</button>
-          </div>
-          <p class="muted small">{t("Doppelklick auf die Linie fügt einen Knoten ein.")} <kbd>Alt</kbd> {t("beim Ziehen eines Griffs macht eine Ecke.")}</p>
-        {:else}
-          <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title={t("Auch per Doppelklick auf den Pfad")}>{t("Knoten bearbeiten")}</button>
-          {#if !single.text && !single.shape}
-            <div class="simplify">
-              <Slider label="Vereinfachen" bind:value={simplifyTol} min={0.02} max={1} step={0.01} unit=" mm" hint="Erlaubte Abweichung von der Originalform" />
-              <button class="btn outline" disabled={single.locked || simplifyBusy} onclick={() => simplify(single as PathObj)} title={t("Weniger Knoten, gleiche Form – schneidet ruhiger")}>
-                {simplifyBusy ? t("Berechne …") : t("Knoten reduzieren")}
-              </button>
-            </div>
-          {/if}
-        {/if}
-      </Section>
-    {/if}
-
-    {#if single.type === "path" && single.text}
-      <TextEditor obj={single as PathObj & { text: NonNullable<PathObj["text"]> }} />
-    {/if}
-
-    {#if single.type === "path"}
-      <Section id="line" title={t("Schnittlinie")}>
-        <div class="colors">
-          {#each CUT_COLORS as c}
-            <button class="color" class:on={single.color === c} style:background={c} aria-label={t("Farbe {c}", { c })} onclick={() => setColor(single, c)}></button>
-          {/each}
-          <input type="color" value={single.color} onchange={(e) => setColor(single, e.currentTarget.value)} title={t("Eigene Farbe")} />
-        </div>
-        <div class="stack">
-          <Toggle
-            label="Fläche anzeigen"
-            bind:checked={single.fill}
-            hint="Nur Anzeige – geschnitten wird immer die Linie"
-          />
-          <label class="toggle-row">
-            <span>{t("Schneiden")}</span>
-            <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint("Schneiden an/aus"); single.cut = e.currentTarget.checked; }} />
-          </label>
-          <label class="toggle-row">
-            <span>{t("Fläche drucken")}</span>
-            <span class="row">
-              {#if single.printFill}
-                <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.value; }} />
-              {/if}
-              <input type="checkbox" checked={!!single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.checked ? "#ffffff" : null; }} />
-            </span>
-          </label>
-        </div>
-      </Section>
-    {:else}
-      <Section id="image" title={t("Bild")}>
-        <div class="stack">
-          <label class="range-row">
-            <span>{t("Deckkraft")}</span>
-            <input type="range" min="0.1" max="1" step="0.05" bind:value={single.opacity} />
-          </label>
-          <button class="btn primary" onclick={() => (editor.rightTab = "trace")}><Icon name="wand" /> {t("Bild tracen …")}</button>
-        </div>
-      </Section>
-    {/if}
-  {:else if box}
-    <section>
-      <h3 class="section-title">{t("{n} Objekte", { n: editor.selected.length })}</h3>
-      <p class="muted">{fmt(box.x1 - box.x0)} × {fmt(box.y1 - box.y0)} mm</p>
-      <div class="grid multi">
-        <label class="num" title={t("Verschiebt die ganze Auswahl")}>
-          <span>X</span>
-          <input class="field" value={fmt(box.x0, 2)} onchange={(e) => moveSelection("x", e.currentTarget.value)} />
-          <em>mm</em>
-        </label>
-        <label class="num" title={t("Verschiebt die ganze Auswahl")}>
-          <span>Y</span>
-          <input class="field" value={fmt(box.y0, 2)} onchange={(e) => moveSelection("y", e.currentTarget.value)} />
-          <em>mm</em>
-        </label>
-        <label class="num" title={t("Breite jedes Objekts")}>
-          <span>{t("B")}</span>
-          <input class="field" placeholder={sameValue("w")} onchange={(e) => setEach("w", e.currentTarget.value, e.currentTarget)} />
-          <em>mm</em>
-        </label>
-        <label class="num" title={t("Höhe jedes Objekts")}>
-          <span>{t("H")}</span>
-          <input class="field" placeholder={sameValue("h")} onchange={(e) => setEach("h", e.currentTarget.value, e.currentTarget)} />
-          <em>mm</em>
-        </label>
-        <label class="num" title={t("Drehung jedes Objekts")}>
-          <span>∠</span>
-          <input class="field" placeholder={sameValue("rot")} onchange={(e) => setEach("rot", e.currentTarget.value, e.currentTarget)} />
-          <em>°</em>
-        </label>
-        <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
-          <Icon name={editor.keepRatio ? "lock" : "unlock"} />
-        </button>
-      </div>
-      {#if textOnPath}
-        <button class="btn primary top-gap" onclick={putTextOnPath} title={t("Der Text folgt der Linie des anderen Pfads")}>{t("Text auf Pfad")}</button>
+    <button class="way" onclick={() => (editor.rightTab = "sticker")}>
+      <span class="way-icon"><Icon name="sparkle" size={18} /></span>
+      <span>
+        <b>{images.length > 1 ? t("Sticker-Bogen erstellen") : t("Als Sticker")}</b>
+        <small>{images.length > 1 ? t("Alle ausgewählten Bilder bekommen eine Kontur mit Rand") : t("Kontur mit Rand zum Drucken und Ausschneiden (Print & Cut)")}</small>
+      </span>
+      <span class="arrow"><Icon name="arrowRight" size={14} /></span>
+    </button>
+    {#if single?.type === "image"}
+      <label class="range-row">
+        <span>{t("Deckkraft")}</span>
+        <input type="range" min="0.1" max="1" step="0.05" bind:value={single.opacity} />
+      </label>
+      {#if showPix}
+        <div class="pix"><PixScanSection img={single} /></div>
+      {:else}
+        <button class="link" onclick={() => (showPix = true)}>{t("Ist das ein Foto der PixScan-Matte?")}</button>
       {/if}
-    </section>
-  {/if}
+    {/if}
+  </section>
+{/if}
 
-  {#if selPaths.length}
-    <Section id="cuttype" title={t("Schnittart")}>
-      <div class="cut-types">
-        {#each CUT_TYPES as ct}
-          <button
-            class="btn outline ctype"
-            class:active={selPaths.every((o) => o.color.toLowerCase() === ct.color)}
-            title={t(ct.hint)}
-            onclick={() => setCutColor(ct.color)}
-          >
-            <span class="dot" style:background={ct.color}></span>{t(ct.label)}
-          </button>
-        {/each}
-      </div>
-      <p class="muted small">{t("Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.")}</p>
-    </Section>
-  {/if}
-
-  {#if selPaths.length >= 2}
-    <Section id="bool" title={t("Pfade kombinieren")} open={false}>
-      <div class="cut-types">
-        {#each BOOL_OPS as b}
-          <button class="btn outline" disabled={boolBusy} title={t(b.hint)} onclick={() => runCombine(b.op)}>{t(b.label)}</button>
-        {/each}
-      </div>
-    </Section>
-  {/if}
-
-  <Section id="frame" title={t("Rahmen")} open={false}>
-    <button class="btn outline" onclick={frameSelection} title={t("Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten")}>{t("Schnittrahmen um Auswahl")}</button>
-  </Section>
-
-  {#if selPaths.length}
-    <Section id="weed" title={t("Entgittern (Folie)")} open={false}>
-      <div class="stack">
-        <label class="toggle-row" title={t("Abstand des Rahmens zum Motiv")}>
-          <span>{t("Rand")}</span>
-          <span class="row unit-field"><input class="field" type="number" min="0.5" step="0.5" bind:value={weedMargin} /> mm</span>
-        </label>
-        <label class="toggle-row">
-          <span>{t("Linien")}</span>
-          <select class="field weed-select" bind:value={weedDir}>
-            <option value="h">{t("Waagrecht")}</option>
-            <option value="v">{t("Senkrecht")}</option>
-            <option value="hv">{t("Beides")}</option>
-            <option value="none">{t("Keine")}</option>
-          </select>
-        </label>
-        {#if weedDir !== "none"}
-          <label class="toggle-row" title={t("Abstand zwischen den Linien")}>
-            <span>{t("Linienabstand")}</span>
-            <span class="row unit-field"><input class="field" type="number" min="3" step="1" bind:value={weedSpacing} /> mm</span>
-          </label>
-        {/if}
-        <button class="btn outline" onclick={addWeeding} title={t("Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen")}>{t("Entgitterungshilfe anlegen")}</button>
-      </div>
-      <p class="muted small">{t("Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).")}</p>
-    </Section>
-
-    <Section id="offset" title={t("Kontur versetzen")} open={false}>
-      <div class="row">
-        <label class="num grow-field">
-          <span>±</span>
-          <input class="field" type="number" step="0.5" bind:value={offsetMm} />
+{#if single}
+  <Section id="pos" title={t("Position & Größe")}>
+    <div class="grid">
+      {#each [["x", "X"], ["y", "Y"], ["w", "B"], ["h", "H"]] as [key, label]}
+        <label class="num">
+          <span>{t(label)}</span>
+          <input class="field" value={fmt(single[key as "x"], 2)} disabled={single.locked} onchange={(e) => setField(single, key as "x", e.currentTarget.value)} />
           <em>mm</em>
         </label>
-        <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? t("Berechne …") : t("Neue Kontur")}</button>
-      </div>
-      <p class="muted small">{t("Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.")}</p>
-    </Section>
-  {/if}
-
-  <Section id="fill" title={t("Bogen füllen")} open={false}>
-    <div class="row">
-      <label class="num grow-field">
-        <span>{t("Abstand")}</span>
-        <input class="field pad-wide" type="number" min="0" step="0.5" bind:value={gap} />
+      {/each}
+      <label class="num">
+        <span>∠</span>
+        <input class="field" value={fmt(single.rot, 1)} disabled={single.locked} onchange={(e) => setField(single, "rot", e.currentTarget.value)} />
+        <em>°</em>
+      </label>
+      <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
+        <Icon name={editor.keepRatio ? "lock" : "unlock"} />
+      </button>
+    </div>
+  </Section>
+{:else if box}
+  <Section id="pos-multi" title={t("Position & Größe")}>
+    <div class="grid multi">
+      <label class="num" title={t("Verschiebt die ganze Auswahl")}>
+        <span>X</span>
+        <input class="field" value={fmt(box.x0, 2)} onchange={(e) => moveSelection("x", e.currentTarget.value)} />
         <em>mm</em>
       </label>
-      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(true)} title={t("Bogen mit Kopien der Auswahl füllen")}>{t("Füllen")}</button>
-      <button class="btn outline" disabled={nesting} onclick={() => nestSelection(false)} title={t("Ausgewählte Teile platzsparend anordnen (ohne Kopien)")}>{t("Anordnen")}</button>
+      <label class="num" title={t("Verschiebt die ganze Auswahl")}>
+        <span>Y</span>
+        <input class="field" value={fmt(box.y0, 2)} onchange={(e) => moveSelection("y", e.currentTarget.value)} />
+        <em>mm</em>
+      </label>
+      <label class="num" title={t("Breite jedes Objekts")}>
+        <span>{t("B")}</span>
+        <input class="field" placeholder={sameValue("w")} onchange={(e) => setEach("w", e.currentTarget.value, e.currentTarget)} />
+        <em>mm</em>
+      </label>
+      <label class="num" title={t("Höhe jedes Objekts")}>
+        <span>{t("H")}</span>
+        <input class="field" placeholder={sameValue("h")} onchange={(e) => setEach("h", e.currentTarget.value, e.currentTarget)} />
+        <em>mm</em>
+      </label>
+      <label class="num" title={t("Drehung jedes Objekts")}>
+        <span>∠</span>
+        <input class="field" placeholder={sameValue("rot")} onchange={(e) => setEach("rot", e.currentTarget.value, e.currentTarget)} />
+        <em>°</em>
+      </label>
+      <button class="btn icon outline" class:active={editor.keepRatio} title={t("Seitenverhältnis beibehalten")} onclick={() => (editor.keepRatio = !editor.keepRatio)}>
+        <Icon name={editor.keepRatio ? "lock" : "unlock"} />
+      </button>
     </div>
-    <div class="stack">
-      <Toggle label="Formen verschachteln" bind:checked={nestShapes} hint="Echte Umrisse ineinander setzen und drehen statt eines starren Rasters" />
-    </div>
-    <p class="muted small">{editor.printCut.enabled ? t("Verteilt die Auswahl so oft wie möglich auf der Seite (ohne Markenzonen).") : t("Verteilt die Auswahl so oft wie möglich auf der Matte.")}</p>
+    {#if textOnPath}
+      <button class="btn primary top-gap" onclick={putTextOnPath} title={t("Der Text folgt der Linie des anderen Pfads")}>{t("Text auf Pfad")}</button>
+    {/if}
   </Section>
+{/if}
 
-  <Section id="align" title={editor.selected.length === 1 ? t("Ausrichten auf Matte") : t("Ausrichten")}>
-    <div class="row">
-      <button class="btn icon" title={t("Links")} onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
-      <button class="btn icon" title={t("Horizontal zentrieren")} onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
-      <button class="btn icon" title={t("Rechts")} onclick={() => editor.align("right")}><Icon name="alignRight" /></button>
-      <span class="sep"></span>
-      <button class="btn icon" title={t("Oben")} onclick={() => editor.align("top")}><Icon name="alignTop" /></button>
-      <button class="btn icon" title={t("Vertikal zentrieren")} onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
-      <button class="btn icon" title={t("Unten")} onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
+{#if single?.type === "path" && single.shape && single.shape.kind !== "ellipse" && single.shape.kind !== "heart"}
+  {@const sh = single.shape}
+  <Section id="shape" title={t(SHAPE_NAMES[sh.kind])}>
+    <div class="stack">
+      {#if sh.kind === "rect"}
+        <Slider label="Eckenradius" value={sh.radius} min={0} max={Math.round(Math.min(single.w, single.h) / 2)} step={0.5} unit=" mm" oninput={(v) => setShape(single as PathObj, { ...sh, radius: v })} />
+      {:else if sh.kind === "polygon"}
+        <Slider label="Ecken" value={sh.sides} min={3} max={12} oninput={(v) => setShape(single as PathObj, { ...sh, sides: v })} />
+      {:else if sh.kind === "star"}
+        <Slider label="Zacken" value={sh.points} min={3} max={20} oninput={(v) => setShape(single as PathObj, { ...sh, points: v })} />
+        <Slider label="Innenradius" value={Math.round(sh.inner * 100)} min={10} max={90} unit=" %" oninput={(v) => setShape(single as PathObj, { ...sh, inner: v / 100 })} />
+      {/if}
     </div>
-    {#if editor.selectedUnits().length >= 3}
-      <div class="row wrap top-gap">
-        <button class="btn outline" title={t("Gleiche Abstände von links nach rechts")} onclick={() => editor.distribute("x")}><Icon name="distributeH" /> {t("Waagrecht verteilen")}</button>
-        <button class="btn outline" title={t("Gleiche Abstände von oben nach unten")} onclick={() => editor.distribute("y")}><Icon name="distributeV" /> {t("Senkrecht verteilen")}</button>
+  </Section>
+{/if}
+
+{#if single?.type === "path" && single.text}
+  <TextEditor obj={single as PathObj & { text: NonNullable<PathObj["text"]> }} />
+{/if}
+
+{#if selPaths.length}
+  <Section id="line" title={t("Schnittlinie")}>
+    <div class="cut-types">
+      {#each CUT_TYPES as ct}
+        <button class="btn outline ctype" class:active={selPaths.every((o) => o.color.toLowerCase() === ct.color)} title={t(ct.hint)} onclick={() => setCutColor(ct.color)}>
+          <span class="dot" style:background={ct.color}></span>{t(ct.label)}
+        </button>
+      {/each}
+    </div>
+    <p class="muted small">{t("Jede Farbe bekommt beim Schneiden eigene Einstellungen – angeschnitten wird zuerst.")}</p>
+    {#if single?.type === "path"}
+      <div class="colors">
+        {#each CUT_COLORS as c}
+          <button class="color" class:on={single.color === c} style:background={c} aria-label={t("Farbe {c}", { c })} onclick={() => setColor(single, c)}></button>
+        {/each}
+        <input type="color" value={single.color} onchange={(e) => setColor(single, e.currentTarget.value)} title={t("Eigene Farbe")} />
+      </div>
+      <div class="stack">
+        <Toggle label="Füllung anzeigen" bind:checked={single.fill} hint="Nur Anzeige – geschnitten wird immer die Linie" />
+        <label class="toggle-row">
+          <span>{t("Schneiden")}</span>
+          <input type="checkbox" checked={single.cut !== false} onchange={(e) => { editor.checkpoint("Schneiden an/aus"); single.cut = e.currentTarget.checked; }} />
+        </label>
+        <label class="toggle-row">
+          <span>{t("Fläche drucken")}</span>
+          <span class="row">
+            {#if single.printFill}
+              <input type="color" value={single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.value; }} />
+            {/if}
+            <input type="checkbox" checked={!!single.printFill} onchange={(e) => { editor.checkpoint("Druckfarbe"); single.printFill = e.currentTarget.checked ? "#ffffff" : null; }} />
+          </span>
+        </label>
       </div>
     {/if}
   </Section>
+{/if}
 
-  <Section id="arrange" title={t("Anordnen")}>
-    <div class="row wrap">
-      <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> {t("Spiegeln")}</button>
-      <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> {t("Kippen")}</button>
-      <button class="btn icon outline" title={t("Nach vorne (Strg+↑)")} onclick={() => editor.restack(1)}><Icon name="arrowUp" /></button>
-      <button class="btn icon outline" title={t("Nach hinten (Strg+↓)")} onclick={() => editor.restack(-1)}><Icon name="arrowDown" /></button>
-    </div>
-    <div class="row wrap" style="margin-top: 8px">
-      {#if editor.selected.some((o) => o.group)}
-        <button class="btn outline" title={t("Gruppierung aufheben (Strg+Shift+G)")} onclick={() => editor.ungroupSelected()}><Icon name="layers" /> {t("Lösen")}</button>
-      {:else if editor.selected.length > 1}
-        <button class="btn outline" title={t("Gruppieren (Strg+G)")} onclick={() => editor.groupSelected()}><Icon name="layers" /> {t("Gruppieren")}</button>
+{#if single?.type === "path"}
+  <Section id="nodes" title={t("Knoten")}>
+    {#if nodes.objId === single.id}
+      <p class="muted small">{t("{n} Knoten · {s} ausgewählt", { n: nodes.count, s: nodes.sel.length })}</p>
+      <div class="cut-types">
+        <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(false)} title={t("Knick: Griffe unabhängig")}>{t("Ecke")}</button>
+        <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setSmooth(true)} title={t("Weicher Übergang: Griffe in einer Linie")}>{t("Glatt")}</button>
+        <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(true)} title={t("Abschnitt nach dem Knoten wird gerade")}>{t("Gerade")}</button>
+        <button class="btn outline" disabled={!nodes.sel.length} onclick={() => nodes.setStraight(false)} title={t("Abschnitt nach dem Knoten wird zur Kurve")}>{t("Kurve")}</button>
+        <button class="btn outline danger" disabled={!nodes.sel.length} onclick={() => nodes.deleteSelected()}>{t("Löschen")}</button>
+        <button class="btn primary" onclick={() => nodes.stop()}><Icon name="check" /> {t("Fertig")}</button>
+      </div>
+      <p class="muted small">{t("Doppelklick auf die Linie fügt einen Knoten ein.")} <kbd>Alt</kbd> {t("beim Ziehen eines Griffs macht eine Ecke.")}</p>
+    {:else}
+      <button class="btn outline" disabled={single.locked} onclick={() => nodes.start(single as PathObj)} title={t("Auch per Doppelklick auf den Pfad")}>{t("Knoten bearbeiten")}</button>
+      {#if !single.text && !single.shape}
+        <div class="simplify">
+          <Slider label="Vereinfachen" bind:value={simplifyTol} min={0.02} max={1} step={0.01} unit=" mm" hint="Erlaubte Abweichung von der Originalform" />
+          <button class="btn outline" disabled={single.locked || simplifyBusy} onclick={() => simplify(single as PathObj)} title={t("Weniger Knoten, gleiche Form – schneidet ruhiger")}>
+            {simplifyBusy ? t("Berechne …") : t("Knoten reduzieren")}
+          </button>
+        </div>
       {/if}
-      <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> {t("Duplizieren")}</button>
-      <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> {t("Löschen")}</button>
+    {/if}
+  </Section>
+{/if}
+
+<Section id="align" title={editor.selected.length === 1 && !editor.printCut.enabled ? t("Ausrichten auf Matte") : t("Ausrichten")}>
+  <div class="row">
+    <button class="btn icon" title={t("Links")} onclick={() => editor.align("left")}><Icon name="alignLeft" /></button>
+    <button class="btn icon" title={t("Horizontal zentrieren")} onclick={() => editor.align("hcenter")}><Icon name="alignHCenter" /></button>
+    <button class="btn icon" title={t("Rechts")} onclick={() => editor.align("right")}><Icon name="alignRight" /></button>
+    <span class="sep"></span>
+    <button class="btn icon" title={t("Oben")} onclick={() => editor.align("top")}><Icon name="alignTop" /></button>
+    <button class="btn icon" title={t("Vertikal zentrieren")} onclick={() => editor.align("vcenter")}><Icon name="alignVCenter" /></button>
+    <button class="btn icon" title={t("Unten")} onclick={() => editor.align("bottom")}><Icon name="alignBottom" /></button>
+  </div>
+  {#if editor.selectedUnits().length >= 3}
+    <div class="row wrap top-gap">
+      <button class="btn outline" title={t("Gleiche Abstände von links nach rechts")} onclick={() => editor.distribute("x")}><Icon name="distributeH" /> {t("Waagrecht verteilen")}</button>
+      <button class="btn outline" title={t("Gleiche Abstände von oben nach unten")} onclick={() => editor.distribute("y")}><Icon name="distributeV" /> {t("Senkrecht verteilen")}</button>
     </div>
+  {/if}
+</Section>
+
+<Section id="arrange" title={t("Anordnen")}>
+  <div class="row wrap">
+    <button class="btn outline" onclick={() => flip("x")}><Icon name="flipH" /> {t("Spiegeln")}</button>
+    <button class="btn outline" onclick={() => flip("y")}><Icon name="flipV" /> {t("Kippen")}</button>
+    <button class="btn icon outline" title={t("Nach vorne (Strg+↑)")} onclick={() => editor.restack(1)}><Icon name="arrowUp" /></button>
+    <button class="btn icon outline" title={t("Nach hinten (Strg+↓)")} onclick={() => editor.restack(-1)}><Icon name="arrowDown" /></button>
+  </div>
+  <div class="row wrap" style="margin-top: 8px">
+    {#if editor.selected.some((o) => o.group)}
+      <button class="btn outline" title={t("Gruppierung aufheben (Strg+Shift+G)")} onclick={() => editor.ungroupSelected()}><Icon name="layers" /> {t("Lösen")}</button>
+    {:else if editor.selected.length > 1}
+      <button class="btn outline" title={t("Gruppieren (Strg+G)")} onclick={() => editor.groupSelected()}><Icon name="layers" /> {t("Gruppieren")}</button>
+    {/if}
+    <button class="btn outline" onclick={() => editor.duplicateSelected()}><Icon name="copy" /> {t("Duplizieren")}</button>
+    <button class="btn outline danger" onclick={() => editor.removeSelected()}><Icon name="trash" /> {t("Löschen")}</button>
+  </div>
+</Section>
+
+<!-- Less frequent tools, collapsed by default. -->
+<div class="tools-head">{t("Werkzeuge")}</div>
+
+<Section id="fill" title={t("Bogen füllen")} open={false}>
+  <div class="row">
+    <label class="num grow-field">
+      <span>{t("Abstand")}</span>
+      <input class="field pad-wide" type="number" min="0" step="0.5" bind:value={gap} />
+      <em>mm</em>
+    </label>
+    <button class="btn outline" disabled={nesting} onclick={() => nest(true)} title={t("Bogen mit Kopien der Auswahl füllen")}>{t("Füllen")}</button>
+    <button class="btn outline" disabled={nesting} onclick={() => nest(false)} title={t("Ausgewählte Teile platzsparend anordnen (ohne Kopien)")}>{t("Anordnen")}</button>
+  </div>
+  <div class="stack">
+    <Toggle label="Formen verschachteln" bind:checked={nestShapes} hint="Echte Umrisse ineinander setzen und drehen statt eines starren Rasters" />
+  </div>
+  <p class="muted small">{editor.printCut.enabled ? t("Verteilt die Auswahl so oft wie möglich auf der Seite (ohne Markenzonen).") : t("Verteilt die Auswahl so oft wie möglich auf der Matte.")}</p>
+</Section>
+
+<Section id="frame" title={t("Rahmen")} open={false}>
+  <button class="btn outline" onclick={frameSelection} title={t("Abgerundeter Rahmen mit 2 mm Abstand, wird durchgeschnitten")}>{t("Schnittrahmen um Auswahl")}</button>
+</Section>
+
+{#if selPaths.length >= 2}
+  <Section id="bool" title={t("Pfade kombinieren")} open={false}>
+    <div class="cut-types">
+      {#each BOOL_OPS as b}
+        <button class="btn outline" disabled={boolBusy} title={t(b.hint)} onclick={() => runCombine(b.op)}>{t(b.label)}</button>
+      {/each}
+    </div>
+  </Section>
+{/if}
+
+{#if selPaths.length}
+  <Section id="weed" title={t("Entgittern (Folie)")} open={false}>
+    <div class="stack">
+      <label class="toggle-row" title={t("Abstand des Rahmens zum Motiv")}>
+        <span>{t("Rand")}</span>
+        <span class="row unit-field"><input class="field" type="number" min="0.5" step="0.5" bind:value={weedMargin} /> mm</span>
+      </label>
+      <label class="toggle-row">
+        <span>{t("Linien")}</span>
+        <select class="field weed-select" bind:value={weedDir}>
+          <option value="h">{t("Waagrecht")}</option>
+          <option value="v">{t("Senkrecht")}</option>
+          <option value="hv">{t("Beides")}</option>
+          <option value="none">{t("Keine")}</option>
+        </select>
+      </label>
+      {#if weedDir !== "none"}
+        <label class="toggle-row" title={t("Abstand zwischen den Linien")}>
+          <span>{t("Linienabstand")}</span>
+          <span class="row unit-field"><input class="field" type="number" min="3" step="1" bind:value={weedSpacing} /> mm</span>
+        </label>
+      {/if}
+      <button class="btn outline" onclick={() => addWeeding({ margin: weedMargin, spacing: weedSpacing, dir: weedDir })} title={t("Rahmen um das Motiv und Linien durch den Abfall – die überschüssige Folie lässt sich in Streifen abziehen")}>{t("Entgitterungshilfe anlegen")}</button>
+    </div>
+    <p class="muted small">{t("Linien halten Abstand zum Motiv und laufen auch durch Innenräume (z. B. im „O“).")}</p>
+  </Section>
+
+  <Section id="offset" title={t("Kontur versetzen")} open={false}>
+    <div class="row">
+      <label class="num grow-field">
+        <span>±</span>
+        <input class="field" type="number" step="0.5" bind:value={offsetMm} />
+        <em>mm</em>
+      </label>
+      <button class="btn outline" disabled={offsetBusy} onclick={offsetSelected}>{offsetBusy ? t("Berechne …") : t("Neue Kontur")}</button>
+    </div>
+    <p class="muted small">{t("Positiv = nach außen, negativ = nach innen. Mehrere Pfade werden zu einer Kontur verbunden.")}</p>
   </Section>
 {/if}
 
@@ -726,6 +605,7 @@
     display: flex;
     gap: 6px;
     align-items: center;
+    margin: 12px 0 4px;
   }
   .color {
     width: 22px;
@@ -808,19 +688,128 @@
     height: 16px;
     accent-color: var(--accent);
   }
-  .empty {
-    padding: 36px 24px;
+  .title {
+    padding-bottom: 12px;
+  }
+  .no-gap {
+    margin: 2px 0 0;
+  }
+  /* "What next?" after tracing / stickers */
+  .next {
+    margin: 12px 12px 4px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--border));
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--ok) 7%, var(--panel));
+  }
+  .next-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .next-head .ok {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 50%;
+    background: var(--ok);
+    color: #fff;
+  }
+  .next-head .close {
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+  }
+  .next p {
+    margin: 6px 0 10px;
     color: var(--text-2);
+    font-size: 12.5px;
   }
-  .empty p {
-    margin: 6px 0;
+  .next-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
-  .tips {
-    margin-top: 20px;
+  /* Pictures: trace or sticker */
+  .paths {
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .way {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .way:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .way-icon {
+    display: inline-flex;
+    flex: none;
+    padding: 9px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .way > span:nth-child(2) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .way b {
+    font-weight: 600;
+  }
+  .way small {
     color: var(--text-3);
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+  .arrow {
+    display: inline-flex;
+    color: var(--text-3);
+  }
+  .way:hover .arrow {
+    color: var(--accent);
+  }
+  .link {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-3);
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .link:hover {
+    color: var(--accent);
+  }
+  .pix {
+    margin: 2px -16px -14px;
+    border-top: 1px solid var(--border);
+  }
+  .pix :global(section) {
+    border-bottom: 0;
+  }
+  .tools-head {
+    padding: 16px 16px 6px;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
   }
   kbd {
     font: inherit;

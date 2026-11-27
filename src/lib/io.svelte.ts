@@ -25,10 +25,12 @@ function placeOnMat(w: number, h: number) {
 
 /** Panel for a newly imported picture: the sticker assistant for sticker
  *  projects (or a print & cut page), otherwise tracing. */
-function imageTab(): "sticker" | "trace" {
+/** Panel for a freshly imported picture: the project type decides; without
+ *  one the picture card offers both ways (trace / sticker). */
+function imageTab(): "sticker" | "trace" | "object" {
   const k = editor.projectKind;
   if (k) return k === "sticker" ? "sticker" : "trace";
-  return editor.printCut.enabled ? "sticker" : "trace";
+  return editor.printCut.enabled ? "sticker" : "object";
 }
 
 function addImage(info: ImageInfo) {

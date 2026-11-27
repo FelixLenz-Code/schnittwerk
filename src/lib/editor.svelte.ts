@@ -140,7 +140,7 @@ class Editor {
   mat = $state<Mat>(MATS[0]);
   showGrid = $state(true);
   cursor = $state<{ x: number; y: number } | null>(null);
-  rightTab = $state<"object" | "trace" | "sticker" | "layers" | "help">("object");
+  rightTab = $state<"object" | "trace" | "sticker" | "help">("object");
 
   /** Guide lines (dragged out of the rulers). */
   guides = $state<Guides>({ v: [], h: [] });

@@ -651,10 +651,10 @@ export const ES: Record<string, string> = {
   "Linien mit dem Stifthalter zeichnen": "Dibujar líneas con el portabolígrafos",
   "Großes Motiv": "Diseño grande",
   "Größer als die Matte – in Kacheln oder von der Rolle": "Más grande que la base – en mosaicos o desde el rollo",
-  "Motiv importieren, im Tab „Sticker“ die Kontur erzeugen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
-    "Importa un diseño, crea el contorno en la pestaña «Pegatina», imprime (Ctrl+P) y coloca la hoja arriba a la izquierda de la base. Las marcas de registro se buscan automáticamente.",
-  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (Tab „Objekt“) beim Abziehen.":
-    "Carga el vinilo con el papel soporte hacia abajo. Después de cortar, las líneas de pelado (pestaña «Objeto») ayudan a retirarlo.",
+  "Motiv importieren, rechts „Als Sticker“ wählen, drucken (Strg+P) und den Bogen oben links auf die Matte legen. Die Passermarken werden automatisch gesucht.":
+    "Importa un diseño, elige «Como pegatina» a la derecha, imprime (Ctrl+P) y coloca la hoja arriba a la izquierda de la base. Las marcas de registro se buscan automáticamente.",
+  "Folie mit dem Trägerpapier nach unten einlegen. Nach dem Schneiden hilft die Entgitterungshilfe (rechts, ohne Auswahl) beim Abziehen.":
+    "Carga el vinilo con el papel soporte hacia abajo. Después de cortar, las líneas de pelado (a la derecha, sin selección) ayudan a retirarlo.",
   "Glänzende Trägerfolie nach unten einlegen. Das Motiv wird beim Schneiden automatisch gespiegelt.": "Carga con el soporte brillante hacia abajo. El diseño se corta en espejo automáticamente.",
   "Karton braucht meist zwei Durchgänge – vorher einen Testschnitt machen.": "La cartulina suele necesitar dos pasadas – haz antes un corte de prueba.",
   "Stift statt Messer in den Werkzeughalter setzen. Die Linien werden gezeichnet statt geschnitten.": "Pon un bolígrafo en lugar de la cuchilla en el portaherramientas. Las líneas se dibujan en vez de cortarse.",
@@ -906,6 +906,85 @@ export const ES: Record<string, string> = {
   "Matte, Papierformat, Rolle ohne Matte oder eine eigene Größe für große Motive.": "Base, tamaño de papel, rollo sin base o tamaño personalizado para diseños grandes.",
   "Zeigt, ob der Plotter verbunden ist. Hier verbindest du per Bluetooth und siehst den Messer-Zähler.": "Muestra si el plotter está conectado. Aquí te conectas por Bluetooth y ves el contador de cuchilla.",
   "Für Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Para Print & Cut: imprime la página con marcas de registro sin escala o la guarda como PDF.",
+  // ---- simpler flow (0.8) ----
+  "Abgerundeter Rahmen, wird durchgeschnitten": "Marco redondeado, se corta del todo",
+  "Alle Teile verschachteln, damit weniger Material übrig bleibt": "Encajar todas las piezas para desperdiciar menos material",
+  "Alle ausgewählten Bilder bekommen eine Kontur mit Rand": "Todas las imágenes seleccionadas reciben un contorno con borde",
+  "Als Sticker": "Como pegatina",
+  "Am Raster einrasten ({g} mm, {a}°) – Alt beim Ziehen = frei. Rasterweite unter Ansicht.": "Ajustar a la cuadrícula ({g} mm, {a}°) – Alt al arrastrar = libre. Tamaño de cuadrícula en Ver.",
+  "Am besten eine Ecke, die später nicht gebraucht wird.": "Mejor una esquina que no vayas a necesitar.",
+  "Aus Vorlage …": "Desde plantilla …",
+  "Bereit zum Schneiden": "Listo para cortar",
+  "Bild hierher ziehen": "Arrastra una imagen aquí",
+  "Breite": "Ancho",
+  "Die Stelle liegt auf dem Motiv oder am Rand – in der Vorschau eine freie Stelle anklicken.": "Este punto está sobre el diseño o en el borde: haz clic en un sitio libre de la vista previa.",
+  "Druck {a} → {b} – noch einmal testen.": "Presión {a} → {b}: vuelve a probar.",
+  "Entgitterungshilfe um alles": "Ayuda de pelado alrededor de todo",
+  "Form": "Forma",
+  "Foto, Zeichnung, Logo, SVG oder PDF – oder links eine Form zeichnen": "Foto, dibujo, logotipo, SVG o PDF, o dibuja una forma a la izquierda",
+  "Füllung anzeigen": "Mostrar relleno",
+  "Für den ganzen Bogen": "Para toda la hoja",
+  "Für einzelne Teile: Objekt auswählen – die Werkzeuge stehen dann unter „Werkzeuge“.": "Para piezas sueltas: selecciona el objeto; las herramientas están en «Herramientas».",
+  "Helligkeit & Kontrast": "Brillo y contraste",
+  "Höhe": "Alto",
+  "Importiere ein Bild oder zeichne links eine Form.": "Importa una imagen o dibuja una forma a la izquierda.",
+  "In Schnittlinien umwandeln": "Convertir en líneas de corte",
+  "In die Vorschau klicken: dort wird getestet.": "Haz clic en la vista previa: la prueba se corta ahí.",
+  "Ist das ein Foto der PixScan-Matte?": "¿Es una foto de la base PixScan?",
+  "Kontur mit Rand zum Drucken und Ausschneiden (Print & Cut)": "Contorno con borde para imprimir y recortar (Print & Cut)",
+  "Linien gleichmäßig und gut sichtbar?": "¿Líneas uniformes y bien visibles?",
+  "Material einlegen und am Gerät die Lade-Taste drücken.": "Introduce el material y pulsa el botón de carga de la máquina.",
+  "Matte und Papier": "Base y papel",
+  "Messertiefe {a} → {b} – noch einmal testen.": "Profundidad de cuchilla {a} → {b}: vuelve a probar.",
+  "Nicht ganz durch": "No corta del todo",
+  "Noch leer": "Todavía vacío",
+  "Passt – weiter": "Está bien: continuar",
+  "Per Bluetooth verbinden …": "Conectar por Bluetooth …",
+  "Pixel dunkler als dieser Wert werden zur Form – Ziehen stellt von Hand ein": "Los píxeles más oscuros que este valor forman la figura; arrastrar lo ajusta a mano",
+  "Platzsparend anordnen": "Colocar de forma compacta",
+  "Plotter per USB anschließen und einschalten – er wird automatisch erkannt.": "Conecta el plóter por USB y enciéndelo: se detecta automáticamente.",
+  "Print & Cut (mit Passermarken)": "Print & Cut (con marcas de registro)",
+  "Print & Cut prüfen": "Comprobar Print & Cut",
+  "Quadrat abziehen: Das Dreieck soll stehen bleiben, das Trägerpapier darf nur leicht angeritzt sein.": "Despega el cuadrado: el triángulo debe quedarse y el papel soporte solo debe quedar marcado levemente.",
+  "Rahmen und Linien durch den Abfall – Folie lässt sich in Streifen abziehen": "Marco y líneas por el sobrante: el vinilo se retira en tiras",
+  "Rasterweite": "Tamaño de cuadrícula",
+  "Schneidet ein kleines Quadrat mit Dreieck. So siehst du vor dem eigentlichen Schnitt, ob Tiefe und Druck zum Material passen.": "Corta un pequeño cuadrado con un triángulo para ver, antes del corte real, si la profundidad y la presión son adecuadas para el material.",
+  "Schnittlinien erstellt": "Líneas de corte creadas",
+  "Schnittrahmen um alles": "Marco de corte alrededor de todo",
+  "Schwellwert automatisch aus dem Bild bestimmen": "Determinar el umbral automáticamente a partir de la imagen",
+  "Seite": "Página",
+  "Startwerte der Vorlage. Im nächsten Schritt kannst du sie an einer freien Stelle testen.": "Valores iniciales del preajuste. En el siguiente paso puedes probarlos en un sitio libre.",
+  "Stelle": "Posición",
+  "Sticker angelegt": "Pegatina creada",
+  "Tempo": "Velocidad",
+  "Test": "Prueba",
+  "Test schneiden": "Cortar prueba",
+  "Testen mit": "Probar con",
+  "Testschnitt": "Corte de prueba",
+  "Testschnitt (empfohlen)": "Corte de prueba (recomendado)",
+  "Tiefe": "Profundidad",
+  "Vorbereiten": "Preparar",
+  "Weiter zum Schneiden": "Continuar al corte",
+  "Weniger": "Menos",
+  "Werte anpassen": "Ajustar valores",
+  "Wie geht es weiter?": "¿Y ahora qué?",
+  "Wie sieht der Test aus?": "¿Qué tal ha quedado la prueba?",
+  "Winkelschritt": "Paso de ángulo",
+  "Worauf arbeitest du? Matte, Papier, Print & Cut oder Rolle": "¿Sobre qué trabajas? Base, papel, Print & Cut o rollo",
+  "Worauf schneidest du?": "¿Sobre qué cortas?",
+  "Zeichnung, Logo oder Schrift tracen – für Folie, Papier und Stift": "Vectorizar un dibujo, logotipo o texto: para vinilo, papel y bolígrafo",
+  "Zum Testen den Plotter anschließen (Schritt 1).": "Conecta el plóter para probar (paso 1).",
+  "Zu schwach": "Demasiado flojo",
+  "Zu stark": "Demasiado fuerte",
+  "Zu tief": "Demasiado profundo",
+  "{n} Bilder": "{n} imágenes",
+  "Schneidematte": "Base de corte",
+  "Papier ohne Matte": "Papel sin base",
+  "Worauf schneidest du? Matte, Papier, Print & Cut mit Passermarken, Rolle ohne Matte oder eine eigene Größe für große Motive.": "¿Sobre qué cortas? Base, papel, Print & Cut con marcas de registro, rollo sin base o un tamaño propio para diseños grandes.",
+  "Zeigt immer, was zur Auswahl passt: die Matte, wenn nichts ausgewählt ist, sonst das Objekt. Bei Bildern geht es von hier zum Tracen oder zum Sticker. Unten liegen die Ebenen.": "Muestra siempre lo que corresponde a la selección: la base si no hay nada seleccionado y, si no, el objeto. Con imágenes, desde aquí pasas a vectorizar o a pegatina. Las capas están abajo.",
+  "Einrasten am Raster und an Hilfslinien, dazu der Zoom. Ein Klick auf die Prozentzahl passt die Matte ein.": "Ajuste a la cuadrícula y a las guías, además del zoom. Un clic en el porcentaje encaja la base.",
+  "Erscheint bei Print & Cut: druckt die Seite mit Passermarken ohne Skalierung oder speichert sie als PDF.": "Aparece con Print & Cut: imprime la página con marcas de registro sin escalar o la guarda como PDF.",
+  "Führt Schritt für Schritt durch den Schnitt: Plotter und Matte, Material, Testschnitt an einer Stelle deiner Wahl und dann schneiden.": "Te guía paso a paso: plóter y base, material, corte de prueba en el lugar que elijas y después el corte.",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -940,7 +1019,7 @@ export const DOCS_ES: DocSection[] = [
     text: `Al iniciar se abre la **página de inicio** (también con un clic en «Schnittwerk» arriba a la izquierda). Elige qué quieres hacer – pegatinas, vinilo, vinilo textil, papel, bolígrafo o un diseño grande. Schnittwerk ajusta entonces el material, la base y la página.
 
 - Carga imágenes y vectores con **Importar** (\`Ctrl+I\`) o arrástralos al área de trabajo.
-- A la derecha, la pestaña **Vectorizar** convierte una imagen en líneas de corte; la pestaña **Pegatina**, en un contorno de pegatina.
+- La parte derecha muestra siempre lo que corresponde a la selección. Con una imagen hay dos caminos: **Convertir en líneas de corte** (vectorizar) o **Como pegatina**. Sin selección, muestra la base y herramientas para toda la hoja.
 - **Cortar** (\`Ctrl+Intro\`) te lleva al plotter.
 - La **barra de menús** de arriba del todo contiene todas las funciones – también con el teclado usando \`Alt\` y la letra subrayada. En **Archivo → Ajustes** están el idioma, el tema, la cuadrícula y más.
 
@@ -949,7 +1028,7 @@ Los proyectos se guardan como archivos \`.schnitt\` con las imágenes incluidas.
   {
     id: "trace",
     heading: `Vectorizar imágenes`,
-    text: `Selecciona una imagen y abre la pestaña **Vectorizar** – la vista previa se actualiza con cada ajuste.
+    text: `Selecciona una imagen y elige a la derecha **Convertir en líneas de corte** – la vista previa se actualiza con cada ajuste. La flecha de arriba te lleva de vuelta.
 
 - **B/N**: las zonas oscuras se convierten en formas – para dibujos, rótulos, logotipos.
 - **Color**: toma un color con el cuentagotas.
@@ -964,14 +1043,14 @@ El **suavizado** calma las curvas, **Quitar manchas** descarta las migas. Las fo
     heading: `Pegatinas y Print & Cut`,
     text: `Las pegatinas se imprimen y luego se cortan. La página recibe **marcas de registro** que el plotter busca con su sensor antes de cortar.
 
-- Activa **Print & Cut** arriba (o elige «Pegatina» en la página de inicio).
-- Selecciona una imagen, pestaña **Pegatina**: quita el fondo o usa la transparencia, ajusta el margen, **Aplicar contorno**.
-- **Varias imágenes a la vez**: selecciónalas todas – la pestaña Pegatina muestra **Crear hoja de pegatinas**. Cada imagen recibe un contorno, varias copias si quieres, colocadas ahorrando espacio.
+- Elige **Print & Cut** arriba a la izquierda del área de trabajo (o «Pegatina» en la página de inicio).
+- Selecciona una imagen, a la derecha **Como pegatina**: quita el fondo o usa la transparencia, ajusta el margen, **Aplicar contorno**.
+- **Varias imágenes a la vez**: selecciónalas todas – a la derecha aparece **Crear hoja de pegatinas**. Cada imagen recibe un contorno, varias copias si quieres, colocadas ahorrando espacio.
 - **Cortar por separado** también hace un corte completo con margen de soporte (azul); si no, solo medio corte (rojo).
 - Imprime (\`Ctrl+P\`) – nunca elijas «Ajustar a la página» en el diálogo de impresión.
 - Coloca la hoja arriba a la izquierda de la base, cárgala y corta.
 
-Si el corte se desvía un poco, corrígelo con la hoja de prueba en **Ajuste fino** del diálogo de corte.`,
+Si el corte se desvía un poco, corrígelo con la hoja de prueba en **Ajuste fino**, en el paso **Corte de prueba** del diálogo de corte.`,
   },
   {
     id: "cut",
@@ -979,7 +1058,9 @@ Si el corte se desvía un poco, corrígelo con la hoja de prueba en **Ajuste fin
     text: `En el diálogo de corte cada **color de corte** tiene su propio material: rojo = medio corte, azul = corte completo, verde = dibujar. Los cortes ligeros van primero para que la hoja aguante.
 
 - Elige el **material**; ajusta los valores si hace falta y guárdalos como material propio.
-- **Corte de prueba**: un pequeño cuadrado en la posición indicada.
+El diálogo te guía en cuatro pasos: **Preparar** (plóter, base, espejo), **Material**, **Corte de prueba** y **Cortar**.
+
+- **Corte de prueba** (recomendado): haz clic en un sitio libre del material en la vista previa y corta un pequeño cuadrado. Después Schnittwerk pregunta qué tal ha quedado; con «No corta del todo» o «Demasiado profundo» se ajustan los valores y la siguiente prueba va al lado.
 - **Serie de prueba**: varios cuadrados con presión o profundidad de cuchilla crecientes – haz clic en el más limpio y se aplica su valor.
 - **Simulación**: muestra de antemano, en orden de corte, lo que hará el plotter.
 - La **duración** se estima y se vuelve más precisa con cada corte.
@@ -990,7 +1071,7 @@ Si un corte termina con la ventana en segundo plano, Schnittwerk muestra una not
   {
     id: "vinyl",
     heading: `Vinilo y vinilo textil`,
-    text: `**Vinilo**: colócalo en la base con el papel soporte hacia abajo. Después de cortar ayudan las **líneas de pelado** (pestaña Objeto): un marco y líneas por el sobrante para retirar el vinilo en tiras.
+    text: `**Vinilo**: colócalo en la base con el papel soporte hacia abajo. Después de cortar ayudan las **líneas de pelado** (en **Herramientas**, o para toda la hoja sin selección): un marco y líneas por el sobrante para retirar el vinilo en tiras.
 
 **Vinilo textil**: soporte brillante hacia abajo. El diseño debe cortarse en espejo – activa **Reflejar** en el diálogo de corte:
 
@@ -1000,7 +1081,7 @@ Si un corte termina con la ventana en segundo plano, Schnittwerk muestra una not
   {
     id: "large",
     heading: `Diseños grandes y rollos`,
-    text: `Abajo, en **Área**, están **Tamaño personalizado** y **Rollo sin base**.
+    text: `Arriba a la izquierda del área de trabajo están **Tamaño personalizado** y **Rollo sin base**.
 
 - Si el diseño es más grande que la base, el diálogo de corte lo divide en **mosaicos**. Córtalos uno a uno y carga material nuevo después de cada uno. Una pequeña superposición facilita el montaje.
 - **Sin base** solo para material con soporte rígido. Al final, el material avanza más allá del diseño.
@@ -1009,11 +1090,11 @@ Si un corte termina con la ventana en segundo plano, Schnittwerk muestra una not
   {
     id: "draw",
     heading: `Formas, texto y guías`,
-    text: `Herramientas a la izquierda: rectángulo, elipse, polígono, estrella, corazón, línea, mano alzada y texto. \`Mayús\` al dibujar mantiene la forma sin deformar. Parámetros como el radio de esquina o el número de puntas se cambian después en la pestaña Objeto.
+    text: `Herramientas a la izquierda: rectángulo, elipse, polígono, estrella, corazón, línea, mano alzada y texto. \`Mayús\` al dibujar mantiene la forma sin deformar. Parámetros como el radio de esquina o el número de puntas se cambian después a la derecha.
 
 - **Texto**: fuente, tamaño, espaciado; **Arco** pone el texto sobre un círculo. Selecciona texto y una forma juntos → **Texto en trazado**.
 - Arrastra **guías** desde las reglas; devuélvelas o haz clic derecho para eliminarlas.
-- **Cuadrícula** (arriba): al mover se ajusta a la cuadrícula, al girar a pasos de ángulo. \`Alt\` al arrastrar = libre.
+- **Cuadrícula** (abajo a la derecha del área de trabajo, tamaño en **Ver**): al mover se ajusta a la cuadrícula, al girar a pasos de ángulo. \`Alt\` al arrastrar = libre.
 - El ancho y el alto se muestran junto al objeto – haz clic para escribirlos.
 - Varios objetos: ajusta tamaño y giro para todos, **distribuye** con separación igual.
 - **Clic derecho** en un objeto: menú con las acciones más comunes.

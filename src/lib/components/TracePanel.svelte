@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { api } from "../api";
   import { DEFAULT_TRACE, editor } from "../editor.svelte";
   import { center, rotate, uid } from "../geometry";
@@ -10,7 +11,8 @@
   import Toggle from "./Toggle.svelte";
   import { brush } from "../brush.svelte";
   import { PAPERS, perspective } from "../perspective.svelte";
-  import PixScanSection from "./PixScanSection.svelte";
+  import Section from "./Section.svelte";
+  import { ui } from "../ui.svelte";
 
   type Kind = TraceMode["kind"];
 
@@ -107,6 +109,12 @@
     };
   }
 
+  // With "Auto" the slider shows the threshold the image analysis chose.
+  $effect(() => {
+    const auto = preview?.result.threshold;
+    if (threshold.auto && auto != null) untrack(() => (threshold.level = auto));
+  });
+
   const hex = $derived("#" + colorKey.color.map((c) => c.toString(16).padStart(2, "0")).join(""));
 
   function apply() {
@@ -150,6 +158,7 @@
     }
     editor.toast(t("{n} Konturen übernommen", { n: contours }), "ok");
     editor.rightTab = "object";
+    ui.nextSteps = { kind: "trace", sel: editor.selection.join(",") };
   }
 
   function reset() {
@@ -164,7 +173,6 @@
     <p><strong>{t("Bild auswählen zum Tracen")}</strong></p>
     <p class="muted">{t("Importiere ein Foto, eine Zeichnung oder ein Logo und wähle es auf der Arbeitsfläche aus.")}</p>
   </div>
-  <PixScanSection img={null} />
 {:else}
   <div class="panel">
     <div class="head">
@@ -192,16 +200,26 @@
 
       <div class="controls">
         {#if kind === "threshold" || kind === "centerline"}
-          <Toggle label="Schwellwert automatisch" bind:checked={threshold.auto} />
-          <Slider
-            label="Schwellwert"
-            bind:value={threshold.level}
-            min={1}
-            max={254}
-            disabled={threshold.auto}
-            display={threshold.auto ? `${preview?.result.threshold ?? "–"} (auto)` : String(threshold.level)}
-            hint="Pixel dunkler als dieser Wert werden zur Form"
-          />
+          <div class="with-auto">
+            <Slider
+              label="Schwellwert"
+              bind:value={threshold.level}
+              min={1}
+              max={254}
+              oninput={() => (threshold.auto = false)}
+              display={threshold.auto && preview?.result.threshold == null ? "–" : String(threshold.level)}
+              hint="Pixel dunkler als dieser Wert werden zur Form – Ziehen stellt von Hand ein"
+            />
+            <button
+              class="auto"
+              class:on={threshold.auto}
+              title={t("Schwellwert automatisch aus dem Bild bestimmen")}
+              onclick={() => {
+                if (!threshold.auto && preview) threshold.level = preview.result.threshold ?? threshold.level;
+                threshold.auto = !threshold.auto;
+              }}>Auto</button
+            >
+          </div>
           <Toggle label="Invertieren (helle Bereiche)" bind:checked={threshold.invert} />
           {#if kind === "centerline"}
             <p class="muted">{t("Ergebnis sind offene Linien (grün = mit dem Stift zeichnen). „Flecken entfernen“ verwirft kurze Linien.")}</p>
@@ -231,8 +249,8 @@
       </div>
     </section>
 
-    <section>
-      <h3 class="section-title">{t("Foto einer Zeichnung")}</h3>
+    <Section id="trace-prepare" title={t("Bild vorbereiten")} open={false}>
+      <h4 class="sub">{t("Foto einer Zeichnung")}</h4>
       {#if perspective.objId && !perspective.custom}
         <p class="muted">
           {perspective.detected ? t("Blatt erkannt – Ecken bei Bedarf nachziehen.") : t("Kein Blatt erkannt – die vier Punkte auf die Ecken ziehen.")}
@@ -261,12 +279,7 @@
       <div class="controls">
         <Toggle label="Beleuchtung ausgleichen" bind:checked={p.flatten} hint="Schatten und Helligkeitsverläufe auf dem Papier entfernen – vor allem bei Handyfotos" />
       </div>
-    </section>
-
-    <PixScanSection img={target} />
-
-    <section>
-      <h3 class="section-title">{t("Bild bereinigen")}</h3>
+      <h4 class="sub">{t("Bild bereinigen")}</h4>
       <div class="brush-row">
         <button class="btn outline" class:active={brush.mode === "erase"} onclick={() => brush.toggle("erase")} title={t("Flecken und Störungen wegradieren (wird transparent)")}>{t("Radierer")}</button>
         <button class="btn outline" class:active={brush.mode === "paint"} onclick={() => brush.toggle("paint")} title={t("Lücken schließen, Linien ergänzen")}>{t("Pinsel")}</button>
@@ -280,20 +293,16 @@
           <p class="muted">{t("Auf dem Bild malen – jeder Strich wird sofort übernommen und neu getraced. Rückgängig mit")} <kbd>{t("Strg")}</kbd>+<kbd>Z</kbd>.</p>
         </div>
       {/if}
-    </section>
-
-    <section>
-      <h3 class="section-title">{t("Bild vorbereiten")}</h3>
+      <h4 class="sub">{t("Helligkeit & Kontrast")}</h4>
       <div class="controls">
         <Slider label="Helligkeit" bind:value={p.brightness} min={-100} max={100} />
         <Slider label="Kontrast" bind:value={p.contrast} min={-100} max={100} />
         <Slider label="Weichzeichnen" bind:value={p.blur} min={0} max={6} step={0.25} unit=" px" hint="Glättet Rauschen und Papierstruktur vor dem Tracen" />
       </div>
-    </section>
+    </Section>
 
-    <section>
-      <h3 class="section-title">{t("Kontur")}</h3>
-      <div class="controls">
+    <Section id="trace-contour" title={t("Kontur")}>
+      <div class="controls first">
         <Slider label="Glättung" bind:value={p.smoothness} min={0} max={100} hint="Niedrig = folgt jeder Ecke, hoch = runde, ruhige Kurven" />
         <Slider label="Flecken entfernen" bind:value={p.despeckle} min={0} max={2000} step={4} unit=" px²" hint="Kleinere Formen werden verworfen" />
         <Slider label="Dicker / dünner" bind:value={p.grow} min={-10} max={10} unit=" px" hint="Formen vor dem Tracen wachsen (+) oder schrumpfen (–) lassen" />
@@ -309,7 +318,7 @@
           </select>
         </label>
       </div>
-    </section>
+    </Section>
 
     <div class="footer">
       <div class="stats">
@@ -378,8 +387,43 @@
     gap: 12px;
     margin-top: 12px;
   }
-  section > .controls:first-child {
+  section > .controls:first-child,
+  .controls.first {
     margin-top: 0;
+  }
+  .sub {
+    margin: 14px 0 8px;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .sub:first-child {
+    margin-top: 2px;
+  }
+  .with-auto {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .with-auto > :global(:first-child) {
+    flex: 1;
+    min-width: 0;
+  }
+  .auto {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-2);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auto.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .muted {
     color: var(--text-3);
