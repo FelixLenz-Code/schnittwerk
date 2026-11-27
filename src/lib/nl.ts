@@ -1027,6 +1027,20 @@ export const NL: Record<string, string> = {
   "eigen": "eigen",
   "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Eigen materialen verschijnen bij het snijden en naast de snijknop. Wijzigingen worden direct opgeslagen.",
   "Materialien …": "Materialen …",
+  // ---- zoom, real size (0.8.3) ----
+  "Bildschirm für 1:1": "Scherm voor 1:1",
+  "Bildschirmpixel pro Millimeter": "Schermpixels per millimeter",
+  "Größer": "Groter",
+  "Kleiner": "Kleiner",
+  "Halte eine Bankkarte (85,6 × 54 mm) an den Bildschirm und stelle die Breite so ein, dass der Rahmen genau so groß ist wie die Karte.": "Houd een bankpas (85,6 × 54 mm) tegen het scherm en stel de breedte zo in dat het kader precies zo groot is als de pas.",
+  "Kalibrieren …": "Kalibreren …",
+  "Originalgröße (1:1)": "Ware grootte (1:1)",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.": "Ware grootte: 1 mm op het scherm = 1 mm in het echt (Ctrl+1). Kalibreren onder Bestand → Instellingen.",
+  "Standard (96 dpi)": "Standaard (96 dpi)",
+  "Zoom in Prozent": "Zoom in procent",
+  "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom in procent van de ware grootte – getal typen en Enter",
+  "{v} Pixel pro mm": "{v} pixels per mm",
+  "kalibriert ({d} dpi)": "gekalibreerd ({d} dpi)",
 };
 
 /** Backendmeldingen met een variabel deel: $1 … wordt opnieuw vertaald. */
@@ -1161,7 +1175,7 @@ Hetzelfde menu toont de **messenteller**: gesneden afstand sinds de laatste mesw
 - \`Ctrl+Z\` / \`Ctrl+Y\` ongedaan maken / opnieuw (de tooltip noemt de stap)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` kopiëren / knippen / plakken
 - \`Ctrl+D\` dupliceren, \`Del\` verwijderen, \`Ctrl+G\` groeperen
-- \`Ctrl+0\` mat passend maken, \`Ctrl+2\` selectie passend maken, muiswiel = zoom
+- \`Ctrl+0\` mat passend maken, \`Ctrl+2\` selectie passend maken, \`Ctrl+1\` ware grootte (1:1), muiswiel = zoom; rechtsonder kun je de zoom ook intypen. Voor echte 1:1 het scherm kalibreren onder **Bestand → Instellingen**.
 - \`Ctrl+S\` opslaan, \`Ctrl+O\` openen, \`Ctrl+N\` startpagina, \`Ctrl+I\` importeren
 - \`Ctrl+Enter\` snijden, \`Ctrl+P\` printen, \`Ctrl+Q\` afsluiten
 - \`F1\` help, \`Alt\`+letter opent een menu

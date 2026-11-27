@@ -1027,6 +1027,20 @@ export const ES: Record<string, string> = {
   "eigen": "propio",
   "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Los materiales propios aparecen para elegir al cortar y junto al botón Cortar. Los cambios se guardan al momento.",
   "Materialien …": "Materiales …",
+  // ---- zoom, real size (0.8.3) ----
+  "Bildschirm für 1:1": "Pantalla para 1:1",
+  "Bildschirmpixel pro Millimeter": "Píxeles de pantalla por milímetro",
+  "Größer": "Más grande",
+  "Kleiner": "Más pequeño",
+  "Halte eine Bankkarte (85,6 × 54 mm) an den Bildschirm und stelle die Breite so ein, dass der Rahmen genau so groß ist wie die Karte.": "Sujeta una tarjeta bancaria (85,6 × 54 mm) contra la pantalla y ajusta el ancho hasta que el marco tenga exactamente el tamaño de la tarjeta.",
+  "Kalibrieren …": "Calibrar …",
+  "Originalgröße (1:1)": "Tamaño real (1:1)",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.": "Tamaño real: 1 mm en pantalla = 1 mm de verdad (Ctrl+1). Calibrar en Archivo → Ajustes.",
+  "Standard (96 dpi)": "Estándar (96 dpi)",
+  "Zoom in Prozent": "Zoom en porcentaje",
+  "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom en porcentaje del tamaño real: escribe un número y pulsa Intro",
+  "{v} Pixel pro mm": "{v} píxeles por mm",
+  "kalibriert ({d} dpi)": "calibrado ({d} dpi)",
 };
 
 /** Mensajes del backend con una parte variable: $1 … se vuelve a traducir. */
@@ -1161,7 +1175,7 @@ El mismo menú muestra el **contador de cuchilla**: distancia cortada desde el �
 - \`Ctrl+Z\` / \`Ctrl+Y\` deshacer / rehacer (la información emergente nombra el paso)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` copiar / cortar / pegar
 - \`Ctrl+D\` duplicar, \`Supr\` eliminar, \`Ctrl+G\` agrupar
-- \`Ctrl+0\` ajustar a la base, \`Ctrl+2\` ajustar a la selección, rueda del ratón = zoom
+- \`Ctrl+0\` ajustar a la base, \`Ctrl+2\` ajustar a la selección, \`Ctrl+1\` tamaño real (1:1), rueda del ratón = zoom; abajo a la derecha también se puede escribir el zoom. Para un 1:1 real, calibra la pantalla en **Archivo → Ajustes**.
 - \`Ctrl+S\` guardar, \`Ctrl+O\` abrir, \`Ctrl+N\` inicio, \`Ctrl+I\` importar
 - \`Ctrl+Intro\` cortar, \`Ctrl+P\` imprimir, \`Ctrl+Q\` salir
 - \`F1\` ayuda, \`Alt\`+letra abre un menú

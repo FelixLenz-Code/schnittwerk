@@ -1027,6 +1027,20 @@ export const FR: Record<string, string> = {
   "eigen": "perso",
   "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Les matériaux personnalisés sont proposés lors de la découpe et à côté du bouton Découper. Les modifications sont enregistrées immédiatement.",
   "Materialien …": "Matériaux …",
+  // ---- zoom, real size (0.8.3) ----
+  "Bildschirm für 1:1": "Écran pour le 1:1",
+  "Bildschirmpixel pro Millimeter": "Pixels d'écran par millimètre",
+  "Größer": "Plus grand",
+  "Kleiner": "Plus petit",
+  "Halte eine Bankkarte (85,6 × 54 mm) an den Bildschirm und stelle die Breite so ein, dass der Rahmen genau so groß ist wie die Karte.": "Tenez une carte bancaire (85,6 × 54 mm) contre l'écran et réglez la largeur jusqu'à ce que le cadre ait exactement la taille de la carte.",
+  "Kalibrieren …": "Calibrer …",
+  "Originalgröße (1:1)": "Taille réelle (1:1)",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.": "Taille réelle : 1 mm à l'écran = 1 mm en vrai (Ctrl+1). Calibrer dans Fichier → Paramètres.",
+  "Standard (96 dpi)": "Standard (96 dpi)",
+  "Zoom in Prozent": "Zoom en pourcentage",
+  "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom en pourcentage de la taille réelle – saisir un nombre puis Entrée",
+  "{v} Pixel pro mm": "{v} pixels par mm",
+  "kalibriert ({d} dpi)": "calibré ({d} dpi)",
 };
 
 /** Messages du backend avec une partie variable : $1 … est retraduit. */
@@ -1161,7 +1175,7 @@ Le même menu affiche le **compteur de lame** : distance découpée depuis le de
 - \`Ctrl+Z\` / \`Ctrl+Y\` annuler / rétablir (l'info-bulle nomme l'étape)
 - \`Ctrl+C\` / \`Ctrl+X\` / \`Ctrl+V\` copier / couper / coller
 - \`Ctrl+D\` dupliquer, \`Suppr\` supprimer, \`Ctrl+G\` grouper
-- \`Ctrl+0\` ajuster au tapis, \`Ctrl+2\` ajuster à la sélection, molette = zoom
+- \`Ctrl+0\` ajuster au tapis, \`Ctrl+2\` ajuster à la sélection, \`Ctrl+1\` taille réelle (1:1), molette = zoom ; le zoom peut aussi être saisi en bas à droite. Pour un vrai 1:1, calibrez l'écran dans **Fichier → Paramètres**.
 - \`Ctrl+S\` enregistrer, \`Ctrl+O\` ouvrir, \`Ctrl+N\` page d'accueil, \`Ctrl+I\` importer
 - \`Ctrl+Entrée\` découper, \`Ctrl+P\` imprimer, \`Ctrl+Q\` quitter
 - \`F1\` aide, \`Alt\`+lettre ouvre un menu

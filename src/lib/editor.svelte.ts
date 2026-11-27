@@ -31,6 +31,9 @@ export const MATS: Mat[] = [
   { name: "Letter", w: 215.9, h: 279.4, kind: "page" },
 ];
 
+/** CSS pixels per mm at 96 dpi (the usual assumption without calibration). */
+export const DEFAULT_PX_PER_MM = 96 / 25.4;
+
 /** Cutting width of the Portrait 3 (roll media). */
 export const ROLL_WIDTH = 203.2;
 export const ROLL_MAX = 5000;
@@ -494,6 +497,28 @@ class Editor {
 
   zoomBy(factor: number) {
     this.zoomAt(factor, this.viewport.w / 2, this.viewport.h / 2);
+  }
+
+  /** Screen pixels (CSS px) per real millimetre – 96 dpi until the screen
+   *  is calibrated in the settings. 100 % zoom = real size. */
+  #screenPxPerMm = $state(loadNum("screenPxPerMm", DEFAULT_PX_PER_MM));
+  get screenPxPerMm() {
+    return this.#screenPxPerMm;
+  }
+  set screenPxPerMm(v: number) {
+    this.#screenPxPerMm = v;
+    saveNum("screenPxPerMm", v);
+  }
+
+  /** Zoom in percent of the real size. */
+  get zoomPercent() {
+    return (this.view.zoom / this.#screenPxPerMm) * 100;
+  }
+
+  /** Zooms to a percentage of the real size around the view centre. */
+  setZoomPercent(pct: number) {
+    if (!Number.isFinite(pct) || pct <= 0) return;
+    this.zoomBy(((pct / 100) * this.#screenPxPerMm) / this.view.zoom);
   }
 
   fitMat() {

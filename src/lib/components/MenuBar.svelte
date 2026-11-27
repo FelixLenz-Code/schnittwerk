@@ -190,6 +190,7 @@
         return [
           { label: "Vergrößern", keys: `${ctrl()}++`, action: () => editor.zoomBy(1.25) },
           { label: "Verkleinern", keys: `${ctrl()}+−`, action: () => editor.zoomBy(0.8) },
+          { label: "Originalgröße (1:1)", keys: `${ctrl()}+1`, action: () => editor.setZoomPercent(100) },
           { label: "Matte einpassen", keys: `${ctrl()}+0`, action: () => editor.fitMat() },
           { label: "Auswahl einpassen", keys: `${ctrl()}+2`, action: () => editor.fitSelection() },
           "sep",

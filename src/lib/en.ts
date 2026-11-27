@@ -1025,6 +1025,20 @@ export const EN: Record<string, string> = {
   "eigen": "own",
   "Eigene Materialien erscheinen beim Schneiden und neben dem Schneiden-Knopf zur Auswahl. Änderungen werden sofort gespeichert.": "Own materials appear for selection when cutting and next to the cut button. Changes are saved right away.",
   "Materialien …": "Materials …",
+  // ---- zoom, real size (0.8.3) ----
+  "Bildschirm für 1:1": "Screen for 1:1",
+  "Bildschirmpixel pro Millimeter": "Screen pixels per millimetre",
+  "Größer": "Larger",
+  "Kleiner": "Smaller",
+  "Halte eine Bankkarte (85,6 × 54 mm) an den Bildschirm und stelle die Breite so ein, dass der Rahmen genau so groß ist wie die Karte.": "Hold a bank card (85.6 × 54 mm) against the screen and adjust the width until the frame is exactly as large as the card.",
+  "Kalibrieren …": "Calibrate …",
+  "Originalgröße (1:1)": "Actual size (1:1)",
+  "Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.": "Actual size: 1 mm on screen = 1 mm in reality (Ctrl+1). Calibrate under File → Settings.",
+  "Standard (96 dpi)": "Default (96 dpi)",
+  "Zoom in Prozent": "Zoom in percent",
+  "Zoom in Prozent der echten Größe – Zahl eintippen und Enter": "Zoom in percent of the actual size – type a number and press Enter",
+  "{v} Pixel pro mm": "{v} pixels per mm",
+  "kalibriert ({d} dpi)": "calibrated ({d} dpi)",
 };
 
 /** Backend messages with a variable part: $1 … is translated again. */

@@ -103,6 +103,9 @@
     return () => (live = false);
   });
 
+  /** Text in the zoom field while it is being edited. */
+  let zoomEdit = $state<string | null>(null);
+
   // ---------- keyboard ----------
   const TOOL_KEYS: Record<string, Tool> = { v: "select", h: "pan", r: "rect", e: "ellipse", p: "polygon", s: "star", l: "line", f: "pen", t: "text" };
 
@@ -154,6 +157,7 @@
         p: () => (plotter.printOpen = true),
         g: () => (e.shiftKey ? editor.ungroupSelected() : editor.groupSelected()),
         "0": () => editor.fitMat(),
+        "1": () => editor.setZoomPercent(100),
         "2": () => editor.fitSelection(),
         q: () => import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().close()),
         "+": () => editor.zoomBy(1.25),
@@ -273,8 +277,33 @@
         <button class="btn icon" class:active={editor.snap} title={t("Einrasten an Hilfslinien, Matte und Objekten (Alt beim Ziehen = aus). Hilfslinien aus den Linealen ziehen, Rechtsklick löscht.")} onclick={() => (editor.snap = !editor.snap)}><Icon name="magnet" /></button>
         <span class="vdiv"></span>
         <button class="btn icon" title={t("Verkleinern")} onclick={() => editor.zoomBy(0.8)}><Icon name="zoomOut" /></button>
-        <button class="btn zoom" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}>{Math.round((editor.view.zoom / 3.78) * 100)} %</button>
+        <input
+          class="zoom"
+          value={zoomEdit ?? `${Math.round(editor.zoomPercent)} %`}
+          title={t("Zoom in Prozent der echten Größe – Zahl eintippen und Enter")}
+          aria-label={t("Zoom in Prozent")}
+          onfocus={(e) => {
+            zoomEdit = String(Math.round(editor.zoomPercent));
+            requestAnimationFrame(() => e.currentTarget.select());
+          }}
+          oninput={(e) => (zoomEdit = e.currentTarget.value)}
+          onkeydown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") e.currentTarget.blur();
+            else if (e.key === "Escape") {
+              zoomEdit = null;
+              e.currentTarget.blur();
+            }
+          }}
+          onblur={() => {
+            if (zoomEdit !== null) editor.setZoomPercent(parseFloat(zoomEdit.replace(",", ".")));
+            zoomEdit = null;
+          }}
+        />
         <button class="btn icon" title={t("Vergrößern")} onclick={() => editor.zoomBy(1.25)}><Icon name="zoomIn" /></button>
+        <span class="vdiv"></span>
+        <button class="btn real" title={t("Originalgröße: 1 mm auf dem Bildschirm = 1 mm in echt (Strg+1). Kalibrieren unter Datei → Einstellungen.")} onclick={() => editor.setZoomPercent(100)}>1:1</button>
+        <button class="btn icon" title={t("Matte einpassen (Strg+0) · Auswahl einpassen (Strg+2)")} onclick={() => editor.fitMat()}><Icon name="fit" /></button>
       </div>
       {#if !editor.objects.length && !wizardUi.open && !dropping}
         <div class="empty">
@@ -468,10 +497,30 @@
     background: var(--border);
   }
   .zoom {
-    min-width: 54px;
-    justify-content: center;
-    font-variant-numeric: tabular-nums;
+    width: 58px;
+    height: 28px;
+    padding: 0 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    outline: none;
+  }
+  .zoom:hover {
+    border-color: var(--border);
+  }
+  .zoom:focus {
+    border-color: var(--accent);
+    background: var(--panel-2);
+  }
+  .real {
+    padding: 0 7px;
+    font-size: 12px;
+    font-weight: 600;
   }
   .empty {
     position: absolute;
